@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tapalka</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="top">
+        <div class="title" id="title">Tapalka</div>
+        <div class="subtitle" id="subtitle">Tap to earn points</div>
+        <div class="lang-row">
+          <button class="lang" id="langToggle" type="button">EN</button>
+        </div>
+      </header>
+
+      <main class="panel">
+        <div class="balance" id="balance">0</div>
+        <button class="tap" id="tap">Tap</button>
+        <div class="meta" id="meta">Loading...</div>
+      </main>
+    </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
