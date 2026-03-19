@@ -128,6 +128,7 @@ body {
   gap: 16px;
   justify-items: center;
   border: 1px solid rgba(28, 26, 23, 0.06);
+  position: relative;
 }
 
 .balance-wrap {
@@ -146,6 +147,23 @@ body {
 .balance {
   font-size: 44px;
   font-weight: 700;
+  transition: transform 0.2s ease, text-shadow 0.2s ease;
+  text-shadow: 0 8px 16px rgba(28, 26, 23, 0.15);
+}
+
+.balance.bump {
+  transform: scale(1.08);
+  text-shadow: 0 14px 26px rgba(255, 178, 26, 0.45);
+}
+
+.spark {
+  position: absolute;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffb21a;
+  text-shadow: 0 6px 14px rgba(217, 130, 0, 0.5);
+  animation: floatUp 0.7s ease forwards;
+  pointer-events: none;
 }
 
 .tap {
@@ -322,5 +340,19 @@ body {
   50% {
     transform: scale(1.05);
     opacity: 0.9;
+  }
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.9);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-26px) scale(1.08);
   }
 }

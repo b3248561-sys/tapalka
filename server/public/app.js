@@ -347,6 +347,10 @@ async function loadProfile() {
 
 function updateBalance(value) {
   balanceEl.textContent = String(value);
+  balanceEl.classList.remove("bump");
+  requestAnimationFrame(() => {
+    balanceEl.classList.add("bump");
+  });
 }
 
 function updateTapValue(value) {
@@ -479,9 +483,24 @@ async function sendTap(count = 1) {
     updateBalance(data.balance);
     if (data.tapValue) updateTapValue(data.tapValue);
     setMeta("niceTap");
+    showSpark(`+${(data.tapValue || 1) * count}`);
   } catch (err) {
     setMeta("network");
   }
+}
+
+function showSpark(text) {
+  const panel = document.querySelector(".panel");
+  if (!panel) return;
+  const spark = document.createElement("div");
+  spark.className = "spark";
+  spark.textContent = text;
+  const x = 40 + Math.random() * (panel.clientWidth - 80);
+  const y = 40 + Math.random() * 60;
+  spark.style.left = `${x}px`;
+  spark.style.top = `${y}px`;
+  panel.appendChild(spark);
+  setTimeout(() => spark.remove(), 800);
 }
 
 init();

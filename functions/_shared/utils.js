@@ -94,26 +94,30 @@ export async function saveUser(env, user) {
 export const SHOP_ITEMS = [
   {
     id: "gloves",
-    basePrice: 50,
+    basePrice: 60,
     tapBonus: 1,
-    maxLevel: 5
+    maxLevel: 10,
+    priceMult: 1.45
   },
   {
     id: "energy",
-    basePrice: 200,
+    basePrice: 180,
     tapBonus: 2,
-    maxLevel: 5
+    maxLevel: 8,
+    priceMult: 1.5
   },
   {
     id: "turbo",
-    basePrice: 500,
+    basePrice: 420,
     tapBonus: 5,
-    maxLevel: 3
+    maxLevel: 6,
+    priceMult: 1.6
   }
 ];
 
 export function computePrice(item, level) {
-  return item.basePrice * (level + 1);
+  const mult = item.priceMult || 1.5;
+  return Math.round(item.basePrice * Math.pow(mult, level));
 }
 
 export function getItemLevel(user, itemId) {
