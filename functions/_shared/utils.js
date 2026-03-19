@@ -68,6 +68,8 @@ export async function loadUser(env, userId, name) {
       balance: 0,
       tapValue: 1,
       items: {},
+      boostUntil: 0,
+      lastDailyTs: 0,
       lastTapTs: 0,
       windowStartTs: 0,
       windowCount: 0
@@ -94,28 +96,41 @@ export async function saveUser(env, user) {
 export const SHOP_ITEMS = [
   {
     id: "gloves",
-    basePrice: 60,
+    basePrice: 120,
     tapBonus: 1,
     maxLevel: 10,
-    priceMult: 1.45
+    priceMult: 1.6,
+    type: "upgrade"
   },
   {
     id: "energy",
-    basePrice: 180,
+    basePrice: 350,
     tapBonus: 2,
     maxLevel: 8,
-    priceMult: 1.5
+    priceMult: 1.65,
+    type: "upgrade"
   },
   {
     id: "turbo",
-    basePrice: 420,
+    basePrice: 800,
     tapBonus: 5,
     maxLevel: 6,
-    priceMult: 1.6
+    priceMult: 1.8,
+    type: "upgrade"
+  },
+  {
+    id: "boost",
+    basePrice: 500,
+    tapBonus: 0,
+    maxLevel: 0,
+    priceMult: 1,
+    type: "boost",
+    durationMs: 10000
   }
 ];
 
 export function computePrice(item, level) {
+  if (item.type === "boost") return item.basePrice;
   const mult = item.priceMult || 1.5;
   return Math.round(item.basePrice * Math.pow(mult, level));
 }
@@ -132,6 +147,14 @@ export function normalizeUser(user) {
   }
   if (!user.tapValue || user.tapValue < 1) {
     user.tapValue = 1;
+    dirty = true;
+  }
+  if (!user.boostUntil) {
+    user.boostUntil = 0;
+    dirty = true;
+  }
+  if (!user.lastDailyTs) {
+    user.lastDailyTs = 0;
     dirty = true;
   }
   const hasItems = Object.keys(user.items).length > 0;

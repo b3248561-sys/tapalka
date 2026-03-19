@@ -32,15 +32,33 @@ export async function onRequest(context) {
   }
 
   const user = await loadUser(env, String(tgUser.id), tgUser.first_name);
+  const now = Date.now();
   const items = SHOP_ITEMS.map((item) => {
     const level = getItemLevel(user, item.id);
+    const price = computePrice(item, level);
+    if (item.type === "boost") {
+      const active = user.boostUntil && now < user.boostUntil;
+      return {
+        id: item.id,
+        type: item.type,
+        basePrice: item.basePrice,
+        tapBonus: item.tapBonus,
+        maxLevel: item.maxLevel,
+        level,
+        price,
+        durationMs: item.durationMs,
+        active,
+        remainingMs: active ? user.boostUntil - now : 0
+      };
+    }
     return {
       id: item.id,
+      type: item.type,
       basePrice: item.basePrice,
       tapBonus: item.tapBonus,
       maxLevel: item.maxLevel,
       level,
-      price: computePrice(item, level)
+      price
     };
   });
 
@@ -48,6 +66,7 @@ export async function onRequest(context) {
     ok: true,
     items,
     balance: user.balance,
-    tapValue: user.tapValue || 1
+    tapValue: user.tapValue || 1,
+    boostUntil: user.boostUntil || 0
   });
 }

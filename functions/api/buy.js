@@ -49,6 +49,32 @@ export async function onRequestPost(context) {
     return jsonResponse({ ok: false, error: "item_not_found" }, 404);
   }
 
+  if (item.type === "boost") {
+    const now = Date.now();
+    if (user.boostUntil && now < user.boostUntil) {
+      return jsonResponse({ ok: false, error: "boost_active" }, 400);
+    }
+    const price = computePrice(item, 0);
+    if (user.balance < price) {
+      return jsonResponse({ ok: false, error: "not_enough" }, 400);
+    }
+    user.balance -= price;
+    user.boostUntil = now + (item.durationMs || 10000);
+    await saveUser(env, user);
+    return jsonResponse({
+      ok: true,
+      balance: user.balance,
+      tapValue: user.tapValue || 1,
+      boostUntil: user.boostUntil,
+      item: {
+        id: item.id,
+        price,
+        active: true,
+        durationMs: item.durationMs || 10000
+      }
+    });
+  }
+
   const level = getItemLevel(user, item.id);
   if (level >= item.maxLevel) {
     return jsonResponse({ ok: false, error: "item_maxed" }, 400);

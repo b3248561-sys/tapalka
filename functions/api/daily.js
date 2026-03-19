@@ -6,6 +6,8 @@ import {
   saveUser
 } from "../_shared/utils.js";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   let body = {};
@@ -17,9 +19,6 @@ export async function onRequestPost(context) {
 
   const initData = body.initData || request.headers.get("x-init-data");
   const demoUserId = body.demoUserId;
-  let count = Number(body.count || 1);
-  if (!Number.isFinite(count)) count = 1;
-  count = Math.max(1, Math.min(20, Math.floor(count)));
 
   let tgUser = null;
   if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
@@ -40,26 +39,25 @@ export async function onRequestPost(context) {
 
   const user = await loadUser(env, String(tgUser.id), tgUser.first_name);
   const now = Date.now();
+  const nextAt = (user.lastDailyTs || 0) + DAY_MS;
+  if (now < nextAt) {
+    return jsonResponse({
+      ok: false,
+      error: "daily_not_ready",
+      nextAt
+    }, 400);
+  }
 
-  // No strict rate limit for MVP; allow fast tapping.
-  const boostActive = user.boostUntil && now < user.boostUntil;
-  const multiplier = boostActive ? 2 : 1;
-
-  user.windowStartTs = now;
-  user.windowCount = (user.windowCount || 0) + count;
-  user.balance += (user.tapValue || 1) * count * multiplier;
-  user.lastTapTs = now;
-
+  const reward = 350 + Math.floor((user.tapValue || 1) * 20);
+  user.balance += reward;
+  user.lastDailyTs = now;
   await saveUser(env, user);
 
   return jsonResponse({
     ok: true,
+    reward,
     balance: user.balance,
-    tapValue: user.tapValue || 1,
-    multiplier,
-    boostUntil: user.boostUntil || 0,
-    windowCount: user.windowCount,
-    lastTapTs: user.lastTapTs
+    nextAt: now + DAY_MS
   });
 }
 

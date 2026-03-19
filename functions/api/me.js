@@ -38,7 +38,9 @@ export async function onRequest(context) {
       name: profile.name,
       balance: profile.balance,
       tapValue: profile.tapValue || 1,
-      lastTapTs: profile.lastTapTs
+      lastTapTs: profile.lastTapTs,
+      boostUntil: profile.boostUntil || 0,
+      lastDailyTs: profile.lastDailyTs || 0
     }
   });
 }

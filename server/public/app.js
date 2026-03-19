@@ -9,6 +9,14 @@ const shopTitleEl = document.getElementById("shopTitle");
 const shopSubtitleEl = document.getElementById("shopSubtitle");
 const shopListEl = document.getElementById("shopList");
 const tapValueEl = document.getElementById("tapValue");
+const screenTapEl = document.getElementById("screenTap");
+const screenShopEl = document.getElementById("screenShop");
+const tabTapEl = document.getElementById("tabTap");
+const tabShopEl = document.getElementById("tabShop");
+const dailyTitleEl = document.getElementById("dailyTitle");
+const dailySubtitleEl = document.getElementById("dailySubtitle");
+const dailyBtnEl = document.getElementById("dailyBtn");
+const dailyStatusEl = document.getElementById("dailyStatus");
 
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const params = new URLSearchParams(window.location.search);
@@ -21,6 +29,8 @@ let metaState = { key: "loading", vars: {} };
 let shopState = [];
 let tapValue = 1;
 let lastTouchAt = 0;
+let lastDailyTs = 0;
+let boostUntil = 0;
 
 const STRINGS = {
   en: {
@@ -33,6 +43,15 @@ const STRINGS = {
     shopTitle: "Shop",
     shopSubtitle: "Spend taps to upgrade",
     tapValue: "+{value} / tap",
+    tabTap: "Tap",
+    tabShop: "Shop",
+    dailyTitle: "Daily Bonus",
+    dailySubtitle: "Come back every day",
+    dailyClaim: "Claim",
+    dailyReady: "Ready",
+    dailyNext: "Next in {time}",
+    boostActive: "Active {time}",
+    boostReady: "Ready",
     buy: "Buy",
     owned: "Owned",
     level: "Level {level}/{max}",
@@ -42,6 +61,8 @@ const STRINGS = {
     energyDesc: "+{bonus} tap power",
     turboName: "Turbo Core",
     turboDesc: "+{bonus} tap power",
+    boostName: "x2 Booster",
+    boostDesc: "x2 taps for {seconds}s",
     player: "Player: {name}",
     niceTap: "Nice tap",
     authError: "Auth error",
@@ -60,6 +81,15 @@ const STRINGS = {
     shopTitle: "Магазин",
     shopSubtitle: "Трать тапы на апгрейды",
     tapValue: "+{value} / тап",
+    tabTap: "Тап",
+    tabShop: "Магазин",
+    dailyTitle: "Ежедневный бонус",
+    dailySubtitle: "Заходи каждый день",
+    dailyClaim: "Забрать",
+    dailyReady: "Доступно",
+    dailyNext: "Следующий через {time}",
+    boostActive: "Активен {time}",
+    boostReady: "Готово",
     buy: "Купить",
     owned: "Куплено",
     level: "Уровень {level}/{max}",
@@ -69,6 +99,8 @@ const STRINGS = {
     energyDesc: "+{bonus} к силе тапа",
     turboName: "Турбо ядро",
     turboDesc: "+{bonus} к силе тапа",
+    boostName: "Бустер x2",
+    boostDesc: "x2 тапы на {seconds}с",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
     authError: "Ошибка авторизации",
@@ -282,6 +314,11 @@ function applyTexts() {
   if (balanceLabelEl) balanceLabelEl.textContent = t("balanceLabel");
   if (shopTitleEl) shopTitleEl.textContent = t("shopTitle");
   if (shopSubtitleEl) shopSubtitleEl.textContent = t("shopSubtitle");
+  if (tabTapEl) tabTapEl.textContent = t("tabTap");
+  if (tabShopEl) tabShopEl.textContent = t("tabShop");
+  if (dailyTitleEl) dailyTitleEl.textContent = t("dailyTitle");
+  if (dailySubtitleEl) dailySubtitleEl.textContent = t("dailySubtitle");
+  if (dailyBtnEl) dailyBtnEl.textContent = t("dailyClaim");
   if (langToggle) langToggle.textContent = LANG_LABELS[currentLang] || currentLang.toUpperCase();
   if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
   setMeta(metaState.key, metaState.vars);
@@ -309,6 +346,7 @@ currentLang = normalizeLang(
   savedLang || tg?.initDataUnsafe?.user?.language_code || navigator.language
 );
 applyTexts();
+setActiveTab("tap");
 
 if (demoMode) {
   demoUserId = localStorage.getItem("demoUserId");
@@ -358,9 +396,44 @@ function updateTapValue(value) {
   if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
 }
 
+function setActiveTab(tab) {
+  const isTap = tab === "tap";
+  if (screenTapEl) screenTapEl.classList.toggle("active", isTap);
+  if (screenShopEl) screenShopEl.classList.toggle("active", !isTap);
+  if (tabTapEl) tabTapEl.classList.toggle("active", isTap);
+  if (tabShopEl) tabShopEl.classList.toggle("active", !isTap);
+}
+
+function formatTime(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function updateDailyStatus() {
+  if (!dailyStatusEl || !dailyBtnEl) return;
+  const now = Date.now();
+  const nextAt = (lastDailyTs || 0) + 24 * 60 * 60 * 1000;
+  if (now >= nextAt) {
+    dailyStatusEl.textContent = t("dailyReady");
+    dailyBtnEl.disabled = false;
+  } else {
+    dailyStatusEl.textContent = t("dailyNext", { time: formatTime(nextAt - now) });
+    dailyBtnEl.disabled = true;
+  }
+}
+
+function updateBoostStatus() {
+  if (!shopState || shopState.length === 0) return;
+  renderShop();
+}
+
 function renderShop() {
   if (!shopListEl || !Array.isArray(shopState) || shopState.length === 0) return;
   shopListEl.innerHTML = "";
+  const now = Date.now();
   shopState.forEach((item) => {
     const row = document.createElement("div");
     row.className = "shop-item";
@@ -374,17 +447,35 @@ function renderShop() {
     title.textContent = t(`${item.id}Name`);
     desc.textContent = t(`${item.id}Desc`, { bonus: item.tapBonus });
     const levelText = document.createElement("span");
-    levelText.textContent = t("level", { level: item.level, max: item.maxLevel });
     const priceText = document.createElement("span");
-    priceText.textContent = item.level >= item.maxLevel ? t("owned") : `${item.price} taps`;
+    if (item.type === "boost") {
+      const active = boostUntil && now < boostUntil;
+      const remainingMs = active ? boostUntil - now : 0;
+      levelText.textContent = t("boostDesc", { seconds: Math.floor((item.durationMs || 10000) / 1000) });
+      if (active) {
+        priceText.textContent = t("boostActive", { time: formatTime(remainingMs) });
+      } else {
+        priceText.textContent = `${item.price} taps`;
+      }
+    } else {
+      levelText.textContent = t("level", { level: item.level, max: item.maxLevel });
+      priceText.textContent = item.level >= item.maxLevel ? t("owned") : `${item.price} taps`;
+    }
     meta.append(levelText, priceText);
 
     left.append(title, desc, meta);
 
     const btn = document.createElement("button");
     btn.className = "shop-buy";
-    btn.textContent = item.level >= item.maxLevel ? t("owned") : t("buy");
-    btn.disabled = item.level >= item.maxLevel;
+    if (item.type === "boost") {
+      const active = boostUntil && now < boostUntil;
+      const remainingMs = active ? boostUntil - now : 0;
+      btn.textContent = active ? t("boostActive", { time: formatTime(remainingMs) }) : t("buy");
+      btn.disabled = active;
+    } else {
+      btn.textContent = item.level >= item.maxLevel ? t("owned") : t("buy");
+      btn.disabled = item.level >= item.maxLevel;
+    }
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       try {
@@ -398,6 +489,7 @@ function renderShop() {
         }
         updateBalance(data.balance);
         updateTapValue(data.tapValue);
+        if (data.boostUntil) boostUntil = data.boostUntil;
         await loadShop();
       } catch {
         setMeta("network");
@@ -422,6 +514,7 @@ async function loadShop() {
   }
   shopState = data.items || [];
   updateTapValue(data.tapValue || 1);
+  boostUntil = data.boostUntil || 0;
   renderShop();
 }
 
@@ -435,6 +528,9 @@ async function init() {
     setMeta("player", { name: profile.user.name });
     updateBalance(profile.user.balance);
     updateTapValue(profile.user.tapValue || 1);
+    lastDailyTs = profile.user.lastDailyTs || 0;
+    boostUntil = profile.user.boostUntil || 0;
+    updateDailyStatus();
     await loadShop();
   } catch (err) {
     setMeta("failedLoad");
@@ -464,6 +560,39 @@ langToggle.addEventListener("click", () => {
   applyTexts();
 });
 
+if (tabTapEl) {
+  tabTapEl.addEventListener("click", () => setActiveTab("tap"));
+}
+if (tabShopEl) {
+  tabShopEl.addEventListener("click", () => setActiveTab("shop"));
+}
+
+if (dailyBtnEl) {
+  dailyBtnEl.addEventListener("click", async () => {
+    dailyBtnEl.disabled = true;
+    try {
+      const data = await apiRequest("/api/daily", {
+        method: "POST",
+        body: "{}"
+      });
+      if (!data.ok) {
+        if (data.error === "daily_not_ready" && data.nextAt) {
+          lastDailyTs = data.nextAt - 24 * 60 * 60 * 1000;
+          updateDailyStatus();
+        }
+        return;
+      }
+      updateBalance(data.balance);
+      lastDailyTs = Date.now();
+      updateDailyStatus();
+    } catch {
+      setMeta("network");
+    } finally {
+      updateDailyStatus();
+    }
+  });
+}
+
 async function sendTap(count = 1) {
   try {
     const data = await apiRequest("/api/tap", {
@@ -482,8 +611,10 @@ async function sendTap(count = 1) {
     }
     updateBalance(data.balance);
     if (data.tapValue) updateTapValue(data.tapValue);
+    if (data.boostUntil) boostUntil = data.boostUntil;
     setMeta("niceTap");
-    showSpark(`+${(data.tapValue || 1) * count}`);
+    const mult = data.multiplier || 1;
+    showSpark(`+${(data.tapValue || 1) * count * mult}`);
   } catch (err) {
     setMeta("network");
   }
@@ -504,3 +635,10 @@ function showSpark(text) {
 }
 
 init();
+
+setInterval(() => {
+  updateDailyStatus();
+  if (boostUntil && Date.now() < boostUntil) {
+    renderShop();
+  }
+}, 1000);
