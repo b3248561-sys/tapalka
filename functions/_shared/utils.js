@@ -127,7 +127,7 @@ export const SHOP_ITEMS = [
   },
   {
     id: "boost",
-    basePrice: 500,
+    basePrice: 1200,
     tapBonus: 0,
     maxLevel: 0,
     priceMult: 1,

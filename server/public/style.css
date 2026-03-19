@@ -115,6 +115,50 @@ body {
   cursor: pointer;
 }
 
+.lang-menu {
+  position: relative;
+}
+
+.lang-dropdown {
+  position: absolute;
+  right: 0;
+  top: 40px;
+  min-width: 160px;
+  background: #fffdf6;
+  border-radius: 14px;
+  padding: 6px;
+  border: 1px solid rgba(28, 26, 23, 0.08);
+  box-shadow: 0 12px 30px rgba(28, 26, 23, 0.12);
+  display: none;
+  z-index: 4;
+}
+
+.lang-menu.open .lang-dropdown {
+  display: grid;
+  gap: 4px;
+  animation: fadeIn 0.2s ease;
+}
+
+.lang-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.lang-option.active {
+  background: rgba(43, 145, 255, 0.12);
+  color: #1f5fb4;
+  font-weight: 700;
+}
+
+.lang-flag {
+  font-size: 14px;
+}
+
 .lang:active {
   transform: scale(0.98);
 }
@@ -137,11 +181,24 @@ body {
 
 .screen {
   display: none;
+  opacity: 0;
+  transform: translateY(6px);
 }
 
 .screen.active {
   display: grid;
   gap: 16px;
+  opacity: 1;
+  transform: translateY(0);
+  animation: fadeIn 0.25s ease;
+}
+
+.screen.leaving {
+  display: grid;
+  gap: 16px;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: fadeOut 0.2s ease;
 }
 
 .balance-wrap {
@@ -192,7 +249,7 @@ body {
 
 .spark {
   position: absolute;
-  font-size: 26px;
+  font-size: 32px;
   font-weight: 700;
   color: #ffb21a;
   text-shadow: 0 6px 14px rgba(217, 130, 0, 0.5);
@@ -518,6 +575,28 @@ body {
   50% {
     transform: scale(1.05);
     opacity: 0.9;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px);
   }
 }
 

@@ -7,6 +7,8 @@ const metaEl = document.getElementById("meta");
 const titleEl = document.getElementById("title");
 const subtitleEl = document.getElementById("subtitle");
 const langToggle = document.getElementById("langToggle");
+const langMenuEl = document.getElementById("langMenu");
+const langDropdownEl = document.getElementById("langDropdown");
 const shopTitleEl = document.getElementById("shopTitle");
 const shopSubtitleEl = document.getElementById("shopSubtitle");
 const shopListEl = document.getElementById("shopList");
@@ -318,6 +320,17 @@ const LANG_LABELS = {
   fr: "FR"
 };
 
+const LANG_META = {
+  en: { label: "English", flag: "🇬🇧" },
+  ru: { label: "Русский", flag: "🇷🇺" },
+  es: { label: "Español", flag: "🇪🇸" },
+  pt: { label: "Português", flag: "🇧🇷" },
+  tr: { label: "Türkçe", flag: "🇹🇷" },
+  id: { label: "Bahasa", flag: "🇮🇩" },
+  de: { label: "Deutsch", flag: "🇩🇪" },
+  fr: { label: "Français", flag: "🇫🇷" }
+};
+
 function normalizeLang(code) {
   if (!code) return "en";
   const lower = String(code).toLowerCase();
@@ -358,6 +371,7 @@ function applyTexts() {
   if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
   setMeta(metaState.key, metaState.vars);
   updateRank();
+  renderLangMenu();
   renderQuests();
   renderShop();
 }
@@ -443,6 +457,13 @@ function updateRank() {
 
 function setActiveTab(tab) {
   const isTap = tab === "tap";
+  if (screenTapEl && screenShopEl) {
+    const current = isTap ? screenShopEl : screenTapEl;
+    current.classList.add("leaving");
+    setTimeout(() => {
+      current.classList.remove("leaving");
+    }, 200);
+  }
   if (screenTapEl) screenTapEl.classList.toggle("active", isTap);
   if (screenShopEl) screenShopEl.classList.toggle("active", !isTap);
   if (tabTapEl) tabTapEl.classList.toggle("active", isTap);
@@ -451,8 +472,10 @@ function setActiveTab(tab) {
 
 function formatTime(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(total / 60);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
 }
@@ -671,10 +694,9 @@ tapBtn.addEventListener(
 );
 
 langToggle.addEventListener("click", () => {
-  const idx = LANGS.indexOf(currentLang);
-  currentLang = LANGS[(idx + 1) % LANGS.length];
-  localStorage.setItem("lang", currentLang);
-  applyTexts();
+  if (!langMenuEl) return;
+  const open = langMenuEl.classList.toggle("open");
+  langToggle.setAttribute("aria-expanded", open ? "true" : "false");
 });
 
 if (tabTapEl) {
@@ -683,6 +705,13 @@ if (tabTapEl) {
 if (tabShopEl) {
   tabShopEl.addEventListener("click", () => setActiveTab("shop"));
 }
+
+document.addEventListener("click", (event) => {
+  if (!langMenuEl) return;
+  if (langMenuEl.contains(event.target)) return;
+  langMenuEl.classList.remove("open");
+  if (langToggle) langToggle.setAttribute("aria-expanded", "false");
+});
 
 if (dailyBtnEl) {
   dailyBtnEl.addEventListener("click", async () => {
@@ -753,6 +782,34 @@ function showSpark(text) {
 }
 
 init();
+
+function renderLangMenu() {
+  if (!langDropdownEl) return;
+  langDropdownEl.innerHTML = "";
+  LANGS.forEach((code) => {
+    const option = document.createElement("div");
+    option.className = "lang-option";
+    if (code === currentLang) option.classList.add("active");
+
+    const flag = document.createElement("span");
+    flag.className = "lang-flag";
+    flag.textContent = LANG_META[code]?.flag || "";
+
+    const label = document.createElement("span");
+    label.textContent = LANG_META[code]?.label || code.toUpperCase();
+
+    option.append(flag, label);
+    option.addEventListener("click", () => {
+      currentLang = code;
+      localStorage.setItem("lang", currentLang);
+      if (langMenuEl) langMenuEl.classList.remove("open");
+      if (langToggle) langToggle.setAttribute("aria-expanded", "false");
+      applyTexts();
+    });
+
+    langDropdownEl.appendChild(option);
+  });
+}
 
 setInterval(() => {
   updateDailyStatus();
