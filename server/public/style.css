@@ -27,7 +27,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
-  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
 }
 
 .bg {
@@ -377,18 +377,20 @@ body {
 .tabs {
   position: fixed;
   left: 50%;
-  bottom: max(10px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(360px, calc(100% - 32px));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateZ(0);
+  width: fit-content;
+  max-width: calc(100% - 32px);
   background: #1f1f1f;
   color: #fff;
   border-radius: 999px;
   display: flex;
-  gap: 6px;
-  justify-content: space-between;
-  padding: 8px;
+  gap: 8px;
+  justify-content: center;
+  padding: 6px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
-  z-index: 5;
+  z-index: 10;
+  will-change: transform;
 }
 
 .tab {
@@ -396,10 +398,13 @@ body {
   background: transparent;
   color: rgba(255, 255, 255, 0.75);
   font-weight: 700;
-  padding: 8px 16px;
+  padding: 8px 18px;
   border-radius: 999px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  min-width: 110px;
+  text-align: center;
+  flex: 0 0 auto;
 }
 
 .tab.active {
@@ -440,15 +445,16 @@ body {
 }
 
 .shop-balance {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #1c1a17;
-  padding: 8px 14px;
+  padding: 8px 16px;
   border-radius: 999px;
   background: rgba(43, 145, 255, 0.16);
   border: 1px solid rgba(43, 145, 255, 0.35);
   width: fit-content;
   margin-top: 8px;
+  align-self: flex-start;
 }
 
 .shop-list {

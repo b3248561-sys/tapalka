@@ -42,6 +42,7 @@ let lastDailyTs = 0;
 let boostUntil = 0;
 let questsState = [];
 let rankState = null;
+let lastQuestSyncAt = 0;
 
 const STRINGS = {
   en: {
@@ -671,7 +672,7 @@ async function loadShop() {
   renderShop();
 }
 
-async function loadQuests() {
+async function loadQuests({ silent = false } = {}) {
   const init = tg?.initData || initData || "";
   if (init && init !== initData) initData = init;
   const headers = {};
@@ -681,13 +682,17 @@ async function loadQuests() {
   } else if (initData) {
     headers["x-init-data"] = initData;
   }
-  const res = await fetch(url, { headers, cache: "no-store" });
-  const data = await res.json();
-  if (!data.ok) return;
-  questsState = data.quests || [];
-  if (data.rank) rankState = data.rank;
-  updateRank();
-  renderQuests();
+  try {
+    const res = await fetch(url, { headers, cache: "no-store" });
+    const data = await res.json();
+    if (!data.ok) return;
+    questsState = data.quests || [];
+    if (data.rank) rankState = data.rank;
+    updateRank();
+    renderQuests();
+  } catch {
+    if (!silent) setMeta("network");
+  }
 }
 
 async function init() {
@@ -803,7 +808,11 @@ async function sendTap(count = 1) {
     setMeta("niceTap");
     const mult = data.multiplier || 1;
     showSpark(`+${(data.tapValue || 1) * count * mult}`);
-    await loadQuests();
+    const now = Date.now();
+    if (now - lastQuestSyncAt > 1000) {
+      lastQuestSyncAt = now;
+      loadQuests({ silent: true });
+    }
   } catch (err) {
     setMeta("network");
   }

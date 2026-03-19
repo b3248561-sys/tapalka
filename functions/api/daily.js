@@ -48,7 +48,7 @@ export async function onRequestPost(context) {
     }, 400);
   }
 
-  const reward = 350 + Math.floor((user.tapValue || 1) * 20);
+  const reward = 120 + Math.floor((user.tapValue || 1) * 10);
   user.balance += reward;
   user.lastDailyTs = now;
   await saveUser(env, user);

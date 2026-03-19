@@ -103,31 +103,31 @@ export async function saveUser(env, user) {
 export const SHOP_ITEMS = [
   {
     id: "gloves",
-    basePrice: 120,
+    basePrice: 300,
     tapBonus: 1,
     maxLevel: 10,
-    priceMult: 1.6,
+    priceMult: 1.75,
     type: "upgrade"
   },
   {
     id: "energy",
-    basePrice: 350,
+    basePrice: 900,
     tapBonus: 2,
     maxLevel: 8,
-    priceMult: 1.65,
+    priceMult: 1.85,
     type: "upgrade"
   },
   {
     id: "turbo",
-    basePrice: 800,
+    basePrice: 2200,
     tapBonus: 5,
     maxLevel: 6,
-    priceMult: 1.8,
+    priceMult: 2,
     type: "upgrade"
   },
   {
     id: "boost",
-    basePrice: 1200,
+    basePrice: 5000,
     tapBonus: 0,
     maxLevel: 0,
     priceMult: 1,
@@ -204,11 +204,11 @@ export function normalizeUser(user) {
 
 export const RANKS = [
   { id: "bronze", min: 0 },
-  { id: "silver", min: 2500 },
-  { id: "gold", min: 9000 },
-  { id: "platinum", min: 22000 },
-  { id: "diamond", min: 50000 },
-  { id: "master", min: 100000 }
+  { id: "silver", min: 5000 },
+  { id: "gold", min: 15000 },
+  { id: "platinum", min: 35000 },
+  { id: "diamond", min: 80000 },
+  { id: "master", min: 160000 }
 ];
 
 export function getRank(totalEarned) {
@@ -232,9 +232,9 @@ export function getRank(totalEarned) {
 }
 
 export const DAILY_QUESTS = [
-  { id: "tap_50", type: "tap", target: 50, reward: 60 },
-  { id: "tap_200", type: "tap", target: 200, reward: 180 },
-  { id: "buy_1", type: "buy", target: 1, reward: 140 }
+  { id: "tap_50", type: "tap", target: 50, reward: 30 },
+  { id: "tap_200", type: "tap", target: 200, reward: 90 },
+  { id: "buy_1", type: "buy", target: 1, reward: 120 }
 ];
 
 export function ensureDaily(user) {
