@@ -368,6 +368,9 @@ function applyTexts() {
   if (dailySubtitleEl) dailySubtitleEl.textContent = t("dailySubtitle");
   if (dailyBtnEl) dailyBtnEl.textContent = t("dailyClaim");
   if (langToggle) langToggle.textContent = LANG_LABELS[currentLang] || currentLang.toUpperCase();
+  if (langToggle && LANG_META[currentLang]) {
+    langToggle.textContent = `${LANG_META[currentLang].flag} ${LANG_LABELS[currentLang] || currentLang.toUpperCase()}`;
+  }
   if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
   setMeta(metaState.key, metaState.vars);
   updateRank();

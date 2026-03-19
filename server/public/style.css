@@ -27,6 +27,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
 }
 
 .bg {
@@ -366,7 +367,7 @@ body {
 .tabs {
   position: fixed;
   left: 50%;
-  bottom: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   background: #1f1f1f;
   color: #fff;
