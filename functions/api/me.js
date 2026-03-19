@@ -37,6 +37,7 @@ export async function onRequest(context) {
       id: profile.id,
       name: profile.name,
       balance: profile.balance,
+      tapValue: profile.tapValue || 1,
       lastTapTs: profile.lastTapTs
     }
   });

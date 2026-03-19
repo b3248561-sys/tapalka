@@ -3,7 +3,10 @@ import {
   verifyInitData,
   extractUser,
   loadUser,
-  saveUser
+  saveUser,
+  SHOP_ITEMS,
+  computePrice,
+  getItemLevel
 } from "../_shared/utils.js";
 
 export async function onRequestPost(context) {
@@ -17,6 +20,11 @@ export async function onRequestPost(context) {
 
   const initData = body.initData || request.headers.get("x-init-data");
   const demoUserId = body.demoUserId;
+  const itemId = body.itemId;
+
+  if (!itemId) {
+    return jsonResponse({ ok: false, error: "item_missing" }, 400);
+  }
 
   let tgUser = null;
   if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
@@ -36,21 +44,38 @@ export async function onRequestPost(context) {
   }
 
   const user = await loadUser(env, String(tgUser.id), tgUser.first_name);
-  const now = Date.now();
+  const item = SHOP_ITEMS.find((i) => i.id === itemId);
+  if (!item) {
+    return jsonResponse({ ok: false, error: "item_not_found" }, 404);
+  }
 
-  // No strict rate limit for MVP; allow fast tapping.
-  user.windowStartTs = now;
-  user.windowCount = (user.windowCount || 0) + 1;
-  user.balance += user.tapValue || 1;
-  user.lastTapTs = now;
+  const level = getItemLevel(user, item.id);
+  if (level >= item.maxLevel) {
+    return jsonResponse({ ok: false, error: "item_maxed" }, 400);
+  }
+
+  const price = computePrice(item, level);
+  if (user.balance < price) {
+    return jsonResponse({ ok: false, error: "not_enough" }, 400);
+  }
+
+  user.balance -= price;
+  user.items[item.id] = level + 1;
+  user.tapValue = (user.tapValue || 1) + item.tapBonus;
 
   await saveUser(env, user);
 
   return jsonResponse({
     ok: true,
     balance: user.balance,
-    windowCount: user.windowCount,
-    lastTapTs: user.lastTapTs
+    tapValue: user.tapValue,
+    item: {
+      id: item.id,
+      level: user.items[item.id],
+      maxLevel: item.maxLevel,
+      price: computePrice(item, user.items[item.id]),
+      tapBonus: item.tapBonus
+    }
   });
 }
 

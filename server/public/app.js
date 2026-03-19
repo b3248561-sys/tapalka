@@ -5,6 +5,10 @@ const metaEl = document.getElementById("meta");
 const titleEl = document.getElementById("title");
 const subtitleEl = document.getElementById("subtitle");
 const langToggle = document.getElementById("langToggle");
+const shopTitleEl = document.getElementById("shopTitle");
+const shopSubtitleEl = document.getElementById("shopSubtitle");
+const shopListEl = document.getElementById("shopList");
+const tapValueEl = document.getElementById("tapValue");
 
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const params = new URLSearchParams(window.location.search);
@@ -14,6 +18,8 @@ let initData = "";
 let demoUserId = null;
 let currentLang = "en";
 let metaState = { key: "loading", vars: {} };
+let shopState = [];
+let tapValue = 1;
 
 const STRINGS = {
   en: {
@@ -23,6 +29,18 @@ const STRINGS = {
     loading: "Loading...",
     demo: "Demo mode",
     balanceLabel: "Balance",
+    shopTitle: "Shop",
+    shopSubtitle: "Spend taps to upgrade",
+    tapValue: "+{value} / tap",
+    buy: "Buy",
+    owned: "Owned",
+    level: "Level {level}/{max}",
+    glovesName: "Power Gloves",
+    glovesDesc: "+{bonus} tap power",
+    energyName: "Energy Drink",
+    energyDesc: "+{bonus} tap power",
+    turboName: "Turbo Core",
+    turboDesc: "+{bonus} tap power",
     player: "Player: {name}",
     niceTap: "Nice tap",
     authError: "Auth error",
@@ -38,6 +56,18 @@ const STRINGS = {
     loading: "Загрузка...",
     demo: "Демо режим",
     balanceLabel: "Баланс",
+    shopTitle: "Магазин",
+    shopSubtitle: "Трать тапы на апгрейды",
+    tapValue: "+{value} / тап",
+    buy: "Купить",
+    owned: "Куплено",
+    level: "Уровень {level}/{max}",
+    glovesName: "Перчатки силы",
+    glovesDesc: "+{bonus} к силе тапа",
+    energyName: "Энергетик",
+    energyDesc: "+{bonus} к силе тапа",
+    turboName: "Турбо ядро",
+    turboDesc: "+{bonus} к силе тапа",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
     authError: "Ошибка авторизации",
@@ -53,6 +83,18 @@ const STRINGS = {
     loading: "Cargando...",
     demo: "Modo demo",
     balanceLabel: "Saldo",
+    shopTitle: "Tienda",
+    shopSubtitle: "Gasta taps en mejoras",
+    tapValue: "+{value} / toque",
+    buy: "Comprar",
+    owned: "Comprado",
+    level: "Nivel {level}/{max}",
+    glovesName: "Guantes de poder",
+    glovesDesc: "+{bonus} fuerza de toque",
+    energyName: "Bebida energética",
+    energyDesc: "+{bonus} fuerza de toque",
+    turboName: "Núcleo turbo",
+    turboDesc: "+{bonus} fuerza de toque",
     player: "Jugador: {name}",
     niceTap: "Buen toque",
     authError: "Error de autorización",
@@ -68,6 +110,18 @@ const STRINGS = {
     loading: "Carregando...",
     demo: "Modo demo",
     balanceLabel: "Saldo",
+    shopTitle: "Loja",
+    shopSubtitle: "Gaste taps em upgrades",
+    tapValue: "+{value} / toque",
+    buy: "Comprar",
+    owned: "Comprado",
+    level: "Nível {level}/{max}",
+    glovesName: "Luvas de força",
+    glovesDesc: "+{bonus} força de toque",
+    energyName: "Bebida energética",
+    energyDesc: "+{bonus} força de toque",
+    turboName: "Núcleo turbo",
+    turboDesc: "+{bonus} força de toque",
     player: "Jogador: {name}",
     niceTap: "Bom toque",
     authError: "Erro de autorização",
@@ -83,6 +137,18 @@ const STRINGS = {
     loading: "Yükleniyor...",
     demo: "Demo modu",
     balanceLabel: "Bakiye",
+    shopTitle: "Mağaza",
+    shopSubtitle: "Tap ile yükselt",
+    tapValue: "+{value} / dokunuş",
+    buy: "Satın al",
+    owned: "Satın alındı",
+    level: "Seviye {level}/{max}",
+    glovesName: "Güç eldivenleri",
+    glovesDesc: "+{bonus} dokunuş gücü",
+    energyName: "Enerji içeceği",
+    energyDesc: "+{bonus} dokunuş gücü",
+    turboName: "Turbo çekirdek",
+    turboDesc: "+{bonus} dokunuş gücü",
     player: "Oyuncu: {name}",
     niceTap: "Güzel dokunuş",
     authError: "Yetkilendirme hatası",
@@ -98,6 +164,18 @@ const STRINGS = {
     loading: "Memuat...",
     demo: "Mode demo",
     balanceLabel: "Saldo",
+    shopTitle: "Toko",
+    shopSubtitle: "Pakai taps untuk upgrade",
+    tapValue: "+{value} / ketuk",
+    buy: "Beli",
+    owned: "Dimiliki",
+    level: "Level {level}/{max}",
+    glovesName: "Sarung tangan power",
+    glovesDesc: "+{bonus} kekuatan tap",
+    energyName: "Minuman energi",
+    energyDesc: "+{bonus} kekuatan tap",
+    turboName: "Inti turbo",
+    turboDesc: "+{bonus} kekuatan tap",
     player: "Pemain: {name}",
     niceTap: "Ketukan bagus",
     authError: "Kesalahan otorisasi",
@@ -113,6 +191,18 @@ const STRINGS = {
     loading: "Lädt...",
     demo: "Demo-Modus",
     balanceLabel: "Kontostand",
+    shopTitle: "Shop",
+    shopSubtitle: "Nutze taps für Upgrades",
+    tapValue: "+{value} / Tipp",
+    buy: "Kaufen",
+    owned: "Gekauft",
+    level: "Level {level}/{max}",
+    glovesName: "Power-Handschuhe",
+    glovesDesc: "+{bonus} Tipp-Kraft",
+    energyName: "Energiegetränk",
+    energyDesc: "+{bonus} Tipp-Kraft",
+    turboName: "Turbo-Kern",
+    turboDesc: "+{bonus} Tipp-Kraft",
     player: "Spieler: {name}",
     niceTap: "Guter Tipp",
     authError: "Autorisierungsfehler",
@@ -128,6 +218,18 @@ const STRINGS = {
     loading: "Chargement...",
     demo: "Mode démo",
     balanceLabel: "Solde",
+    shopTitle: "Boutique",
+    shopSubtitle: "Dépense tes taps",
+    tapValue: "+{value} / tap",
+    buy: "Acheter",
+    owned: "Acheté",
+    level: "Niveau {level}/{max}",
+    glovesName: "Gants de puissance",
+    glovesDesc: "+{bonus} puissance de tap",
+    energyName: "Boisson énergisante",
+    energyDesc: "+{bonus} puissance de tap",
+    turboName: "Noyau turbo",
+    turboDesc: "+{bonus} puissance de tap",
     player: "Joueur : {name}",
     niceTap: "Bon tap",
     authError: "Erreur d'autorisation",
@@ -177,8 +279,12 @@ function applyTexts() {
   if (subtitleEl) subtitleEl.textContent = t("subtitle");
   if (tapBtn) tapBtn.textContent = t("tap");
   if (balanceLabelEl) balanceLabelEl.textContent = t("balanceLabel");
+  if (shopTitleEl) shopTitleEl.textContent = t("shopTitle");
+  if (shopSubtitleEl) shopSubtitleEl.textContent = t("shopSubtitle");
   if (langToggle) langToggle.textContent = LANG_LABELS[currentLang] || currentLang.toUpperCase();
+  if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
   setMeta(metaState.key, metaState.vars);
+  renderShop();
 }
 
 function setMeta(key, vars = {}) {
@@ -242,6 +348,78 @@ function updateBalance(value) {
   balanceEl.textContent = String(value);
 }
 
+function updateTapValue(value) {
+  tapValue = value || 1;
+  if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
+}
+
+function renderShop() {
+  if (!shopListEl || !Array.isArray(shopState) || shopState.length === 0) return;
+  shopListEl.innerHTML = "";
+  shopState.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "shop-item";
+
+    const left = document.createElement("div");
+    const title = document.createElement("h4");
+    const desc = document.createElement("p");
+    const meta = document.createElement("div");
+    meta.className = "shop-meta";
+
+    title.textContent = t(`${item.id}Name`);
+    desc.textContent = t(`${item.id}Desc`, { bonus: item.tapBonus });
+    const levelText = document.createElement("span");
+    levelText.textContent = t("level", { level: item.level, max: item.maxLevel });
+    const priceText = document.createElement("span");
+    priceText.textContent = item.level >= item.maxLevel ? t("owned") : `${item.price} taps`;
+    meta.append(levelText, priceText);
+
+    left.append(title, desc, meta);
+
+    const btn = document.createElement("button");
+    btn.className = "shop-buy";
+    btn.textContent = item.level >= item.maxLevel ? t("owned") : t("buy");
+    btn.disabled = item.level >= item.maxLevel;
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        const data = await apiRequest("/api/buy", {
+          method: "POST",
+          body: JSON.stringify({ itemId: item.id })
+        });
+        if (!data.ok) {
+          setMetaText(data.error || t("tryAgain"));
+          return;
+        }
+        updateBalance(data.balance);
+        updateTapValue(data.tapValue);
+        await loadShop();
+      } catch {
+        setMeta("network");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    row.append(left, btn);
+    shopListEl.append(row);
+  });
+}
+
+async function loadShop() {
+  const query = demoMode
+    ? `demoUserId=${encodeURIComponent(demoUserId)}`
+    : `initData=${encodeURIComponent(initData)}`;
+  const res = await fetch(`/api/shop?${query}`);
+  const data = await res.json();
+  if (!data.ok) {
+    return;
+  }
+  shopState = data.items || [];
+  updateTapValue(data.tapValue || 1);
+  renderShop();
+}
+
 async function init() {
   try {
     const profile = await loadProfile();
@@ -251,6 +429,8 @@ async function init() {
     }
     setMeta("player", { name: profile.user.name });
     updateBalance(profile.user.balance);
+    updateTapValue(profile.user.tapValue || 1);
+    await loadShop();
   } catch (err) {
     setMeta("failedLoad");
   }
@@ -270,6 +450,7 @@ tapBtn.addEventListener("click", async () => {
       return;
     }
     updateBalance(data.balance);
+    if (data.tapValue) updateTapValue(data.tapValue);
     setMeta("niceTap");
   } catch (err) {
     setMeta("network");

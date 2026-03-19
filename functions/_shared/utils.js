@@ -66,6 +66,8 @@ export async function loadUser(env, userId, name) {
       id: String(userId),
       name: name || "Player",
       balance: 0,
+      tapValue: 1,
+      items: {},
       lastTapTs: 0,
       windowStartTs: 0,
       windowCount: 0
@@ -75,11 +77,70 @@ export async function loadUser(env, userId, name) {
     user.name = name;
     await env.KV.put(key, JSON.stringify(user));
   }
+  const normalized = normalizeUser(user);
+  if (normalized._dirty) {
+    delete normalized._dirty;
+    await env.KV.put(key, JSON.stringify(normalized));
+    user = normalized;
+  }
   return user;
 }
 
 export async function saveUser(env, user) {
   await env.KV.put(userKey(user.id), JSON.stringify(user));
+  return user;
+}
+
+export const SHOP_ITEMS = [
+  {
+    id: "gloves",
+    basePrice: 50,
+    tapBonus: 1,
+    maxLevel: 5
+  },
+  {
+    id: "energy",
+    basePrice: 200,
+    tapBonus: 2,
+    maxLevel: 5
+  },
+  {
+    id: "turbo",
+    basePrice: 500,
+    tapBonus: 5,
+    maxLevel: 3
+  }
+];
+
+export function computePrice(item, level) {
+  return item.basePrice * (level + 1);
+}
+
+export function getItemLevel(user, itemId) {
+  return user.items?.[itemId] || 0;
+}
+
+export function normalizeUser(user) {
+  let dirty = false;
+  if (!user.items || typeof user.items !== "object") {
+    user.items = {};
+    dirty = true;
+  }
+  if (!user.tapValue || user.tapValue < 1) {
+    user.tapValue = 1;
+    dirty = true;
+  }
+  const hasItems = Object.keys(user.items).length > 0;
+  if (hasItems && user.tapValue === 1) {
+    let tapValue = 1;
+    SHOP_ITEMS.forEach((item) => {
+      const level = getItemLevel(user, item.id);
+      tapValue += level * item.tapBonus;
+    });
+    user.tapValue = tapValue;
+    dirty = true;
+  }
+  if (dirty) user._dirty = true;
   return user;
 }
 
