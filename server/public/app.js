@@ -622,6 +622,7 @@ function renderQuests() {
     btn.disabled = quest.claimed || quest.progress < quest.target;
     btn.addEventListener("click", async () => {
       btn.disabled = true;
+      btn.classList.add("loading");
       try {
         const data = await apiRequest("/api/quest", {
           method: "POST",
@@ -640,6 +641,7 @@ function renderQuests() {
         setMeta("network");
       } finally {
         btn.disabled = false;
+        btn.classList.remove("loading");
       }
     });
 

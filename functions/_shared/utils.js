@@ -232,9 +232,9 @@ export function getRank(totalEarned) {
 }
 
 export const DAILY_QUESTS = [
-  { id: "tap_50", type: "tap", target: 50, reward: 200 },
-  { id: "tap_200", type: "tap", target: 200, reward: 600 },
-  { id: "buy_1", type: "buy", target: 1, reward: 450 }
+  { id: "tap_50", type: "tap", target: 50, reward: 60 },
+  { id: "tap_200", type: "tap", target: 200, reward: 180 },
+  { id: "buy_1", type: "buy", target: 1, reward: 140 }
 ];
 
 export function ensureDaily(user) {
