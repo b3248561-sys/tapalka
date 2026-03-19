@@ -20,6 +20,7 @@ let currentLang = "en";
 let metaState = { key: "loading", vars: {} };
 let shopState = [];
 let tapValue = 1;
+let lastTouchAt = 0;
 
 const STRINGS = {
   en: {
@@ -437,8 +438,34 @@ async function init() {
 }
 
 tapBtn.addEventListener("click", async () => {
+  if (Date.now() - lastTouchAt < 500) return;
+  await sendTap(1);
+});
+
+tapBtn.addEventListener(
+  "touchstart",
+  async (event) => {
+    lastTouchAt = Date.now();
+    const count = Math.max(1, event.touches?.length || 1);
+    event.preventDefault();
+    await sendTap(count);
+  },
+  { passive: false }
+);
+
+langToggle.addEventListener("click", () => {
+  const idx = LANGS.indexOf(currentLang);
+  currentLang = LANGS[(idx + 1) % LANGS.length];
+  localStorage.setItem("lang", currentLang);
+  applyTexts();
+});
+
+async function sendTap(count = 1) {
   try {
-    const data = await apiRequest("/api/tap", { method: "POST", body: "{}" });
+    const data = await apiRequest("/api/tap", {
+      method: "POST",
+      body: JSON.stringify({ count })
+    });
     if (!data.ok) {
       if (data.error === "rate_limited") {
         setMeta("rateLimited");
@@ -455,13 +482,6 @@ tapBtn.addEventListener("click", async () => {
   } catch (err) {
     setMeta("network");
   }
-});
-
-langToggle.addEventListener("click", () => {
-  const idx = LANGS.indexOf(currentLang);
-  currentLang = LANGS[(idx + 1) % LANGS.length];
-  localStorage.setItem("lang", currentLang);
-  applyTexts();
-});
+}
 
 init();

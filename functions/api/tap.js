@@ -17,6 +17,9 @@ export async function onRequestPost(context) {
 
   const initData = body.initData || request.headers.get("x-init-data");
   const demoUserId = body.demoUserId;
+  let count = Number(body.count || 1);
+  if (!Number.isFinite(count)) count = 1;
+  count = Math.max(1, Math.min(20, Math.floor(count)));
 
   let tgUser = null;
   if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
@@ -40,8 +43,8 @@ export async function onRequestPost(context) {
 
   // No strict rate limit for MVP; allow fast tapping.
   user.windowStartTs = now;
-  user.windowCount = (user.windowCount || 0) + 1;
-  user.balance += user.tapValue || 1;
+  user.windowCount = (user.windowCount || 0) + count;
+  user.balance += (user.tapValue || 1) * count;
   user.lastTapTs = now;
 
   await saveUser(env, user);
@@ -49,6 +52,7 @@ export async function onRequestPost(context) {
   return jsonResponse({
     ok: true,
     balance: user.balance,
+    tapValue: user.tapValue || 1,
     windowCount: user.windowCount,
     lastTapTs: user.lastTapTs
   });

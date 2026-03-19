@@ -24,6 +24,9 @@ body {
   background: linear-gradient(160deg, var(--bg), var(--bg-2));
   color: var(--text);
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .bg {
@@ -159,6 +162,9 @@ body {
   transition: transform 0.08s ease;
   position: relative;
   isolation: isolate;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  outline: none;
 }
 
 .tap::after {
