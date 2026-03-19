@@ -145,7 +145,6 @@ async function init() {
 }
 
 tapBtn.addEventListener("click", async () => {
-  tapBtn.disabled = true;
   try {
     const data = await apiRequest("/api/tap", { method: "POST", body: "{}" });
     if (!data.ok) {
@@ -162,8 +161,6 @@ tapBtn.addEventListener("click", async () => {
     setMeta("niceTap");
   } catch (err) {
     setMeta("network");
-  } finally {
-    tapBtn.disabled = false;
   }
 });
 

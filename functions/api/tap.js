@@ -35,23 +35,12 @@ export async function onRequestPost(context) {
     }
   }
 
-  const now = Date.now();
-  const WINDOW_MS = 1000;
-  const MAX_TAPS = 12;
-
   const user = await loadUser(env, String(tgUser.id), tgUser.first_name);
+  const now = Date.now();
 
-  if (now - user.windowStartTs > WINDOW_MS) {
-    user.windowStartTs = now;
-    user.windowCount = 0;
-  }
-
-  if (user.windowCount >= MAX_TAPS) {
-    await saveUser(env, user);
-    return jsonResponse({ ok: false, error: "rate_limited" }, 429);
-  }
-
-  user.windowCount += 1;
+  // No strict rate limit for MVP; allow fast tapping.
+  user.windowStartTs = now;
+  user.windowCount = (user.windowCount || 0) + 1;
   user.balance += 1;
   user.lastTapTs = now;
 
