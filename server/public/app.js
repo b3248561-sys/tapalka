@@ -13,6 +13,7 @@ const shopTitleEl = document.getElementById("shopTitle");
 const shopSubtitleEl = document.getElementById("shopSubtitle");
 const shopListEl = document.getElementById("shopList");
 const tapValueEl = document.getElementById("tapValue");
+const shopBalanceEl = document.getElementById("shopBalance");
 const screenTapEl = document.getElementById("screenTap");
 const screenShopEl = document.getElementById("screenShop");
 const tabTapEl = document.getElementById("tabTap");
@@ -439,6 +440,7 @@ async function loadProfile() {
 
 function updateBalance(value) {
   balanceEl.textContent = String(value);
+  if (shopBalanceEl) shopBalanceEl.textContent = String(value);
   balanceEl.classList.remove("bump");
   requestAnimationFrame(() => {
     balanceEl.classList.add("bump");

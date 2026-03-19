@@ -421,6 +421,22 @@ body {
   border: 1px solid rgba(255, 178, 26, 0.4);
 }
 
+.shop-stats {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.shop-balance {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1c1a17;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(43, 145, 255, 0.12);
+  border: 1px solid rgba(43, 145, 255, 0.3);
+}
+
 .shop-list {
   display: grid;
   gap: 10px;
