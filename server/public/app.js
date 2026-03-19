@@ -1,6 +1,8 @@
 const balanceEl = document.getElementById("balance");
 const balanceLabelEl = document.getElementById("balanceLabel");
 const tapBtn = document.getElementById("tap");
+const rankEl = document.getElementById("rank");
+const rankBarEl = document.getElementById("rankBar");
 const metaEl = document.getElementById("meta");
 const titleEl = document.getElementById("title");
 const subtitleEl = document.getElementById("subtitle");
@@ -17,6 +19,9 @@ const dailyTitleEl = document.getElementById("dailyTitle");
 const dailySubtitleEl = document.getElementById("dailySubtitle");
 const dailyBtnEl = document.getElementById("dailyBtn");
 const dailyStatusEl = document.getElementById("dailyStatus");
+const questsTitleEl = document.getElementById("questsTitle");
+const questsSubtitleEl = document.getElementById("questsSubtitle");
+const questsListEl = document.getElementById("questsList");
 
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const params = new URLSearchParams(window.location.search);
@@ -31,6 +36,8 @@ let tapValue = 1;
 let lastTouchAt = 0;
 let lastDailyTs = 0;
 let boostUntil = 0;
+let questsState = [];
+let rankState = null;
 
 const STRINGS = {
   en: {
@@ -52,6 +59,19 @@ const STRINGS = {
     dailyNext: "Next in {time}",
     boostActive: "Active {time}",
     boostReady: "Ready",
+    questsTitle: "Daily Quests",
+    questsSubtitle: "Complete and claim rewards",
+    questTap: "Tap {count} times",
+    questBuy: "Buy {count} item",
+    questClaim: "Claim",
+    questClaimed: "Claimed",
+    rankLabel: "Rank: {name}",
+    rank_bronze: "Bronze",
+    rank_silver: "Silver",
+    rank_gold: "Gold",
+    rank_platinum: "Platinum",
+    rank_diamond: "Diamond",
+    rank_master: "Master",
     buy: "Buy",
     owned: "Owned",
     level: "Level {level}/{max}",
@@ -90,6 +110,19 @@ const STRINGS = {
     dailyNext: "Следующий через {time}",
     boostActive: "Активен {time}",
     boostReady: "Готово",
+    questsTitle: "Квесты на день",
+    questsSubtitle: "Выполняй и забирай награды",
+    questTap: "Тапни {count} раз",
+    questBuy: "Купи {count} предмет",
+    questClaim: "Забрать",
+    questClaimed: "Забрано",
+    rankLabel: "Лига: {name}",
+    rank_bronze: "Бронза",
+    rank_silver: "Серебро",
+    rank_gold: "Золото",
+    rank_platinum: "Платина",
+    rank_diamond: "Алмаз",
+    rank_master: "Мастер",
     buy: "Купить",
     owned: "Куплено",
     level: "Уровень {level}/{max}",
@@ -314,6 +347,8 @@ function applyTexts() {
   if (balanceLabelEl) balanceLabelEl.textContent = t("balanceLabel");
   if (shopTitleEl) shopTitleEl.textContent = t("shopTitle");
   if (shopSubtitleEl) shopSubtitleEl.textContent = t("shopSubtitle");
+  if (questsTitleEl) questsTitleEl.textContent = t("questsTitle");
+  if (questsSubtitleEl) questsSubtitleEl.textContent = t("questsSubtitle");
   if (tabTapEl) tabTapEl.textContent = t("tabTap");
   if (tabShopEl) tabShopEl.textContent = t("tabShop");
   if (dailyTitleEl) dailyTitleEl.textContent = t("dailyTitle");
@@ -322,6 +357,8 @@ function applyTexts() {
   if (langToggle) langToggle.textContent = LANG_LABELS[currentLang] || currentLang.toUpperCase();
   if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
   setMeta(metaState.key, metaState.vars);
+  updateRank();
+  renderQuests();
   renderShop();
 }
 
@@ -394,6 +431,14 @@ function updateBalance(value) {
 function updateTapValue(value) {
   tapValue = value || 1;
   if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
+}
+
+function updateRank() {
+  if (!rankEl || !rankBarEl || !rankState) return;
+  const nameKey = `rank_${rankState.id}`;
+  const name = t(nameKey);
+  rankEl.textContent = t("rankLabel", { name });
+  rankBarEl.style.width = `${Math.round((rankState.progress || 0) * 100)}%`;
 }
 
 function setActiveTab(tab) {
@@ -503,6 +548,63 @@ function renderShop() {
   });
 }
 
+function renderQuests() {
+  if (!questsListEl || !Array.isArray(questsState) || questsState.length === 0) return;
+  questsListEl.innerHTML = "";
+  questsState.forEach((quest) => {
+    const row = document.createElement("div");
+    row.className = "quest-item";
+
+    const left = document.createElement("div");
+    const title = document.createElement("h4");
+    const desc = document.createElement("p");
+    const meta = document.createElement("div");
+    meta.className = "quest-meta";
+
+    if (quest.type === "tap") {
+      title.textContent = t("questTap", { count: quest.target });
+    } else {
+      title.textContent = t("questBuy", { count: quest.target });
+    }
+    desc.textContent = `+${quest.reward} taps`;
+    const progressText = document.createElement("span");
+    progressText.textContent = `${quest.progress}/${quest.target}`;
+    meta.append(progressText);
+
+    left.append(title, desc, meta);
+
+    const btn = document.createElement("button");
+    btn.className = "quest-claim";
+    btn.textContent = quest.claimed ? t("questClaimed") : t("questClaim");
+    btn.disabled = quest.claimed || quest.progress < quest.target;
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        const data = await apiRequest("/api/quest", {
+          method: "POST",
+          body: JSON.stringify({ questId: quest.id })
+        });
+        if (!data.ok) {
+          setMetaText(data.error || t("tryAgain"));
+          return;
+        }
+        updateBalance(data.balance);
+        rankState = data.rank || rankState;
+        questsState = data.quests || questsState;
+        updateRank();
+        renderQuests();
+      } catch {
+        setMeta("network");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    row.append(left, btn);
+    questsListEl.append(row);
+  });
+}
+
 async function loadShop() {
   const query = demoMode
     ? `demoUserId=${encodeURIComponent(demoUserId)}`
@@ -518,6 +620,19 @@ async function loadShop() {
   renderShop();
 }
 
+async function loadQuests() {
+  const query = demoMode
+    ? `demoUserId=${encodeURIComponent(demoUserId)}`
+    : `initData=${encodeURIComponent(initData)}`;
+  const res = await fetch(`/api/quests?${query}`);
+  const data = await res.json();
+  if (!data.ok) return;
+  questsState = data.quests || [];
+  if (data.rank) rankState = data.rank;
+  updateRank();
+  renderQuests();
+}
+
 async function init() {
   try {
     const profile = await loadProfile();
@@ -530,8 +645,10 @@ async function init() {
     updateTapValue(profile.user.tapValue || 1);
     lastDailyTs = profile.user.lastDailyTs || 0;
     boostUntil = profile.user.boostUntil || 0;
+    rankState = profile.user.rank || null;
     updateDailyStatus();
     await loadShop();
+    await loadQuests();
   } catch (err) {
     setMeta("failedLoad");
   }
@@ -615,6 +732,7 @@ async function sendTap(count = 1) {
     setMeta("niceTap");
     const mult = data.multiplier || 1;
     showSpark(`+${(data.tapValue || 1) * count * mult}`);
+    await loadQuests();
   } catch (err) {
     setMeta("network");
   }

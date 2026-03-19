@@ -6,7 +6,8 @@ import {
   saveUser,
   SHOP_ITEMS,
   computePrice,
-  getItemLevel
+  getItemLevel,
+  ensureDaily
 } from "../_shared/utils.js";
 
 export async function onRequestPost(context) {
@@ -44,6 +45,7 @@ export async function onRequestPost(context) {
   }
 
   const user = await loadUser(env, String(tgUser.id), tgUser.first_name);
+  ensureDaily(user);
   const item = SHOP_ITEMS.find((i) => i.id === itemId);
   if (!item) {
     return jsonResponse({ ok: false, error: "item_not_found" }, 404);
@@ -59,6 +61,7 @@ export async function onRequestPost(context) {
       return jsonResponse({ ok: false, error: "not_enough" }, 400);
     }
     user.balance -= price;
+    user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
     user.boostUntil = now + (item.durationMs || 10000);
     await saveUser(env, user);
     return jsonResponse({
@@ -88,6 +91,7 @@ export async function onRequestPost(context) {
   user.balance -= price;
   user.items[item.id] = level + 1;
   user.tapValue = (user.tapValue || 1) + item.tapBonus;
+  user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
 
   await saveUser(env, user);
 

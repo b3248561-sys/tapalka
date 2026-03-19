@@ -2,7 +2,9 @@ import {
   jsonResponse,
   verifyInitData,
   extractUser,
-  loadUser
+  loadUser,
+  getRank,
+  ensureDaily
 } from "../_shared/utils.js";
 
 export async function onRequest(context) {
@@ -31,6 +33,8 @@ export async function onRequest(context) {
   }
 
   const profile = await loadUser(env, String(tgUser.id), tgUser.first_name);
+  ensureDaily(profile);
+  const rank = getRank(profile.totalEarned || 0);
   return jsonResponse({
     ok: true,
     user: {
@@ -40,7 +44,9 @@ export async function onRequest(context) {
       tapValue: profile.tapValue || 1,
       lastTapTs: profile.lastTapTs,
       boostUntil: profile.boostUntil || 0,
-      lastDailyTs: profile.lastDailyTs || 0
+      lastDailyTs: profile.lastDailyTs || 0,
+      totalEarned: profile.totalEarned || 0,
+      rank
     }
   });
 }

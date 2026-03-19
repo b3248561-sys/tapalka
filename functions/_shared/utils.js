@@ -70,6 +70,12 @@ export async function loadUser(env, userId, name) {
       items: {},
       boostUntil: 0,
       lastDailyTs: 0,
+      totalEarned: 0,
+      totalTaps: 0,
+      dailyQuestDay: "",
+      dailyTapCount: 0,
+      dailyPurchaseCount: 0,
+      dailyQuestClaims: {},
       lastTapTs: 0,
       windowStartTs: 0,
       windowCount: 0
@@ -80,7 +86,8 @@ export async function loadUser(env, userId, name) {
     await env.KV.put(key, JSON.stringify(user));
   }
   const normalized = normalizeUser(user);
-  if (normalized._dirty) {
+  const dailyChanged = ensureDaily(normalized);
+  if (normalized._dirty || dailyChanged) {
     delete normalized._dirty;
     await env.KV.put(key, JSON.stringify(normalized));
     user = normalized;
@@ -157,6 +164,30 @@ export function normalizeUser(user) {
     user.lastDailyTs = 0;
     dirty = true;
   }
+  if (!user.totalEarned) {
+    user.totalEarned = 0;
+    dirty = true;
+  }
+  if (!user.totalTaps) {
+    user.totalTaps = 0;
+    dirty = true;
+  }
+  if (!user.dailyQuestDay) {
+    user.dailyQuestDay = "";
+    dirty = true;
+  }
+  if (!user.dailyTapCount) {
+    user.dailyTapCount = 0;
+    dirty = true;
+  }
+  if (!user.dailyPurchaseCount) {
+    user.dailyPurchaseCount = 0;
+    dirty = true;
+  }
+  if (!user.dailyQuestClaims || typeof user.dailyQuestClaims !== "object") {
+    user.dailyQuestClaims = {};
+    dirty = true;
+  }
   const hasItems = Object.keys(user.items).length > 0;
   if (hasItems && user.tapValue === 1) {
     let tapValue = 1;
@@ -169,6 +200,68 @@ export function normalizeUser(user) {
   }
   if (dirty) user._dirty = true;
   return user;
+}
+
+export const RANKS = [
+  { id: "bronze", min: 0 },
+  { id: "silver", min: 2500 },
+  { id: "gold", min: 9000 },
+  { id: "platinum", min: 22000 },
+  { id: "diamond", min: 50000 },
+  { id: "master", min: 100000 }
+];
+
+export function getRank(totalEarned) {
+  let current = RANKS[0];
+  let next = null;
+  for (let i = 0; i < RANKS.length; i += 1) {
+    if (totalEarned >= RANKS[i].min) {
+      current = RANKS[i];
+      next = RANKS[i + 1] || null;
+    }
+  }
+  const progress = next
+    ? (totalEarned - current.min) / (next.min - current.min)
+    : 1;
+  return {
+    id: current.id,
+    min: current.min,
+    nextMin: next ? next.min : null,
+    progress: Math.min(1, Math.max(0, progress))
+  };
+}
+
+export const DAILY_QUESTS = [
+  { id: "tap_50", type: "tap", target: 50, reward: 200 },
+  { id: "tap_200", type: "tap", target: 200, reward: 600 },
+  { id: "buy_1", type: "buy", target: 1, reward: 450 }
+];
+
+export function ensureDaily(user) {
+  const day = new Date().toISOString().slice(0, 10);
+  if (user.dailyQuestDay !== day) {
+    user.dailyQuestDay = day;
+    user.dailyTapCount = 0;
+    user.dailyPurchaseCount = 0;
+    user.dailyQuestClaims = {};
+    return true;
+  }
+  return false;
+}
+
+export function getDailyQuests(user) {
+  return DAILY_QUESTS.map((q) => {
+    const progress =
+      q.type === "tap" ? user.dailyTapCount : user.dailyPurchaseCount;
+    return {
+      id: q.id,
+      type: q.type,
+      target: q.target,
+      progress: Math.min(progress, q.target),
+      reward: q.reward,
+      claimed: Boolean(user.dailyQuestClaims?.[q.id])
+    };
+  });
 }
 
 const BOT_STRINGS = {

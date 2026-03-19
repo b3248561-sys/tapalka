@@ -4,7 +4,9 @@ import {
   extractUser,
   loadUser,
   saveUser,
-  ensureDaily
+  getDailyQuests,
+  ensureDaily,
+  getRank
 } from "../_shared/utils.js";
 
 export async function onRequestPost(context) {
@@ -18,9 +20,11 @@ export async function onRequestPost(context) {
 
   const initData = body.initData || request.headers.get("x-init-data");
   const demoUserId = body.demoUserId;
-  let count = Number(body.count || 1);
-  if (!Number.isFinite(count)) count = 1;
-  count = Math.max(1, Math.min(20, Math.floor(count)));
+  const questId = body.questId;
+
+  if (!questId) {
+    return jsonResponse({ ok: false, error: "quest_missing" }, 400);
+  }
 
   let tgUser = null;
   if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
@@ -41,31 +45,28 @@ export async function onRequestPost(context) {
 
   const user = await loadUser(env, String(tgUser.id), tgUser.first_name);
   ensureDaily(user);
-  const now = Date.now();
+  const quests = getDailyQuests(user);
+  const quest = quests.find((q) => q.id === questId);
+  if (!quest) {
+    return jsonResponse({ ok: false, error: "quest_not_found" }, 404);
+  }
+  if (quest.claimed) {
+    return jsonResponse({ ok: false, error: "quest_claimed" }, 400);
+  }
+  if (quest.progress < quest.target) {
+    return jsonResponse({ ok: false, error: "quest_not_ready" }, 400);
+  }
 
-  // No strict rate limit for MVP; allow fast tapping.
-  const boostActive = user.boostUntil && now < user.boostUntil;
-  const multiplier = boostActive ? 2 : 1;
-
-  user.windowStartTs = now;
-  user.windowCount = (user.windowCount || 0) + count;
-  const earned = (user.tapValue || 1) * count * multiplier;
-  user.balance += earned;
-  user.totalEarned = (user.totalEarned || 0) + earned;
-  user.totalTaps = (user.totalTaps || 0) + count;
-  user.dailyTapCount = (user.dailyTapCount || 0) + count;
-  user.lastTapTs = now;
-
+  user.balance += quest.reward;
+  user.dailyQuestClaims[quest.id] = true;
   await saveUser(env, user);
 
   return jsonResponse({
     ok: true,
+    reward: quest.reward,
     balance: user.balance,
-    tapValue: user.tapValue || 1,
-    multiplier,
-    boostUntil: user.boostUntil || 0,
-    windowCount: user.windowCount,
-    lastTapTs: user.lastTapTs
+    quests: getDailyQuests(user),
+    rank: getRank(user.totalEarned || 0)
   });
 }
 
