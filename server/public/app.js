@@ -37,6 +37,7 @@ let metaState = { key: "loading", vars: {} };
 let shopState = [];
 let tapValue = 1;
 let lastTouchAt = 0;
+let lastPointerDownAt = 0;
 let lastDailyTs = 0;
 let boostUntil = 0;
 let questsState = [];
@@ -413,7 +414,12 @@ if (demoMode) {
 }
 
 async function apiRequest(path, options = {}) {
-  const opts = { ...options, headers: { "Content-Type": "application/json" } };
+  const init = tg?.initData || initData || "";
+  if (init && init !== initData) initData = init;
+  const opts = {
+    ...options,
+    headers: { "Content-Type": "application/json" }
+  };
   let url = path;
 
   if (demoMode) {
@@ -424,17 +430,26 @@ async function apiRequest(path, options = {}) {
     const body = opts.body ? JSON.parse(opts.body) : {};
     body.initData = initData;
     opts.body = JSON.stringify(body);
+    opts.headers["x-init-data"] = initData;
+  } else if (init) {
+    opts.headers["x-init-data"] = init;
   }
 
-  const res = await fetch(url, opts);
+  const res = await fetch(url, { ...opts, cache: "no-store" });
   return res.json();
 }
 
 async function loadProfile() {
-  const query = demoMode
-    ? `demoUserId=${encodeURIComponent(demoUserId)}`
-    : `initData=${encodeURIComponent(initData)}`;
-  const res = await fetch(`/api/me?${query}`);
+  const init = tg?.initData || initData || "";
+  if (init && init !== initData) initData = init;
+  const headers = {};
+  let url = "/api/me";
+  if (demoMode) {
+    url += `?demoUserId=${encodeURIComponent(demoUserId)}`;
+  } else if (initData) {
+    headers["x-init-data"] = initData;
+  }
+  const res = await fetch(url, { headers, cache: "no-store" });
   return res.json();
 }
 
@@ -634,10 +649,16 @@ function renderQuests() {
 }
 
 async function loadShop() {
-  const query = demoMode
-    ? `demoUserId=${encodeURIComponent(demoUserId)}`
-    : `initData=${encodeURIComponent(initData)}`;
-  const res = await fetch(`/api/shop?${query}`);
+  const init = tg?.initData || initData || "";
+  if (init && init !== initData) initData = init;
+  const headers = {};
+  let url = "/api/shop";
+  if (demoMode) {
+    url += `?demoUserId=${encodeURIComponent(demoUserId)}`;
+  } else if (initData) {
+    headers["x-init-data"] = initData;
+  }
+  const res = await fetch(url, { headers, cache: "no-store" });
   const data = await res.json();
   if (!data.ok) {
     return;
@@ -649,10 +670,16 @@ async function loadShop() {
 }
 
 async function loadQuests() {
-  const query = demoMode
-    ? `demoUserId=${encodeURIComponent(demoUserId)}`
-    : `initData=${encodeURIComponent(initData)}`;
-  const res = await fetch(`/api/quests?${query}`);
+  const init = tg?.initData || initData || "";
+  if (init && init !== initData) initData = init;
+  const headers = {};
+  let url = "/api/quests";
+  if (demoMode) {
+    url += `?demoUserId=${encodeURIComponent(demoUserId)}`;
+  } else if (initData) {
+    headers["x-init-data"] = initData;
+  }
+  const res = await fetch(url, { headers, cache: "no-store" });
   const data = await res.json();
   if (!data.ok) return;
   questsState = data.quests || [];
@@ -683,7 +710,9 @@ async function init() {
 }
 
 tapBtn.addEventListener("click", async () => {
-  if (Date.now() - lastTouchAt < 500) return;
+  const now = Date.now();
+  if (now - lastTouchAt < 300) return;
+  if (now - lastPointerDownAt < 300) return;
   await sendTap(1);
 });
 
@@ -697,6 +726,12 @@ tapBtn.addEventListener(
   },
   { passive: false }
 );
+
+tapBtn.addEventListener("pointerdown", async (event) => {
+  if (event.pointerType === "touch") return;
+  lastPointerDownAt = Date.now();
+  await sendTap(1);
+});
 
 langToggle.addEventListener("click", () => {
   if (!langMenuEl) return;

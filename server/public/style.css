@@ -42,7 +42,8 @@ body {
   border-radius: 999px;
   filter: blur(10px);
   opacity: 0.55;
-  animation: float 12s ease-in-out infinite;
+  animation: floatOrb var(--float-duration, 18s) ease-in-out infinite;
+  will-change: transform;
 }
 
 .orb-a {
@@ -51,6 +52,9 @@ body {
   left: -60px;
   top: 80px;
   background: radial-gradient(circle, #ffce4b 0%, #ffae1a 70%);
+  --float-x: 18px;
+  --float-y: -24px;
+  --float-duration: 20s;
 }
 
 .orb-b {
@@ -59,7 +63,10 @@ body {
   right: -90px;
   top: 220px;
   background: radial-gradient(circle, #39c6b3 0%, #0ea5a0 70%);
-  animation-delay: -3s;
+  --float-x: -22px;
+  --float-y: 26px;
+  --float-duration: 24s;
+  animation-delay: -6s;
 }
 
 .orb-c {
@@ -68,7 +75,10 @@ body {
   left: 60px;
   bottom: -40px;
   background: radial-gradient(circle, #ffb199 0%, #ff8a4c 70%);
-  animation-delay: -6s;
+  --float-x: 28px;
+  --float-y: -14px;
+  --float-duration: 22s;
+  animation-delay: -12s;
 }
 
 .app {
@@ -273,7 +283,7 @@ body {
   position: relative;
   isolation: isolate;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  touch-action: none;
   outline: none;
 }
 
@@ -562,13 +572,14 @@ body {
   cursor: not-allowed;
 }
 
-@keyframes float {
+@keyframes floatOrb {
   0%,
   100% {
-    transform: translateY(0px);
+    transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    transform: translateY(-14px);
+    transform: translate3d(var(--float-x, 18px), var(--float-y, -18px), 0)
+      scale(1.04);
   }
 }
 
