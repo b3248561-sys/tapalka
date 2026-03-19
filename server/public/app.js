@@ -1,4 +1,5 @@
 const balanceEl = document.getElementById("balance");
+const balanceLabelEl = document.getElementById("balanceLabel");
 const tapBtn = document.getElementById("tap");
 const metaEl = document.getElementById("meta");
 const titleEl = document.getElementById("title");
@@ -21,6 +22,7 @@ const STRINGS = {
     tap: "Tap",
     loading: "Loading...",
     demo: "Demo mode",
+    balanceLabel: "Balance",
     player: "Player: {name}",
     niceTap: "Nice tap",
     authError: "Auth error",
@@ -35,6 +37,7 @@ const STRINGS = {
     tap: "Тап",
     loading: "Загрузка...",
     demo: "Демо режим",
+    balanceLabel: "Баланс",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
     authError: "Ошибка авторизации",
@@ -42,13 +45,121 @@ const STRINGS = {
     tryAgain: "Попробуй еще",
     network: "Ошибка сети",
     rateLimited: "Слишком быстро. Помедленнее."
+  },
+  es: {
+    title: "Tapalka",
+    subtitle: "Toca y gana puntos",
+    tap: "Tocar",
+    loading: "Cargando...",
+    demo: "Modo demo",
+    balanceLabel: "Saldo",
+    player: "Jugador: {name}",
+    niceTap: "Buen toque",
+    authError: "Error de autorización",
+    failedLoad: "No se pudo cargar",
+    tryAgain: "Inténtalo de nuevo",
+    network: "Error de red",
+    rateLimited: "Demasiado rápido. Más lento."
+  },
+  pt: {
+    title: "Tapalka",
+    subtitle: "Toque e ganhe pontos",
+    tap: "Toque",
+    loading: "Carregando...",
+    demo: "Modo demo",
+    balanceLabel: "Saldo",
+    player: "Jogador: {name}",
+    niceTap: "Bom toque",
+    authError: "Erro de autorização",
+    failedLoad: "Falha ao carregar",
+    tryAgain: "Tente novamente",
+    network: "Erro de rede",
+    rateLimited: "Rápido demais. Mais devagar."
+  },
+  tr: {
+    title: "Tapalka",
+    subtitle: "Dokun ve puan kazan",
+    tap: "Dokun",
+    loading: "Yükleniyor...",
+    demo: "Demo modu",
+    balanceLabel: "Bakiye",
+    player: "Oyuncu: {name}",
+    niceTap: "Güzel dokunuş",
+    authError: "Yetkilendirme hatası",
+    failedLoad: "Yüklenemedi",
+    tryAgain: "Tekrar dene",
+    network: "Ağ hatası",
+    rateLimited: "Çok hızlı. Yavaşla."
+  },
+  id: {
+    title: "Tapalka",
+    subtitle: "Ketuk untuk dapat poin",
+    tap: "Ketuk",
+    loading: "Memuat...",
+    demo: "Mode demo",
+    balanceLabel: "Saldo",
+    player: "Pemain: {name}",
+    niceTap: "Ketukan bagus",
+    authError: "Kesalahan otorisasi",
+    failedLoad: "Gagal memuat",
+    tryAgain: "Coba lagi",
+    network: "Kesalahan jaringan",
+    rateLimited: "Terlalu cepat. Pelan dulu."
+  },
+  de: {
+    title: "Tapalka",
+    subtitle: "Tippe und sammle Punkte",
+    tap: "Tippen",
+    loading: "Lädt...",
+    demo: "Demo-Modus",
+    balanceLabel: "Kontostand",
+    player: "Spieler: {name}",
+    niceTap: "Guter Tipp",
+    authError: "Autorisierungsfehler",
+    failedLoad: "Laden fehlgeschlagen",
+    tryAgain: "Erneut versuchen",
+    network: "Netzwerkfehler",
+    rateLimited: "Zu schnell. Langsamer."
+  },
+  fr: {
+    title: "Tapalka",
+    subtitle: "Tape pour gagner des points",
+    tap: "Taper",
+    loading: "Chargement...",
+    demo: "Mode démo",
+    balanceLabel: "Solde",
+    player: "Joueur : {name}",
+    niceTap: "Bon tap",
+    authError: "Erreur d'autorisation",
+    failedLoad: "Échec du chargement",
+    tryAgain: "Réessayer",
+    network: "Erreur réseau",
+    rateLimited: "Trop rapide. Ralentis."
   }
+};
+
+const LANGS = ["en", "ru", "es", "pt", "tr", "id", "de", "fr"];
+const LANG_LABELS = {
+  en: "EN",
+  ru: "RU",
+  es: "ES",
+  pt: "PT",
+  tr: "TR",
+  id: "ID",
+  de: "DE",
+  fr: "FR"
 };
 
 function normalizeLang(code) {
   if (!code) return "en";
   const lower = String(code).toLowerCase();
   if (lower.startsWith("ru")) return "ru";
+  if (lower.startsWith("es")) return "es";
+  if (lower.startsWith("pt")) return "pt";
+  if (lower.startsWith("tr")) return "tr";
+  if (lower.startsWith("id")) return "id";
+  if (lower.startsWith("de")) return "de";
+  if (lower.startsWith("fr")) return "fr";
   return "en";
 }
 
@@ -65,7 +176,8 @@ function applyTexts() {
   if (titleEl) titleEl.textContent = t("title");
   if (subtitleEl) subtitleEl.textContent = t("subtitle");
   if (tapBtn) tapBtn.textContent = t("tap");
-  if (langToggle) langToggle.textContent = currentLang.toUpperCase();
+  if (balanceLabelEl) balanceLabelEl.textContent = t("balanceLabel");
+  if (langToggle) langToggle.textContent = LANG_LABELS[currentLang] || currentLang.toUpperCase();
   setMeta(metaState.key, metaState.vars);
 }
 
@@ -165,7 +277,8 @@ tapBtn.addEventListener("click", async () => {
 });
 
 langToggle.addEventListener("click", () => {
-  currentLang = currentLang === "ru" ? "en" : "ru";
+  const idx = LANGS.indexOf(currentLang);
+  currentLang = LANGS[(idx + 1) % LANGS.length];
   localStorage.setItem("lang", currentLang);
   applyTexts();
 });
