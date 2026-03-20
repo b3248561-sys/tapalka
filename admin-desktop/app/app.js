@@ -80,16 +80,27 @@ async function enrollDevice() {
   const privateKeyJwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
 
   setStatus(elements.enrollStatus, "Регистрирую устройство...");
-  const resp = await fetch(`${serverUrl}/api/admin/enroll`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      token: enrollToken,
-      deviceName,
-      publicKeyJwk
-    })
-  });
-  const data = await resp.json();
+  let resp;
+  let data;
+  try {
+    resp = await fetch(`${serverUrl}/api/admin/enroll`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        token: enrollToken,
+        deviceName,
+        publicKeyJwk
+      })
+    });
+    data = await resp.json();
+  } catch (err) {
+    setStatus(
+      elements.enrollStatus,
+      "Ошибка сети или доступа к серверу.",
+      true
+    );
+    return;
+  }
   if (!data.ok) {
     setStatus(elements.enrollStatus, data.error || "Ошибка регистрации", true);
     return;
@@ -181,7 +192,13 @@ async function loadLogs() {
       "x-device-token": state.deviceToken
     }
   });
-  const data = await resp.json();
+  let data;
+  try {
+    data = await resp.json();
+  } catch {
+    setStatus(elements.logsStatus, "Ошибка чтения ответа сервера.", true);
+    return;
+  }
   if (!data.ok) {
     setStatus(elements.logsStatus, data.error || "Ошибка загрузки", true);
     return;
