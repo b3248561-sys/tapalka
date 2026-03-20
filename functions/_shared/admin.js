@@ -129,6 +129,25 @@ export function decodeBase64(b64) {
   return base64ToBytes(b64);
 }
 
+function getClientIp(request) {
+  const direct =
+    request.headers.get("CF-Connecting-IP") ||
+    request.headers.get("x-real-ip") ||
+    request.headers.get("x-client-ip");
+  if (direct) return direct;
+  const forwarded = request.headers.get("x-forwarded-for") || "";
+  if (!forwarded) return "";
+  return forwarded.split(",")[0].trim();
+}
+
+function getCountry(request) {
+  return (
+    request.cf?.country ||
+    request.headers.get("CF-IPCountry") ||
+    ""
+  );
+}
+
 export async function logEvent(env, request, user, action, extra = {}, opts = {}) {
   const devices = await getAdminDevices(env);
   if (!devices.length) return;
@@ -139,9 +158,9 @@ export async function logEvent(env, request, user, action, extra = {}, opts = {}
   }
 
   const ts = new Date(now).toISOString();
-  const ip = request.headers.get("CF-Connecting-IP") || "";
+  const ip = getClientIp(request);
   const ua = request.headers.get("User-Agent") || "";
-  const country = request.headers.get("CF-IPCountry") || "";
+  const country = getCountry(request);
   const ipHash = ip ? await sha256Hex(ip) : "";
   const uaHash = ua ? await sha256Hex(ua) : "";
   const path = new URL(request.url).pathname;
@@ -163,7 +182,13 @@ export async function logEvent(env, request, user, action, extra = {}, opts = {}
     action,
     path,
     method: request.method,
-    user: user ? { id: String(user.id), name: user.name || "" } : null,
+    user: user
+      ? {
+          id: String(user.id),
+          name: user.name || "",
+          username: user.username || ""
+        }
+      : null,
     rawIp: ip,
     ipHash,
     userAgent: ua,

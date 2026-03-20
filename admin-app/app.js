@@ -169,19 +169,104 @@ function renderDeviceInfo() {
   elements.deviceInfo.textContent = `Device ID: ${state.deviceId} • fingerprint: ${state.fingerprint || "n/a"}`;
 }
 
-function rowHtml(log, payload) {
-  const rawIp = payload?.rawIp || "-";
+function safeId(value) {
+  return String(value || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function pickNickname(user) {
+  if (!user) return "-";
+  if (user.username) return `@${user.username}`;
+  if (user.name) return user.name;
+  return "-";
+}
+
+function formatTs(ts) {
+  if (!ts) return "-";
+  return new Date(ts).toLocaleString();
+}
+
+function summarizeEvent(event) {
+  return {
+    ts: event.ts,
+    action: event.action || "-",
+    path: event.path || "-",
+    rawIp: event.rawIp || "-",
+    ipHash: event.ipHash || "-",
+    country: event.country || "-"
+  };
+}
+
+function renderSummaryRow(group, columnCount) {
+  const latest = summarizeEvent(group.latest);
+  const detailId = `detail-${safeId(group.userId)}`;
   return `
-    <tr>
-      <td>${new Date(log.ts).toLocaleString()}</td>
-      <td>${log.userId || "-"}</td>
-      <td>${log.action || "-"}</td>
-      <td>${rawIp}</td>
-      <td>${log.ipHash || "-"}</td>
-      <td>${log.country || "-"}</td>
-      <td>${log.path || "-"}</td>
+    <tr class="summary-row" data-details="${detailId}">
+      <td>${group.nickname}</td>
+      <td>${formatTs(latest.ts)}</td>
+      <td>${group.userId || "-"}</td>
+      <td>${latest.action}</td>
+      <td>${latest.rawIp}</td>
+      <td>${latest.ipHash}</td>
+      <td>${latest.country}</td>
+      <td>${latest.path}</td>
+    </tr>
+    <tr id="${detailId}" class="detail-row" style="display:none" data-open="0">
+      <td colspan="${columnCount}">
+        <div class="detail-panel">
+          <div class="detail-header">
+            <span>История пользователя: ${group.nickname} (${group.userId})</span>
+            <span>Событий: ${group.events.length}</span>
+          </div>
+          <div class="table-wrap">
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  <th>Время</th>
+                  <th>Действие</th>
+                  <th>IP (сырой)</th>
+                  <th>IP hash</th>
+                  <th>Страна</th>
+                  <th>Путь</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${group.events
+                  .map((event) => {
+                    const info = summarizeEvent(event);
+                    return `
+                      <tr>
+                        <td>${formatTs(info.ts)}</td>
+                        <td>${info.action}</td>
+                        <td>${info.rawIp}</td>
+                        <td>${info.ipHash}</td>
+                        <td>${info.country}</td>
+                        <td>${info.path}</td>
+                      </tr>
+                    `;
+                  })
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </td>
     </tr>
   `;
+}
+
+function attachRowToggles() {
+  const rows = document.querySelectorAll(".summary-row");
+  rows.forEach((row) => {
+    row.addEventListener("click", () => {
+      const detailId = row.dataset.details;
+      const detail = document.getElementById(detailId);
+      if (!detail) return;
+      const open = detail.dataset.open === "1";
+      detail.style.display = open ? "none" : "table-row";
+      detail.dataset.open = open ? "0" : "1";
+      row.classList.toggle("is-open", !open);
+    });
+  });
 }
 
 async function loadLogs() {
@@ -222,25 +307,70 @@ async function loadLogs() {
   }
 
   const filter = elements.filterInput.value.trim().toLowerCase();
-  const filtered = filter
-    ? rows.filter(({ log, payload }) => {
-        const hay = [
-          log.userId,
-          log.ipHash,
-          log.action,
-          payload?.rawIp
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return hay.includes(filter);
-      })
-    : rows;
 
-  elements.logsBody.innerHTML = filtered
-    .map(({ log, payload }) => rowHtml(log, payload))
+  const grouped = new Map();
+  rows.forEach(({ log, payload }) => {
+    const userInfo = payload?.user || null;
+    const userId = userInfo?.id || log.userId || "unknown";
+    const entry = {
+      ts: log.ts,
+      action: log.action,
+      path: log.path,
+      ipHash: log.ipHash,
+      rawIp: payload?.rawIp || "-",
+      country: payload?.country || log.country || "-",
+      user: userInfo
+    };
+    if (!grouped.has(userId)) {
+      grouped.set(userId, {
+        userId,
+        nickname: pickNickname(userInfo),
+        events: [entry]
+      });
+    } else {
+      const group = grouped.get(userId);
+      group.events.push(entry);
+      if (userInfo?.username && group.nickname === "-") {
+        group.nickname = pickNickname(userInfo);
+      }
+    }
+  });
+
+  const groupList = Array.from(grouped.values()).map((group) => {
+    group.events.sort((a, b) => (a.ts < b.ts ? 1 : -1));
+    group.latest = group.events[0];
+    return group;
+  });
+
+  const filteredGroups = filter
+    ? groupList.filter((group) => {
+        return group.events.some((event) => {
+          const hay = [
+            group.userId,
+            group.nickname,
+            event.action,
+            event.path,
+            event.rawIp,
+            event.ipHash,
+            event.country
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return hay.includes(filter);
+        });
+      })
+    : groupList;
+
+  const columnCount = 8;
+  elements.logsBody.innerHTML = filteredGroups
+    .map((group) => renderSummaryRow(group, columnCount))
     .join("");
-  setStatus(elements.logsStatus, `Логов: ${filtered.length}`);
+  attachRowToggles();
+  setStatus(
+    elements.logsStatus,
+    `Пользователей: ${filteredGroups.length} • Событий: ${rows.length}`
+  );
 }
 
 function clearLocal() {

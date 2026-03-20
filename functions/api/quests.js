@@ -31,7 +31,12 @@ export async function onRequest(context) {
     }
   }
 
-  const user = await loadUser(env, String(tgUser.id), tgUser.first_name);
+  const user = await loadUser(
+    env,
+    String(tgUser.id),
+    tgUser.first_name,
+    tgUser.username
+  );
   ensureDaily(user);
 
   return jsonResponse({

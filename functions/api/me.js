@@ -14,7 +14,7 @@ export async function onRequest(context) {
   const demoUserId = url.searchParams.get("demoUserId");
 
   if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
-    const profile = await loadUser(env, String(demoUserId), "Demo");
+    const profile = await loadUser(env, String(demoUserId), "Demo", "demo");
     return jsonResponse({ ok: true, user: profile });
   }
 
@@ -32,7 +32,12 @@ export async function onRequest(context) {
     return jsonResponse({ ok: false, error: "user missing" }, 400);
   }
 
-  const profile = await loadUser(env, String(tgUser.id), tgUser.first_name);
+  const profile = await loadUser(
+    env,
+    String(tgUser.id),
+    tgUser.first_name,
+    tgUser.username
+  );
   ensureDaily(profile);
   const rank = getRank(profile.totalEarned || 0);
   return jsonResponse({

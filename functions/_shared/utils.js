@@ -59,13 +59,14 @@ export function userKey(userId) {
   return `user:${userId}`;
 }
 
-export async function loadUser(env, userId, name) {
+export async function loadUser(env, userId, name, username) {
   const key = userKey(userId);
   let user = await env.KV.get(key, "json");
   if (!user) {
     user = {
       id: String(userId),
       name: name || "Player",
+      username: username || "",
       balance: 0,
       tapValue: 1,
       items: {},
@@ -83,9 +84,19 @@ export async function loadUser(env, userId, name) {
       lastLogTs: 0
     };
     await env.KV.put(key, JSON.stringify(user));
-  } else if (name && user.name !== name) {
-    user.name = name;
-    await env.KV.put(key, JSON.stringify(user));
+  } else {
+    let changed = false;
+    if (name && user.name !== name) {
+      user.name = name;
+      changed = true;
+    }
+    if (username && user.username !== username) {
+      user.username = username;
+      changed = true;
+    }
+    if (changed) {
+      await env.KV.put(key, JSON.stringify(user));
+    }
   }
   const normalized = normalizeUser(user);
   const dailyChanged = ensureDaily(normalized);

@@ -130,3 +130,48 @@ tbody tr:nth-child(even) {
 tbody tr:hover {
   background: #20263a;
 }
+
+.summary-row {
+  cursor: pointer;
+}
+
+.summary-row.is-open {
+  background: #262d42;
+}
+
+.detail-row td {
+  padding: 0;
+  background: #0f1218;
+}
+
+.detail-panel {
+  padding: 12px 16px 16px;
+  border-top: 1px solid #232833;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #a7b0bb;
+}
+
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.detail-table th,
+.detail-table td {
+  padding: 8px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid #1f2430;
+}
+
+.detail-table th {
+  background: #1a1f2c;
+  color: #b8c2cf;
+}

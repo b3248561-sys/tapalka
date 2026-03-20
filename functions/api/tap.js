@@ -40,7 +40,12 @@ export async function onRequestPost(context) {
     }
   }
 
-  const user = await loadUser(env, String(tgUser.id), tgUser.first_name);
+  const user = await loadUser(
+    env,
+    String(tgUser.id),
+    tgUser.first_name,
+    tgUser.username
+  );
   ensureDaily(user);
   const now = Date.now();
 

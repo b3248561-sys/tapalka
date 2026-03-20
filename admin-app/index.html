@@ -41,7 +41,7 @@
     <section class="card">
       <h2>Логи</h2>
       <div class="row">
-        <input id="filterInput" type="text" placeholder="Фильтр: userId, ipHash, action" />
+        <input id="filterInput" type="text" placeholder="Фильтр: userId, ник, ip, action" />
         <button id="loadLogs">Загрузить</button>
       </div>
       <div id="logsStatus" class="muted"></div>
@@ -49,6 +49,7 @@
         <table>
           <thead>
             <tr>
+              <th>Ник</th>
               <th>Время</th>
               <th>User</th>
               <th>Действие</th>

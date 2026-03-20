@@ -38,7 +38,12 @@ export async function onRequestPost(context) {
     }
   }
 
-  const user = await loadUser(env, String(tgUser.id), tgUser.first_name);
+  const user = await loadUser(
+    env,
+    String(tgUser.id),
+    tgUser.first_name,
+    tgUser.username
+  );
   const now = Date.now();
   const nextAt = (user.lastDailyTs || 0) + DAY_MS;
   if (now < nextAt) {
