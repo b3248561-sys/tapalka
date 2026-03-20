@@ -1,5 +1,5 @@
 import { jsonResponse } from "../../_shared/utils.js";
-import { registerDevice } from "../../_shared/admin.js";
+import { registerDevice, logEvent } from "../../_shared/admin.js";
 
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -35,6 +35,14 @@ export async function onRequestPost(context) {
       name: body.deviceName || "Device",
       publicKeyJwk
     });
+
+  context.waitUntil(
+    logEvent(env, request, null, "device_enroll", {
+      deviceId: device.id,
+      deviceName: device.name,
+      existing
+    })
+  );
 
   return withCors({
     ok: true,
