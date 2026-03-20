@@ -106,16 +106,22 @@ async function enrollDevice() {
     return;
   }
 
+  const prev = getState();
   const state = {
     serverUrl,
     deviceId: data.deviceId,
-    deviceToken: data.deviceToken,
+    deviceToken: data.deviceToken || prev.deviceToken || null,
     publicKeyJwk,
     privateKeyJwk,
     fingerprint: data.fingerprint
   };
   saveState(state);
-  setStatus(elements.enrollStatus, "Устройство зарегистрировано.");
+  setStatus(
+    elements.enrollStatus,
+    data.deviceToken
+      ? "Устройство зарегистрировано."
+      : "Устройство уже было зарегистрировано."
+  );
   renderDeviceInfo();
 }
 
