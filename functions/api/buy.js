@@ -9,6 +9,7 @@ import {
   getItemLevel,
   ensureDaily
 } from "../_shared/utils.js";
+import { logEvent } from "../_shared/admin.js";
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -64,6 +65,13 @@ export async function onRequestPost(context) {
     user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
     user.boostUntil = now + (item.durationMs || 10000);
     await saveUser(env, user);
+    context.waitUntil(
+      logEvent(env, request, user, "buy_boost", {
+        itemId: item.id,
+        price,
+        durationMs: item.durationMs || 10000
+      })
+    );
     return jsonResponse({
       ok: true,
       balance: user.balance,
@@ -94,6 +102,14 @@ export async function onRequestPost(context) {
   user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
 
   await saveUser(env, user);
+  context.waitUntil(
+    logEvent(env, request, user, "buy_upgrade", {
+      itemId: item.id,
+      level: user.items[item.id],
+      price,
+      tapBonus: item.tapBonus
+    })
+  );
 
   return jsonResponse({
     ok: true,

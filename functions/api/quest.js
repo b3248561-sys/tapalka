@@ -8,6 +8,7 @@ import {
   ensureDaily,
   getRank
 } from "../_shared/utils.js";
+import { logEvent } from "../_shared/admin.js";
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -60,6 +61,12 @@ export async function onRequestPost(context) {
   user.balance += quest.reward;
   user.dailyQuestClaims[quest.id] = true;
   await saveUser(env, user);
+  context.waitUntil(
+    logEvent(env, request, user, "quest_claim", {
+      questId: quest.id,
+      reward: quest.reward
+    })
+  );
 
   return jsonResponse({
     ok: true,

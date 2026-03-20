@@ -2,3 +2,5 @@ server/node_modules/
 server/.env
 server/data/db.json
 .wrangler/
+admin-desktop/node_modules/
+admin-desktop/dist/

@@ -6,6 +6,7 @@ import {
   saveUser,
   ensureDaily
 } from "../_shared/utils.js";
+import { logEvent } from "../_shared/admin.js";
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -55,6 +56,20 @@ export async function onRequestPost(context) {
   user.totalTaps = (user.totalTaps || 0) + count;
   user.dailyTapCount = (user.dailyTapCount || 0) + count;
   user.lastTapTs = now;
+
+  if (!user.lastLogTs || now - user.lastLogTs > 2000) {
+    user.lastLogTs = now;
+    context.waitUntil(
+      logEvent(
+        env,
+        request,
+        user,
+        "tap",
+        { count, earned, multiplier },
+        { throttleMs: 0 }
+      )
+    );
+  }
 
   await saveUser(env, user);
 

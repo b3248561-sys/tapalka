@@ -45,11 +45,12 @@ export function extractUser(initData) {
   }
 }
 
-export function jsonResponse(data, status = 200) {
+export function jsonResponse(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "application/json; charset=utf-8",
+      ...headers
     }
   });
 }
@@ -78,7 +79,8 @@ export async function loadUser(env, userId, name) {
       dailyQuestClaims: {},
       lastTapTs: 0,
       windowStartTs: 0,
-      windowCount: 0
+      windowCount: 0,
+      lastLogTs: 0
     };
     await env.KV.put(key, JSON.stringify(user));
   } else if (name && user.name !== name) {
@@ -186,6 +188,10 @@ export function normalizeUser(user) {
   }
   if (!user.dailyQuestClaims || typeof user.dailyQuestClaims !== "object") {
     user.dailyQuestClaims = {};
+    dirty = true;
+  }
+  if (!user.lastLogTs) {
+    user.lastLogTs = 0;
     dirty = true;
   }
   const hasItems = Object.keys(user.items).length > 0;

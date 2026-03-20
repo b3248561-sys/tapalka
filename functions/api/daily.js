@@ -5,6 +5,7 @@ import {
   loadUser,
   saveUser
 } from "../_shared/utils.js";
+import { logEvent } from "../_shared/admin.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -52,6 +53,7 @@ export async function onRequestPost(context) {
   user.balance += reward;
   user.lastDailyTs = now;
   await saveUser(env, user);
+  context.waitUntil(logEvent(env, request, user, "daily_claim", { reward }));
 
   return jsonResponse({
     ok: true,

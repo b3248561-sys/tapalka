@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tapalka Admin Logs</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Tapalka Admin Logs</h1>
+        <p class="muted">Локальное приложение для просмотра логов (доступ только с этого ПК).</p>
+      </div>
+      <button id="clearLocal" class="ghost">Стереть ключи</button>
+    </header>
+
+    <section class="card">
+      <h2>Подключение устройства</h2>
+      <div class="grid">
+        <label>
+          Сервер (Pages URL)
+          <input id="serverUrl" type="text" placeholder="https://tapalka-bot.pages.dev" />
+        </label>
+        <label>
+          Имя устройства
+          <input id="deviceName" type="text" placeholder="My Laptop" />
+        </label>
+        <label>
+          Токен регистрации
+          <input id="enrollToken" type="password" placeholder="ADMIN_ENROLL_TOKEN" />
+        </label>
+      </div>
+      <div class="row">
+        <button id="enrollBtn">Зарегистрировать устройство</button>
+        <span id="enrollStatus" class="muted"></span>
+      </div>
+      <div class="device-info" id="deviceInfo"></div>
+    </section>
+
+    <section class="card">
+      <h2>Логи</h2>
+      <div class="row">
+        <input id="filterInput" type="text" placeholder="Фильтр: userId, ipHash, action" />
+        <button id="loadLogs">Загрузить</button>
+      </div>
+      <div id="logsStatus" class="muted"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Время</th>
+              <th>User</th>
+              <th>Действие</th>
+              <th>IP (сырой)</th>
+              <th>IP hash</th>
+              <th>Страна</th>
+              <th>Путь</th>
+            </tr>
+          </thead>
+          <tbody id="logsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
