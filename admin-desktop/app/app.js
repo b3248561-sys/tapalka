@@ -338,7 +338,15 @@ async function loadLogs() {
 
   const grouped = new Map();
   rows.forEach(({ log, payload }) => {
-    const userInfo = payload?.user || null;
+    const userInfo =
+      payload?.user ||
+      (log.userId
+        ? {
+            id: log.userId,
+            name: log.userName || "",
+            username: log.userUsername || ""
+          }
+        : null);
     const userId = userInfo?.id || log.userId || "unknown";
     const entry = {
       ts: log.ts,

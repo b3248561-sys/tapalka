@@ -217,6 +217,8 @@ export async function logEvent(env, request, user, action, extra = {}, opts = {}
     path,
     method: request.method,
     userId: user?.id ? String(user.id) : null,
+    userName: user?.name || "",
+    userUsername: user?.username || "",
     ipHash,
     country,
     uaHash,
