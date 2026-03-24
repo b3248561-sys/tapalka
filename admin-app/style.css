@@ -23,6 +23,22 @@ h2 {
   gap: 16px;
 }
 
+.top-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: #2b313d;
+  color: #c9d2dc;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
 .tabs {
   display: flex;
   gap: 8px;

@@ -12,6 +12,7 @@ const elements = {
   logsBody: document.getElementById("logsBody"),
   filterInput: document.getElementById("filterInput"),
   clearLocal: document.getElementById("clearLocal"),
+  openAdmin: document.getElementById("openAdmin"),
   tabLogs: document.getElementById("tabLogs"),
   tabAdmin: document.getElementById("tabAdmin"),
   adminView: document.querySelector('[data-view="admin"]'),
@@ -535,6 +536,7 @@ async function clearBoost() {
 elements.enrollBtn.addEventListener("click", enrollDevice);
 elements.loadLogs.addEventListener("click", loadLogs);
 elements.clearLocal.addEventListener("click", clearLocal);
+elements.openAdmin?.addEventListener("click", () => setActiveView("admin"));
 elements.tabLogs?.addEventListener("click", () => setActiveView("logs"));
 elements.tabAdmin?.addEventListener("click", () => setActiveView("admin"));
 elements.adminLoadUser?.addEventListener("click", loadAdminUser);
