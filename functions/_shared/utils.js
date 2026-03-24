@@ -81,7 +81,8 @@ export async function loadUser(env, userId, name, username) {
       lastTapTs: 0,
       windowStartTs: 0,
       windowCount: 0,
-      lastLogTs: 0
+      lastLogTs: 0,
+      bannedUntil: 0
     };
     await env.KV.put(key, JSON.stringify(user));
   } else {
@@ -205,6 +206,10 @@ export function normalizeUser(user) {
     user.lastLogTs = 0;
     dirty = true;
   }
+  if (!user.bannedUntil) {
+    user.bannedUntil = 0;
+    dirty = true;
+  }
   const hasItems = Object.keys(user.items).length > 0;
   if (hasItems && user.tapValue === 1) {
     let tapValue = 1;
@@ -246,6 +251,11 @@ export function getRank(totalEarned) {
     nextMin: next ? next.min : null,
     progress: Math.min(1, Math.max(0, progress))
   };
+}
+
+export function isBanned(user) {
+  if (!user?.bannedUntil) return false;
+  return Date.now() < Number(user.bannedUntil);
 }
 
 export const DAILY_QUESTS = [

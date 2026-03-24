@@ -6,7 +6,8 @@ import {
   saveUser,
   getDailyQuests,
   ensureDaily,
-  getRank
+  getRank,
+  isBanned
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -51,6 +52,12 @@ export async function onRequestPost(context) {
     tgUser.username
   );
   ensureDaily(user);
+  if (isBanned(user)) {
+    return jsonResponse(
+      { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
+      403
+    );
+  }
   const quests = getDailyQuests(user);
   const quest = quests.find((q) => q.id === questId);
   if (!quest) {

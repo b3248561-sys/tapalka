@@ -3,7 +3,8 @@ import {
   verifyInitData,
   extractUser,
   loadUser,
-  saveUser
+  saveUser,
+  isBanned
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -44,6 +45,12 @@ export async function onRequestPost(context) {
     tgUser.first_name,
     tgUser.username
   );
+  if (isBanned(user)) {
+    return jsonResponse(
+      { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
+      403
+    );
+  }
   const now = Date.now();
   const nextAt = (user.lastDailyTs || 0) + DAY_MS;
   if (now < nextAt) {

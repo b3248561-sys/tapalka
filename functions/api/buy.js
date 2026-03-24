@@ -7,7 +7,8 @@ import {
   SHOP_ITEMS,
   computePrice,
   getItemLevel,
-  ensureDaily
+  ensureDaily,
+  isBanned
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -52,6 +53,12 @@ export async function onRequestPost(context) {
     tgUser.username
   );
   ensureDaily(user);
+  if (isBanned(user)) {
+    return jsonResponse(
+      { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
+      403
+    );
+  }
   const item = SHOP_ITEMS.find((i) => i.id === itemId);
   if (!item) {
     return jsonResponse({ ok: false, error: "item_not_found" }, 404);

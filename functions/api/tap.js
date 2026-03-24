@@ -4,7 +4,8 @@ import {
   extractUser,
   loadUser,
   saveUser,
-  ensureDaily
+  ensureDaily,
+  isBanned
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -47,6 +48,12 @@ export async function onRequestPost(context) {
     tgUser.username
   );
   ensureDaily(user);
+  if (isBanned(user)) {
+    return jsonResponse(
+      { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
+      403
+    );
+  }
   const now = Date.now();
 
   // No strict rate limit for MVP; allow fast tapping.

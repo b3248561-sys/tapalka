@@ -15,6 +15,11 @@
       <button id="clearLocal" class="ghost">Стереть ключи</button>
     </header>
 
+    <nav class="tabs">
+      <button id="tabLogs" class="tab is-active" data-view="logs">Логи</button>
+      <button id="tabAdmin" class="tab" data-view="admin">Админ</button>
+    </nav>
+
     <section class="card">
       <h2>Подключение устройства</h2>
       <div class="grid">
@@ -38,7 +43,7 @@
       <div class="device-info" id="deviceInfo"></div>
     </section>
 
-    <section class="card">
+    <section class="card view" data-view="logs">
       <h2>Логи</h2>
       <div class="row">
         <input id="filterInput" type="text" placeholder="Фильтр: userId, ник, ip, action" />
@@ -62,6 +67,41 @@
           <tbody id="logsBody"></tbody>
         </table>
       </div>
+    </section>
+
+    <section class="card view" data-view="admin" style="display:none">
+      <h2>Админ</h2>
+      <div class="grid">
+        <label>
+          User ID
+          <input id="adminUserId" type="text" placeholder="123456789" />
+        </label>
+        <label>
+          Баланс (±)
+          <input id="adminDeltaBalance" type="number" step="1" placeholder="Напр. -50 или 200" />
+        </label>
+        <label>
+          Установить баланс
+          <input id="adminSetBalance" type="number" step="1" placeholder="Напр. 5000" />
+        </label>
+        <label>
+          Установить силу тапа
+          <input id="adminSetTapValue" type="number" step="1" placeholder="Напр. 3" />
+        </label>
+        <label>
+          Бан на минут
+          <input id="adminBanMinutes" type="number" step="1" placeholder="Напр. 60" />
+        </label>
+      </div>
+      <div class="row">
+        <button id="adminLoadUser">Загрузить пользователя</button>
+        <button id="adminApply">Применить изменения</button>
+        <button id="adminUnban" class="ghost">Снять бан</button>
+        <button id="adminResetDaily" class="ghost">Сбросить день</button>
+        <button id="adminClearBoost" class="ghost">Сбросить буст</button>
+      </div>
+      <div id="adminStatus" class="muted"></div>
+      <div id="adminUserCard" class="admin-card muted">Пользователь не загружен.</div>
     </section>
 
     <script src="./app.js"></script>

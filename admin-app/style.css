@@ -23,6 +23,28 @@ h2 {
   gap: 16px;
 }
 
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.tab {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #2b313d;
+  background: #1a1f2c;
+  color: #c9d2dc;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab.is-active {
+  background: #4c7dff;
+  border-color: #4c7dff;
+  color: #fff;
+}
+
 .muted {
   color: #a7b0bb;
   font-size: 14px;
@@ -175,4 +197,16 @@ tbody tr:hover {
 .detail-table th {
   background: #1a1f2c;
   color: #b8c2cf;
+}
+
+.admin-card {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed #2b313d;
+  background: #10141c;
+}
+
+.admin-card strong {
+  color: #e6edf3;
 }

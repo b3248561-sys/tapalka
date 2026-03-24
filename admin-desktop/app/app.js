@@ -11,7 +11,23 @@ const elements = {
   logsStatus: document.getElementById("logsStatus"),
   logsBody: document.getElementById("logsBody"),
   filterInput: document.getElementById("filterInput"),
-  clearLocal: document.getElementById("clearLocal")
+  clearLocal: document.getElementById("clearLocal"),
+  tabLogs: document.getElementById("tabLogs"),
+  tabAdmin: document.getElementById("tabAdmin"),
+  adminView: document.querySelector('[data-view="admin"]'),
+  logsView: document.querySelector('[data-view="logs"]'),
+  adminUserId: document.getElementById("adminUserId"),
+  adminDeltaBalance: document.getElementById("adminDeltaBalance"),
+  adminSetBalance: document.getElementById("adminSetBalance"),
+  adminSetTapValue: document.getElementById("adminSetTapValue"),
+  adminBanMinutes: document.getElementById("adminBanMinutes"),
+  adminLoadUser: document.getElementById("adminLoadUser"),
+  adminApply: document.getElementById("adminApply"),
+  adminUnban: document.getElementById("adminUnban"),
+  adminResetDaily: document.getElementById("adminResetDaily"),
+  adminClearBoost: document.getElementById("adminClearBoost"),
+  adminStatus: document.getElementById("adminStatus"),
+  adminUserCard: document.getElementById("adminUserCard")
 };
 
 function saveState(state) {
@@ -277,26 +293,37 @@ async function loadLogs() {
   }
   const serverUrl = state.serverUrl || DEFAULT_SERVER;
   setStatus(elements.logsStatus, "Загружаю логи...");
-  const resp = await fetch(`${serverUrl}/api/admin/logs?limit=100`, {
-    headers: {
-      "x-device-id": state.deviceId,
-      "x-device-token": state.deviceToken
+  let cursor;
+  const allLogs = [];
+  while (true) {
+    const url = new URL(`${serverUrl}/api/admin/logs`);
+    url.searchParams.set("limit", "200");
+    if (cursor) url.searchParams.set("cursor", cursor);
+    let resp;
+    let data;
+    try {
+      resp = await fetch(url.toString(), {
+        headers: {
+          "x-device-id": state.deviceId,
+          "x-device-token": state.deviceToken
+        }
+      });
+      data = await resp.json();
+    } catch {
+      setStatus(elements.logsStatus, "Ошибка чтения ответа сервера.", true);
+      return;
     }
-  });
-  let data;
-  try {
-    data = await resp.json();
-  } catch {
-    setStatus(elements.logsStatus, "Ошибка чтения ответа сервера.", true);
-    return;
-  }
-  if (!data.ok) {
-    setStatus(elements.logsStatus, data.error || "Ошибка загрузки", true);
-    return;
+    if (!data.ok) {
+      setStatus(elements.logsStatus, data.error || "Ошибка загрузки", true);
+      return;
+    }
+    allLogs.push(...(data.logs || []));
+    cursor = data.cursor;
+    if (!cursor) break;
   }
   const privateKey = await getPrivateKey();
   const rows = [];
-  for (const log of data.logs) {
+  for (const log of allLogs) {
     let payload = null;
     try {
       payload = await decryptLog(log.enc, state.deviceId, privateKey);
@@ -380,11 +407,144 @@ function clearLocal() {
   elements.logsBody.innerHTML = "";
 }
 
+function setActiveView(view) {
+  const isAdmin = view === "admin";
+  if (elements.logsView) elements.logsView.style.display = isAdmin ? "none" : "";
+  if (elements.adminView) elements.adminView.style.display = isAdmin ? "" : "none";
+  if (elements.tabLogs) elements.tabLogs.classList.toggle("is-active", !isAdmin);
+  if (elements.tabAdmin) elements.tabAdmin.classList.toggle("is-active", isAdmin);
+}
+
+function toNumber(value) {
+  if (value === "" || value === null || value === undefined) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function renderAdminUser(user) {
+  if (!user) {
+    elements.adminUserCard.textContent = "Пользователь не загружен.";
+    return;
+  }
+  const bannedUntil = user.bannedUntil && Number(user.bannedUntil) > Date.now()
+    ? new Date(user.bannedUntil).toLocaleString()
+    : "нет";
+  elements.adminUserCard.innerHTML = `
+    <div><strong>ID:</strong> ${user.id}</div>
+    <div><strong>Ник:</strong> ${user.username ? `@${user.username}` : user.name || "-"}</div>
+    <div><strong>Баланс:</strong> ${user.balance}</div>
+    <div><strong>Сила тапа:</strong> ${user.tapValue}</div>
+    <div><strong>Всего тапов:</strong> ${user.totalTaps || 0}</div>
+    <div><strong>Заработано:</strong> ${user.totalEarned || 0}</div>
+    <div><strong>Буст до:</strong> ${user.boostUntil ? new Date(user.boostUntil).toLocaleString() : "нет"}</div>
+    <div><strong>Бан до:</strong> ${bannedUntil}</div>
+  `;
+}
+
+async function adminFetch(path, options = {}) {
+  const state = getState();
+  if (!state.deviceId || !state.deviceToken) {
+    setStatus(elements.adminStatus, "Сначала зарегистрируйте устройство.", true);
+    return null;
+  }
+  const serverUrl = state.serverUrl || DEFAULT_SERVER;
+  try {
+    const resp = await fetch(`${serverUrl}${path}`, {
+      ...options,
+      headers: {
+        "content-type": "application/json",
+        "x-device-id": state.deviceId,
+        "x-device-token": state.deviceToken,
+        ...(options.headers || {})
+      }
+    });
+    return await resp.json();
+  } catch {
+    setStatus(elements.adminStatus, "Ошибка сети или доступа к серверу.", true);
+    return null;
+  }
+}
+
+async function loadAdminUser() {
+  const userId = elements.adminUserId.value.trim();
+  if (!userId) {
+    setStatus(elements.adminStatus, "Введите User ID.", true);
+    return;
+  }
+  setStatus(elements.adminStatus, "Загружаю пользователя...");
+  const data = await adminFetch(`/api/admin/user?userId=${encodeURIComponent(userId)}`);
+  if (!data) return;
+  if (!data.ok) {
+    setStatus(elements.adminStatus, data.error || "Пользователь не найден.", true);
+    renderAdminUser(null);
+    return;
+  }
+  renderAdminUser(data.user);
+  setStatus(elements.adminStatus, "Пользователь загружен.");
+}
+
+async function applyAdminChanges(extra = {}) {
+  const userId = elements.adminUserId.value.trim();
+  if (!userId) {
+    setStatus(elements.adminStatus, "Введите User ID.", true);
+    return;
+  }
+  const payload = {
+    userId,
+    deltaBalance: toNumber(elements.adminDeltaBalance.value),
+    setBalance: toNumber(elements.adminSetBalance.value),
+    setTapValue: toNumber(elements.adminSetTapValue.value),
+    banMinutes: toNumber(elements.adminBanMinutes.value),
+    ...extra
+  };
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === null || payload[key] === undefined || payload[key] === "") {
+      delete payload[key];
+    }
+  });
+  if (Object.keys(payload).length <= 1) {
+    setStatus(elements.adminStatus, "Нет изменений для применения.", true);
+    return;
+  }
+  setStatus(elements.adminStatus, "Применяю изменения...");
+  const data = await adminFetch("/api/admin/adjust", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  if (!data) return;
+  if (!data.ok) {
+    setStatus(elements.adminStatus, data.error || "Ошибка изменения.", true);
+    return;
+  }
+  renderAdminUser(data.user);
+  setStatus(elements.adminStatus, "Изменения применены.");
+}
+
+async function unbanUser() {
+  await applyAdminChanges({ banMinutes: 0 });
+}
+
+async function resetDaily() {
+  await applyAdminChanges({ resetDaily: true });
+}
+
+async function clearBoost() {
+  await applyAdminChanges({ clearBoost: true });
+}
+
 elements.enrollBtn.addEventListener("click", enrollDevice);
 elements.loadLogs.addEventListener("click", loadLogs);
 elements.clearLocal.addEventListener("click", clearLocal);
+elements.tabLogs?.addEventListener("click", () => setActiveView("logs"));
+elements.tabAdmin?.addEventListener("click", () => setActiveView("admin"));
+elements.adminLoadUser?.addEventListener("click", loadAdminUser);
+elements.adminApply?.addEventListener("click", () => applyAdminChanges());
+elements.adminUnban?.addEventListener("click", unbanUser);
+elements.adminResetDaily?.addEventListener("click", resetDaily);
+elements.adminClearBoost?.addEventListener("click", clearBoost);
 
 const state = getState();
 elements.serverUrl.value = state.serverUrl || DEFAULT_SERVER;
 elements.deviceName.value = state.deviceName || "My Device";
 renderDeviceInfo();
+setActiveView("logs");
