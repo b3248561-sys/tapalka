@@ -3,6 +3,9 @@ const balanceLabelEl = document.getElementById("balanceLabel");
 const tapBtn = document.getElementById("tap");
 const rankEl = document.getElementById("rank");
 const rankBarEl = document.getElementById("rankBar");
+const energyLabelEl = document.getElementById("energyLabel");
+const energyTextEl = document.getElementById("energyText");
+const energyBarEl = document.getElementById("energyBar");
 const metaEl = document.getElementById("meta");
 const titleEl = document.getElementById("title");
 const subtitleEl = document.getElementById("subtitle");
@@ -43,6 +46,11 @@ let boostUntil = 0;
 let questsState = [];
 let rankState = null;
 let lastQuestSyncAt = 0;
+let energy = 0;
+let maxEnergy = 0;
+let energyRegen = 1;
+let energySyncedAt = Date.now();
+let lastTapPoint = null;
 
 const STRINGS = {
   en: {
@@ -86,10 +94,16 @@ const STRINGS = {
     energyDesc: "+{bonus} tap power",
     turboName: "Turbo Core",
     turboDesc: "+{bonus} tap power",
+    capName: "Energy Tank",
+    capDesc: "+{bonus} max energy",
+    rechargeName: "Recharge Chip",
+    rechargeDesc: "+{bonus} energy/sec",
     boostName: "x2 Booster",
     boostDesc: "x2 taps for {seconds}s",
     player: "Player: {name}",
     niceTap: "Nice tap",
+    energyLabel: "Energy",
+    energyEmpty: "No energy",
     authError: "Auth error",
     failedLoad: "Failed to load",
     tryAgain: "Try again",
@@ -137,10 +151,16 @@ const STRINGS = {
     energyDesc: "+{bonus} к силе тапа",
     turboName: "Турбо ядро",
     turboDesc: "+{bonus} к силе тапа",
+    capName: "Энерго-резерв",
+    capDesc: "+{bonus} к энергии",
+    rechargeName: "Микро заряд",
+    rechargeDesc: "+{bonus} энергии/с",
     boostName: "Бустер x2",
     boostDesc: "x2 тапы на {seconds}с",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
+    energyLabel: "Энергия",
+    energyEmpty: "Нет энергии",
     authError: "Ошибка авторизации",
     failedLoad: "Не удалось загрузить",
     tryAgain: "Попробуй еще",
@@ -166,8 +186,14 @@ const STRINGS = {
     energyDesc: "+{bonus} fuerza de toque",
     turboName: "Núcleo turbo",
     turboDesc: "+{bonus} fuerza de toque",
+    capName: "Tanque de energía",
+    capDesc: "+{bonus} energía máxima",
+    rechargeName: "Chip de recarga",
+    rechargeDesc: "+{bonus} energía/seg",
     player: "Jugador: {name}",
     niceTap: "Buen toque",
+    energyLabel: "Energia",
+    energyEmpty: "Sin energia",
     authError: "Error de autorización",
     failedLoad: "No se pudo cargar",
     tryAgain: "Inténtalo de nuevo",
@@ -193,8 +219,14 @@ const STRINGS = {
     energyDesc: "+{bonus} força de toque",
     turboName: "Núcleo turbo",
     turboDesc: "+{bonus} força de toque",
+    capName: "Tanque de energia",
+    capDesc: "+{bonus} energia máxima",
+    rechargeName: "Chip de recarga",
+    rechargeDesc: "+{bonus} energia/seg",
     player: "Jogador: {name}",
     niceTap: "Bom toque",
+    energyLabel: "Energia",
+    energyEmpty: "Sem energia",
     authError: "Erro de autorização",
     failedLoad: "Falha ao carregar",
     tryAgain: "Tente novamente",
@@ -220,8 +252,14 @@ const STRINGS = {
     energyDesc: "+{bonus} dokunuş gücü",
     turboName: "Turbo çekirdek",
     turboDesc: "+{bonus} dokunuş gücü",
+    capName: "Enerji tankı",
+    capDesc: "+{bonus} maksimum enerji",
+    rechargeName: "Şarj çipi",
+    rechargeDesc: "+{bonus} enerji/sn",
     player: "Oyuncu: {name}",
     niceTap: "Güzel dokunuş",
+    energyLabel: "Enerji",
+    energyEmpty: "Enerji yok",
     authError: "Yetkilendirme hatası",
     failedLoad: "Yüklenemedi",
     tryAgain: "Tekrar dene",
@@ -247,8 +285,14 @@ const STRINGS = {
     energyDesc: "+{bonus} kekuatan tap",
     turboName: "Inti turbo",
     turboDesc: "+{bonus} kekuatan tap",
+    capName: "Tangki energi",
+    capDesc: "+{bonus} energi maksimum",
+    rechargeName: "Chip isi ulang",
+    rechargeDesc: "+{bonus} energi/dtk",
     player: "Pemain: {name}",
     niceTap: "Ketukan bagus",
+    energyLabel: "Energi",
+    energyEmpty: "Energi habis",
     authError: "Kesalahan otorisasi",
     failedLoad: "Gagal memuat",
     tryAgain: "Coba lagi",
@@ -274,8 +318,14 @@ const STRINGS = {
     energyDesc: "+{bonus} Tipp-Kraft",
     turboName: "Turbo-Kern",
     turboDesc: "+{bonus} Tipp-Kraft",
+    capName: "Energie-Tank",
+    capDesc: "+{bonus} max Energie",
+    rechargeName: "Ladechip",
+    rechargeDesc: "+{bonus} Energie/s",
     player: "Spieler: {name}",
     niceTap: "Guter Tipp",
+    energyLabel: "Energie",
+    energyEmpty: "Keine Energie",
     authError: "Autorisierungsfehler",
     failedLoad: "Laden fehlgeschlagen",
     tryAgain: "Erneut versuchen",
@@ -301,8 +351,14 @@ const STRINGS = {
     energyDesc: "+{bonus} puissance de tap",
     turboName: "Noyau turbo",
     turboDesc: "+{bonus} puissance de tap",
+    capName: "Réservoir d'énergie",
+    capDesc: "+{bonus} énergie max",
+    rechargeName: "Puce de recharge",
+    rechargeDesc: "+{bonus} énergie/s",
     player: "Joueur : {name}",
     niceTap: "Bon tap",
+    energyLabel: "Énergie",
+    energyEmpty: "Plus d'énergie",
     authError: "Erreur d'autorisation",
     failedLoad: "Échec du chargement",
     tryAgain: "Réessayer",
@@ -361,6 +417,7 @@ function applyTexts() {
   if (subtitleEl) subtitleEl.textContent = t("subtitle");
   if (tapBtn) tapBtn.textContent = t("tap");
   if (balanceLabelEl) balanceLabelEl.textContent = t("balanceLabel");
+  if (energyLabelEl) energyLabelEl.textContent = t("energyLabel");
   if (shopTitleEl) shopTitleEl.textContent = t("shopTitle");
   if (shopSubtitleEl) shopSubtitleEl.textContent = t("shopSubtitle");
   if (questsTitleEl) questsTitleEl.textContent = t("questsTitle");
@@ -385,11 +442,13 @@ function applyTexts() {
 function setMeta(key, vars = {}) {
   metaState = { key, vars };
   metaEl.textContent = t(key, vars);
+  if (metaEl) metaEl.classList.toggle("error", key === "noEnergy" || key === "energyEmpty" || key === "authError");
 }
 
 function setMetaText(text) {
   metaState = { key: "custom", vars: {} };
   metaEl.textContent = text;
+  if (metaEl) metaEl.classList.add("error");
 }
 
 if (tg) {
@@ -463,6 +522,35 @@ function updateBalance(value) {
   });
 }
 
+function updateEnergy(value, max, regen) {
+  if (typeof value === "number") energy = value;
+  if (typeof max === "number") maxEnergy = max;
+  if (typeof regen === "number") energyRegen = regen;
+  energySyncedAt = Date.now();
+  if (energyTextEl) energyTextEl.textContent = `${Math.round(energy)}/${Math.round(maxEnergy)}`;
+  if (energyBarEl) {
+    const pct = maxEnergy > 0 ? Math.min(100, (energy / maxEnergy) * 100) : 0;
+    energyBarEl.style.width = `${pct}%`;
+  }
+}
+
+function tickEnergy() {
+  if (!maxEnergy || !energyRegen) return;
+  if (energy >= maxEnergy) return;
+  const now = Date.now();
+  const elapsed = (now - energySyncedAt) / 1000;
+  if (elapsed <= 0) return;
+  const regen = Math.floor(elapsed * energyRegen);
+  if (regen <= 0) return;
+  energy = Math.min(maxEnergy, energy + regen);
+  energySyncedAt = now;
+  if (energyTextEl) energyTextEl.textContent = `${Math.round(energy)}/${Math.round(maxEnergy)}`;
+  if (energyBarEl) {
+    const pct = maxEnergy > 0 ? Math.min(100, (energy / maxEnergy) * 100) : 0;
+    energyBarEl.style.width = `${pct}%`;
+  }
+}
+
 function updateTapValue(value) {
   tapValue = value || 1;
   if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
@@ -519,6 +607,17 @@ function updateBoostStatus() {
   renderShop();
 }
 
+function renderSkeletons() {
+  const skeletonItem = '<div class="skeleton-card"></div>';
+  if (shopListEl) shopListEl.innerHTML = skeletonItem.repeat(3);
+  if (questsListEl) questsListEl.innerHTML = skeletonItem.repeat(2);
+}
+
+function setLoadingState(isLoading) {
+  document.body.classList.toggle("loading", isLoading);
+  if (isLoading) renderSkeletons();
+}
+
 function renderShop() {
   if (!shopListEl || !Array.isArray(shopState) || shopState.length === 0) return;
   shopListEl.innerHTML = "";
@@ -534,7 +633,13 @@ function renderShop() {
     meta.className = "shop-meta";
 
     title.textContent = t(`${item.id}Name`);
-    desc.textContent = t(`${item.id}Desc`, { bonus: item.tapBonus });
+    const bonusValue =
+      item.type === "energy_cap"
+        ? item.energyBonus
+        : item.type === "energy_regen"
+        ? item.regenBonus
+        : item.tapBonus;
+    desc.textContent = t(`${item.id}Desc`, { bonus: bonusValue });
     const levelText = document.createElement("span");
     const priceText = document.createElement("span");
     if (item.type === "boost") {
@@ -634,6 +739,9 @@ function renderQuests() {
           return;
         }
         updateBalance(data.balance);
+        if (typeof data.energy === "number") {
+          updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+        }
         rankState = data.rank || rankState;
         questsState = data.quests || questsState;
         updateRank();
@@ -668,6 +776,9 @@ async function loadShop() {
   }
   shopState = data.items || [];
   updateTapValue(data.tapValue || 1);
+  if (typeof data.energy === "number") {
+    updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+  }
   boostUntil = data.boostUntil || 0;
   renderShop();
 }
@@ -696,6 +807,7 @@ async function loadQuests({ silent = false } = {}) {
 }
 
 async function init() {
+  setLoadingState(true);
   try {
     const profile = await loadProfile();
     if (!profile.ok) {
@@ -708,11 +820,14 @@ async function init() {
     lastDailyTs = profile.user.lastDailyTs || 0;
     boostUntil = profile.user.boostUntil || 0;
     rankState = profile.user.rank || null;
+    updateEnergy(profile.user.energy, profile.user.maxEnergy, profile.user.energyRegen);
     updateDailyStatus();
     await loadShop();
     await loadQuests();
   } catch (err) {
     setMeta("failedLoad");
+  } finally {
+    setLoadingState(false);
   }
 }
 
@@ -720,7 +835,7 @@ tapBtn.addEventListener("click", async () => {
   const now = Date.now();
   if (now - lastTouchAt < 300) return;
   if (now - lastPointerDownAt < 300) return;
-  await sendTap(1);
+  await sendTap(1, lastTapPoint);
 });
 
 tapBtn.addEventListener(
@@ -728,8 +843,11 @@ tapBtn.addEventListener(
   async (event) => {
     lastTouchAt = Date.now();
     const count = Math.max(1, event.touches?.length || 1);
+    if (event.touches && event.touches[0]) {
+      lastTapPoint = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    }
     event.preventDefault();
-    await sendTap(count);
+    await sendTap(count, lastTapPoint);
   },
   { passive: false }
 );
@@ -737,7 +855,8 @@ tapBtn.addEventListener(
 tapBtn.addEventListener("pointerdown", async (event) => {
   if (event.pointerType === "touch") return;
   lastPointerDownAt = Date.now();
-  await sendTap(1);
+  lastTapPoint = { x: event.clientX, y: event.clientY };
+  await sendTap(1, lastTapPoint);
 });
 
 langToggle.addEventListener("click", () => {
@@ -776,6 +895,9 @@ if (dailyBtnEl) {
         return;
       }
       updateBalance(data.balance);
+      if (typeof data.energy === "number") {
+        updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+      }
       lastDailyTs = Date.now();
       updateDailyStatus();
     } catch {
@@ -786,7 +908,11 @@ if (dailyBtnEl) {
   });
 }
 
-async function sendTap(count = 1) {
+async function sendTap(count = 1, point = null) {
+  if (!demoMode && energy <= 0) {
+    setMeta("energyEmpty");
+    return;
+  }
   try {
     const data = await apiRequest("/api/tap", {
       method: "POST",
@@ -795,6 +921,8 @@ async function sendTap(count = 1) {
     if (!data.ok) {
       if (data.error === "rate_limited") {
         setMeta("rateLimited");
+      } else if (data.error === "no_energy") {
+        setMeta("energyEmpty");
       } else if (data.error) {
         setMetaText(data.error);
       } else {
@@ -804,10 +932,18 @@ async function sendTap(count = 1) {
     }
     updateBalance(data.balance);
     if (data.tapValue) updateTapValue(data.tapValue);
+    if (typeof data.energy === "number") {
+      updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+    }
     if (data.boostUntil) boostUntil = data.boostUntil;
     setMeta("niceTap");
     const mult = data.multiplier || 1;
-    showSpark(`+${(data.tapValue || 1) * count * mult}`);
+    showSpark(`+${(data.tapValue || 1) * count * mult}`, point);
+    if (tg?.HapticFeedback?.impactOccurred) {
+      tg.HapticFeedback.impactOccurred("light");
+    } else if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
     const now = Date.now();
     if (now - lastQuestSyncAt > 1000) {
       lastQuestSyncAt = now;
@@ -818,16 +954,24 @@ async function sendTap(count = 1) {
   }
 }
 
-function showSpark(text) {
+function showSpark(text, point = null) {
   const panel = document.querySelector(".panel");
   if (!panel) return;
   const spark = document.createElement("div");
   spark.className = "spark";
   spark.textContent = text;
-  const x = 40 + Math.random() * (panel.clientWidth - 80);
-  const y = 40 + Math.random() * 60;
-  spark.style.left = `${x}px`;
-  spark.style.top = `${y}px`;
+  const rect = panel.getBoundingClientRect();
+  if (point && point.x && point.y) {
+    const x = Math.min(Math.max(point.x - rect.left, 20), rect.width - 20);
+    const y = Math.min(Math.max(point.y - rect.top, 30), rect.height - 80);
+    spark.style.left = `${x}px`;
+    spark.style.top = `${y}px`;
+  } else {
+    const x = 40 + Math.random() * (panel.clientWidth - 80);
+    const y = 40 + Math.random() * 60;
+    spark.style.left = `${x}px`;
+    spark.style.top = `${y}px`;
+  }
   panel.appendChild(spark);
   setTimeout(() => spark.remove(), 800);
 }
@@ -864,6 +1008,7 @@ function renderLangMenu() {
 
 setInterval(() => {
   updateDailyStatus();
+  tickEnergy();
   if (boostUntil && Date.now() < boostUntil) {
     renderShop();
   }

@@ -5,7 +5,8 @@ import {
   loadUser,
   saveUser,
   ensureDaily,
-  isBanned
+  isBanned,
+  syncEnergy
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -48,13 +49,21 @@ export async function onRequestPost(context) {
     tgUser.username
   );
   ensureDaily(user);
+  const now = Date.now();
+  syncEnergy(user, now);
   if (isBanned(user)) {
     return jsonResponse(
       { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
       403
     );
   }
-  const now = Date.now();
+  if (user.energy <= 0) {
+    return jsonResponse(
+      { ok: false, error: "no_energy", energy: user.energy, maxEnergy: user.maxEnergy },
+      400
+    );
+  }
+  count = Math.min(count, user.energy);
 
   // No strict rate limit for MVP; allow fast tapping.
   const boostActive = user.boostUntil && now < user.boostUntil;
@@ -68,6 +77,8 @@ export async function onRequestPost(context) {
   user.totalTaps = (user.totalTaps || 0) + count;
   user.dailyTapCount = (user.dailyTapCount || 0) + count;
   user.lastTapTs = now;
+  user.energy = Math.max(0, (user.energy || 0) - count);
+  user.lastEnergyTs = now;
 
   if (!user.lastLogTs || now - user.lastLogTs > 2000) {
     user.lastLogTs = now;
@@ -91,6 +102,9 @@ export async function onRequestPost(context) {
     tapValue: user.tapValue || 1,
     multiplier,
     boostUntil: user.boostUntil || 0,
+    energy: user.energy,
+    maxEnergy: user.maxEnergy,
+    energyRegen: user.energyRegen || 1,
     windowCount: user.windowCount,
     lastTapTs: user.lastTapTs
   });

@@ -5,7 +5,9 @@ import {
   loadUser,
   SHOP_ITEMS,
   computePrice,
-  getItemLevel
+  getItemLevel,
+  syncEnergy,
+  saveUser
 } from "../_shared/utils.js";
 
 export async function onRequest(context) {
@@ -38,6 +40,8 @@ export async function onRequest(context) {
     tgUser.username
   );
   const now = Date.now();
+  const changed = syncEnergy(user, now);
+  if (changed) await saveUser(env, user);
   const items = SHOP_ITEMS.map((item) => {
     const level = getItemLevel(user, item.id);
     const price = computePrice(item, level);
@@ -48,6 +52,8 @@ export async function onRequest(context) {
         type: item.type,
         basePrice: item.basePrice,
         tapBonus: item.tapBonus,
+        energyBonus: item.energyBonus,
+        regenBonus: item.regenBonus,
         maxLevel: item.maxLevel,
         level,
         price,
@@ -61,6 +67,8 @@ export async function onRequest(context) {
       type: item.type,
       basePrice: item.basePrice,
       tapBonus: item.tapBonus,
+      energyBonus: item.energyBonus,
+      regenBonus: item.regenBonus,
       maxLevel: item.maxLevel,
       level,
       price
@@ -72,6 +80,9 @@ export async function onRequest(context) {
     items,
     balance: user.balance,
     tapValue: user.tapValue || 1,
-    boostUntil: user.boostUntil || 0
+    boostUntil: user.boostUntil || 0,
+    energy: user.energy,
+    maxEnergy: user.maxEnergy,
+    energyRegen: user.energyRegen || 1
   });
 }

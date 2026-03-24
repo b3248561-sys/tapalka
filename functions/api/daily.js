@@ -4,7 +4,8 @@ import {
   extractUser,
   loadUser,
   saveUser,
-  isBanned
+  isBanned,
+  syncEnergy
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -45,13 +46,15 @@ export async function onRequestPost(context) {
     tgUser.first_name,
     tgUser.username
   );
+  const now = Date.now();
+  const changed = syncEnergy(user, now);
+  if (changed) await saveUser(env, user);
   if (isBanned(user)) {
     return jsonResponse(
       { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
       403
     );
   }
-  const now = Date.now();
   const nextAt = (user.lastDailyTs || 0) + DAY_MS;
   if (now < nextAt) {
     return jsonResponse({
@@ -71,7 +74,10 @@ export async function onRequestPost(context) {
     ok: true,
     reward,
     balance: user.balance,
-    nextAt: now + DAY_MS
+    nextAt: now + DAY_MS,
+    energy: user.energy,
+    maxEnergy: user.maxEnergy,
+    energyRegen: user.energyRegen || 1
   });
 }
 

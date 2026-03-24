@@ -8,7 +8,8 @@ import {
   computePrice,
   getItemLevel,
   ensureDaily,
-  isBanned
+  isBanned,
+  syncEnergy
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -53,6 +54,8 @@ export async function onRequestPost(context) {
     tgUser.username
   );
   ensureDaily(user);
+  const now = Date.now();
+  syncEnergy(user, now);
   if (isBanned(user)) {
     return jsonResponse(
       { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
@@ -65,7 +68,6 @@ export async function onRequestPost(context) {
   }
 
   if (item.type === "boost") {
-    const now = Date.now();
     if (user.boostUntil && now < user.boostUntil) {
       return jsonResponse({ ok: false, error: "boost_active" }, 400);
     }
@@ -88,6 +90,9 @@ export async function onRequestPost(context) {
       ok: true,
       balance: user.balance,
       tapValue: user.tapValue || 1,
+      energy: user.energy,
+      maxEnergy: user.maxEnergy,
+      energyRegen: user.energyRegen || 1,
       boostUntil: user.boostUntil,
       item: {
         id: item.id,
@@ -110,7 +115,14 @@ export async function onRequestPost(context) {
 
   user.balance -= price;
   user.items[item.id] = level + 1;
-  user.tapValue = (user.tapValue || 1) + item.tapBonus;
+  if (item.type === "upgrade") {
+    user.tapValue = (user.tapValue || 1) + (item.tapBonus || 0);
+  } else if (item.type === "energy_cap") {
+    user.maxEnergy = (user.maxEnergy || 50) + (item.energyBonus || 0);
+    user.energy = Math.min(user.maxEnergy, (user.energy || 0) + (item.energyBonus || 0));
+  } else if (item.type === "energy_regen") {
+    user.energyRegen = (user.energyRegen || 1) + (item.regenBonus || 1);
+  }
   user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
 
   await saveUser(env, user);
@@ -119,7 +131,9 @@ export async function onRequestPost(context) {
       itemId: item.id,
       level: user.items[item.id],
       price,
-      tapBonus: item.tapBonus
+      tapBonus: item.tapBonus,
+      energyBonus: item.energyBonus,
+      regenBonus: item.regenBonus
     })
   );
 
@@ -127,12 +141,17 @@ export async function onRequestPost(context) {
     ok: true,
     balance: user.balance,
     tapValue: user.tapValue,
+    energy: user.energy,
+    maxEnergy: user.maxEnergy,
+    energyRegen: user.energyRegen || 1,
     item: {
       id: item.id,
       level: user.items[item.id],
       maxLevel: item.maxLevel,
       price: computePrice(item, user.items[item.id]),
-      tapBonus: item.tapBonus
+      tapBonus: item.tapBonus,
+      energyBonus: item.energyBonus,
+      regenBonus: item.regenBonus
     }
   });
 }

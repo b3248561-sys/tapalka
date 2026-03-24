@@ -7,7 +7,8 @@ import {
   getDailyQuests,
   ensureDaily,
   getRank,
-  isBanned
+  isBanned,
+  syncEnergy
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -52,6 +53,9 @@ export async function onRequestPost(context) {
     tgUser.username
   );
   ensureDaily(user);
+  const now = Date.now();
+  const changed = syncEnergy(user, now);
+  if (changed) await saveUser(env, user);
   if (isBanned(user)) {
     return jsonResponse(
       { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
@@ -85,7 +89,10 @@ export async function onRequestPost(context) {
     reward: quest.reward,
     balance: user.balance,
     quests: getDailyQuests(user),
-    rank: getRank(user.totalEarned || 0)
+    rank: getRank(user.totalEarned || 0),
+    energy: user.energy,
+    maxEnergy: user.maxEnergy,
+    energyRegen: user.energyRegen || 1
   });
 }
 

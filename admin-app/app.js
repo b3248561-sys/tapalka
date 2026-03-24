@@ -194,6 +194,7 @@ function pickNickname(user) {
   if (!user) return "-";
   if (user.username) return `@${user.username}`;
   if (user.name) return user.name;
+  if (user.id) return `User ${user.id}`;
   return "-";
 }
 

@@ -4,7 +4,9 @@ import {
   extractUser,
   loadUser,
   getRank,
-  ensureDaily
+  ensureDaily,
+  syncEnergy,
+  saveUser
 } from "../_shared/utils.js";
 
 export async function onRequest(context) {
@@ -15,6 +17,9 @@ export async function onRequest(context) {
 
   if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
     const profile = await loadUser(env, String(demoUserId), "Demo", "demo");
+    const now = Date.now();
+    const changed = syncEnergy(profile, now);
+    if (changed) await saveUser(env, profile);
     return jsonResponse({ ok: true, user: profile });
   }
 
@@ -39,6 +44,9 @@ export async function onRequest(context) {
     tgUser.username
   );
   ensureDaily(profile);
+  const now = Date.now();
+  const changed = syncEnergy(profile, now);
+  if (changed) await saveUser(env, profile);
   const rank = getRank(profile.totalEarned || 0);
   return jsonResponse({
     ok: true,
@@ -51,6 +59,9 @@ export async function onRequest(context) {
       boostUntil: profile.boostUntil || 0,
       lastDailyTs: profile.lastDailyTs || 0,
       totalEarned: profile.totalEarned || 0,
+      energy: profile.energy,
+      maxEnergy: profile.maxEnergy,
+      energyRegen: profile.energyRegen || 1,
       rank
     }
   });

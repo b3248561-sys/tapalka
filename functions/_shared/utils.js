@@ -82,7 +82,11 @@ export async function loadUser(env, userId, name, username) {
       windowStartTs: 0,
       windowCount: 0,
       lastLogTs: 0,
-      bannedUntil: 0
+      bannedUntil: 0,
+      maxEnergy: 50,
+      energy: 50,
+      energyRegen: 1,
+      lastEnergyTs: Date.now()
     };
     await env.KV.put(key, JSON.stringify(user));
   } else {
@@ -140,6 +144,24 @@ export const SHOP_ITEMS = [
     type: "upgrade"
   },
   {
+    id: "cap",
+    basePrice: 1200,
+    tapBonus: 0,
+    maxLevel: 8,
+    priceMult: 1.6,
+    type: "energy_cap",
+    energyBonus: 10
+  },
+  {
+    id: "recharge",
+    basePrice: 1800,
+    tapBonus: 0,
+    maxLevel: 6,
+    priceMult: 1.7,
+    type: "energy_regen",
+    regenBonus: 1
+  },
+  {
     id: "boost",
     basePrice: 5000,
     tapBonus: 0,
@@ -162,6 +184,14 @@ export function getItemLevel(user, itemId) {
 
 export function normalizeUser(user) {
   let dirty = false;
+  if (!user.name) {
+    user.name = "Player";
+    dirty = true;
+  }
+  if (typeof user.username !== "string") {
+    user.username = "";
+    dirty = true;
+  }
   if (!user.items || typeof user.items !== "object") {
     user.items = {};
     dirty = true;
@@ -210,6 +240,26 @@ export function normalizeUser(user) {
     user.bannedUntil = 0;
     dirty = true;
   }
+  if (!user.maxEnergy || user.maxEnergy < 10) {
+    user.maxEnergy = 50;
+    dirty = true;
+  }
+  if (!user.energyRegen || user.energyRegen < 1) {
+    user.energyRegen = 1;
+    dirty = true;
+  }
+  if (typeof user.energy !== "number") {
+    user.energy = user.maxEnergy;
+    dirty = true;
+  }
+  if (!user.lastEnergyTs) {
+    user.lastEnergyTs = Date.now();
+    dirty = true;
+  }
+  if (user.energy > user.maxEnergy) {
+    user.energy = user.maxEnergy;
+    dirty = true;
+  }
   const hasItems = Object.keys(user.items).length > 0;
   if (hasItems && user.tapValue === 1) {
     let tapValue = 1;
@@ -256,6 +306,33 @@ export function getRank(totalEarned) {
 export function isBanned(user) {
   if (!user?.bannedUntil) return false;
   return Date.now() < Number(user.bannedUntil);
+}
+
+export function syncEnergy(user, now = Date.now()) {
+  let changed = false;
+  if (typeof user.energy !== "number") {
+    user.energy = user.maxEnergy || 50;
+    changed = true;
+  }
+  if (!user.lastEnergyTs) {
+    user.lastEnergyTs = now;
+    return true;
+  }
+  if (user.energy >= user.maxEnergy) {
+    if (now - user.lastEnergyTs > 1000) {
+      user.lastEnergyTs = now;
+      changed = true;
+    }
+    return changed;
+  }
+  const elapsedMs = Math.max(0, now - user.lastEnergyTs);
+  const regen = Math.floor((elapsedMs / 1000) * (user.energyRegen || 1));
+  if (regen > 0) {
+    user.energy = Math.min(user.maxEnergy, user.energy + regen);
+    user.lastEnergyTs = now;
+    changed = true;
+  }
+  return changed;
 }
 
 export const DAILY_QUESTS = [
