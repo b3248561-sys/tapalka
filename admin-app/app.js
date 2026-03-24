@@ -347,7 +347,9 @@ async function loadLogs() {
             username: log.userUsername || ""
           }
         : null);
-    const userId = userInfo?.id || log.userId || "unknown";
+    const extra = payload?.extra || {};
+    const deviceId = extra.deviceId ? `device:${extra.deviceId}` : null;
+    const userId = userInfo?.id || log.userId || deviceId || "system";
     const entry = {
       ts: log.ts,
       action: log.action,
@@ -355,12 +357,16 @@ async function loadLogs() {
       ipHash: log.ipHash,
       rawIp: payload?.rawIp || "-",
       country: payload?.country || log.country || "-",
-      user: userInfo
+      user: userInfo,
+      extra
     };
     if (!grouped.has(userId)) {
+      const nick =
+        pickNickname(userInfo) ||
+        (extra.deviceName ? `Device: ${extra.deviceName}` : "System");
       grouped.set(userId, {
         userId,
-        nickname: pickNickname(userInfo),
+        nickname: nick === "-" ? "System" : nick,
         events: [entry]
       });
     } else {
