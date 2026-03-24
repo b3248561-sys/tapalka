@@ -409,11 +409,16 @@ function clearLocal() {
 }
 
 function setActiveView(view) {
-  const isAdmin = view === "admin";
-  if (elements.logsView) elements.logsView.style.display = isAdmin ? "none" : "";
-  if (elements.adminView) elements.adminView.style.display = isAdmin ? "" : "none";
-  if (elements.tabLogs) elements.tabLogs.classList.toggle("is-active", !isAdmin);
-  if (elements.tabAdmin) elements.tabAdmin.classList.toggle("is-active", isAdmin);
+  const target = view === "admin" ? "admin" : "logs";
+  const views = document.querySelectorAll(".view");
+  views.forEach((el) => {
+    el.style.display = el.dataset.view === target ? "" : "none";
+  });
+  if (elements.tabLogs) elements.tabLogs.classList.toggle("is-active", target === "logs");
+  if (elements.tabAdmin) elements.tabAdmin.classList.toggle("is-active", target === "admin");
+  if (target === "admin") {
+    setStatus(elements.adminStatus, "Админ режим активен.");
+  }
 }
 
 function toNumber(value) {
@@ -536,7 +541,10 @@ async function clearBoost() {
 elements.enrollBtn.addEventListener("click", enrollDevice);
 elements.loadLogs.addEventListener("click", loadLogs);
 elements.clearLocal.addEventListener("click", clearLocal);
-elements.openAdmin?.addEventListener("click", () => setActiveView("admin"));
+elements.openAdmin?.addEventListener("click", () => {
+  window.location.hash = "#admin";
+  setActiveView("admin");
+});
 elements.tabLogs?.addEventListener("click", () => setActiveView("logs"));
 elements.tabAdmin?.addEventListener("click", () => setActiveView("admin"));
 elements.adminLoadUser?.addEventListener("click", loadAdminUser);
@@ -549,4 +557,4 @@ const state = getState();
 elements.serverUrl.value = state.serverUrl || DEFAULT_SERVER;
 elements.deviceName.value = state.deviceName || "My Device";
 renderDeviceInfo();
-setActiveView("logs");
+setActiveView(window.location.hash === "#admin" ? "admin" : "logs");
