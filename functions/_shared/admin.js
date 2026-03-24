@@ -129,13 +129,23 @@ export function decodeBase64(b64) {
   return base64ToBytes(b64);
 }
 
+function getHeader(request, name) {
+  const target = String(name || "").toLowerCase();
+  if (!target) return "";
+  for (const [key, value] of request.headers.entries()) {
+    if (key.toLowerCase() === target) return value;
+  }
+  return "";
+}
+
 function getClientIp(request) {
   const direct =
-    request.headers.get("CF-Connecting-IP") ||
-    request.headers.get("x-real-ip") ||
-    request.headers.get("x-client-ip");
+    getHeader(request, "cf-connecting-ip") ||
+    getHeader(request, "true-client-ip") ||
+    getHeader(request, "x-real-ip") ||
+    getHeader(request, "x-client-ip");
   if (direct) return direct;
-  const forwarded = request.headers.get("x-forwarded-for") || "";
+  const forwarded = getHeader(request, "x-forwarded-for") || "";
   if (!forwarded) return "";
   return forwarded.split(",")[0].trim();
 }
@@ -143,7 +153,7 @@ function getClientIp(request) {
 function getCountry(request) {
   return (
     request.cf?.country ||
-    request.headers.get("CF-IPCountry") ||
+    getHeader(request, "cf-ipcountry") ||
     ""
   );
 }
