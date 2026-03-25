@@ -143,7 +143,6 @@ export async function onRequestPost(context) {
       { throttleMs: 0 }
     )
   );
-  context.waitUntil(upsertLeaderboardEntry(env, user));
   const verifiedUser = await readVerifiedUser(env, normalizedUserId);
   if (!verifiedUser) {
     return withCors(
@@ -164,6 +163,7 @@ export async function onRequestPost(context) {
       409
     );
   }
+  await upsertLeaderboardEntry(env, verifiedUser);
 
   return withCors({
     ok: true,

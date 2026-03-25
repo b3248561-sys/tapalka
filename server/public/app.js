@@ -288,6 +288,14 @@ function t(key, vars = {}) {
   return text;
 }
 
+function formatNumberDots(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value ?? "0");
+  const sign = num < 0 ? "-" : "";
+  const abs = Math.trunc(Math.abs(num));
+  return `${sign}${abs.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+}
+
 function setMeta(key, vars = {}) {
   metaState = { key, vars };
   if (!metaEl) return;
@@ -350,7 +358,7 @@ function applyTexts() {
   if (langToggle && LANG_META[currentLang]) {
     langToggle.textContent = `${LANG_META[currentLang].flag} ${LANG_LABELS[currentLang]}`;
   }
-  if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
+  if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: formatNumberDots(tapValue) });
   setMeta(metaState.key, metaState.vars);
   updateRank();
   renderLangMenu();
@@ -422,8 +430,9 @@ async function loadProfile() {
 }
 
 function updateBalance(value, { bump = true } = {}) {
-  if (balanceEl) balanceEl.textContent = String(value);
-  if (shopBalanceEl) shopBalanceEl.textContent = String(value);
+  const pretty = formatNumberDots(value);
+  if (balanceEl) balanceEl.textContent = pretty;
+  if (shopBalanceEl) shopBalanceEl.textContent = pretty;
   if (!bump || !balanceEl) return;
   balanceEl.classList.remove("bump");
   requestAnimationFrame(() => balanceEl.classList.add("bump"));
@@ -454,7 +463,7 @@ function tickEnergy() {
 
 function updateTapValue(value) {
   tapValue = value || 1;
-  if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
+  if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: formatNumberDots(tapValue) });
 }
 
 function updatePlayerIdentity(user) {
@@ -582,7 +591,7 @@ function renderShop() {
         leftMeta.textContent = t("boostName");
         rightMeta.textContent = active
           ? t("boostActive", { time: formatTime(boostUntil - Date.now()) })
-          : `${item.price} ${t("priceTaps")}`;
+          : `${formatNumberDots(item.price)} ${t("priceTaps")}`;
         btn.textContent = active ? t("boostActive", { time: formatTime(boostUntil - Date.now()) }) : t("buy");
         btn.disabled = active;
       } else if (item.type === "cosmetic" || item.type === "frame") {
@@ -594,12 +603,15 @@ function renderShop() {
           ? isEquipped
             ? t("equipped")
             : t("equip")
-          : `${item.price} ${t("priceTaps")}`;
+          : `${formatNumberDots(item.price)} ${t("priceTaps")}`;
         btn.textContent = owned ? (isEquipped ? t("equipped") : t("equip")) : t("buy");
         btn.disabled = isEquipped;
       } else {
         leftMeta.textContent = t("level", { level: item.level, max: item.maxLevel });
-        rightMeta.textContent = item.level >= item.maxLevel ? t("owned") : `${item.price} ${t("priceTaps")}`;
+        rightMeta.textContent =
+          item.level >= item.maxLevel
+            ? t("owned")
+            : `${formatNumberDots(item.price)} ${t("priceTaps")}`;
         btn.textContent = item.level >= item.maxLevel ? t("owned") : t("buy");
         btn.disabled = item.level >= item.maxLevel;
       }
@@ -662,7 +674,7 @@ function renderQuests() {
     const title = document.createElement("h4");
     title.textContent = quest.type === "tap" ? t("questTap", { count: quest.target }) : t("questBuy", { count: quest.target });
     const desc = document.createElement("p");
-    desc.textContent = t("questReward", { reward: quest.reward });
+    desc.textContent = t("questReward", { reward: formatNumberDots(quest.reward) });
     const meta = document.createElement("div");
     meta.className = "quest-meta";
     const progress = document.createElement("span");
@@ -755,12 +767,12 @@ function renderLeaderboard() {
     name.textContent = String(player.id) === String(currentUserId) ? `${label} (${t("leaderboardYou")})` : label;
     const sub = document.createElement("div");
     sub.className = "leader-sub";
-    sub.textContent = `ID ${player.id} • +${player.tapValue || 1}/tap`;
+    sub.textContent = `ID ${player.id} • +${formatNumberDots(player.tapValue || 1)}/tap`;
     info.append(name, sub);
 
     const value = document.createElement("div");
     value.className = "leader-value";
-    value.textContent = String(player.balance || 0);
+    value.textContent = formatNumberDots(player.balance || 0);
 
     row.append(rank, avatar, info, value);
     leaderboardListEl.appendChild(row);
@@ -1049,7 +1061,7 @@ async function sendTap(count = 1, point = null) {
     if (typeof data.boostUntil === "number") boostUntil = data.boostUntil;
     setMeta("niceTap");
     const mult = data.multiplier || 1;
-    showSpark(`+${(data.tapValue || 1) * count * mult}`, point);
+    showSpark(`+${formatNumberDots((data.tapValue || 1) * count * mult)}`, point);
     if (tg?.HapticFeedback?.impactOccurred) {
       tg.HapticFeedback.impactOccurred("light");
     } else if (navigator.vibrate) {

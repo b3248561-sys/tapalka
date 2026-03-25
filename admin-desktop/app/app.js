@@ -107,6 +107,21 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function formatNumberDots(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value ?? "-");
+  const sign = num < 0 ? "-" : "";
+  const abs = Math.abs(num);
+  const [intPart, fracPart] = String(abs).split(".");
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return fracPart ? `${sign}${grouped},${fracPart}` : `${sign}${grouped}`;
+}
+
+function formatMaybeNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? formatNumberDots(num) : String(value ?? "-");
+}
+
 function base64ToBytes(b64) {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
@@ -517,8 +532,13 @@ function setActiveView(view) {
 
 function toNumber(value) {
   if (value === "" || value === null || value === undefined) return null;
-  const normalized = String(value).trim().replace(/\s+/g, "").replace(",", ".");
+  let normalized = String(value).trim().replace(/\s+/g, "");
   if (!normalized) return null;
+  if (/^[+-]?\d{1,3}(?:[.,]\d{3})+$/.test(normalized)) {
+    normalized = normalized.replace(/[.,]/g, "");
+  } else {
+    normalized = normalized.replace(",", ".");
+  }
   const num = Number(normalized);
   return Number.isFinite(num) ? num : null;
 }
@@ -535,10 +555,10 @@ function renderAdminUser(user) {
   const safeNick = escapeHtml(
     user.username ? `@${user.username}` : user.name || "-"
   );
-  const safeBalance = escapeHtml(user.balance);
-  const safeTapValue = escapeHtml(user.tapValue);
-  const safeTotalTaps = escapeHtml(user.totalTaps || 0);
-  const safeTotalEarned = escapeHtml(user.totalEarned || 0);
+  const safeBalance = escapeHtml(formatMaybeNumber(user.balance));
+  const safeTapValue = escapeHtml(formatMaybeNumber(user.tapValue));
+  const safeTotalTaps = escapeHtml(formatMaybeNumber(user.totalTaps || 0));
+  const safeTotalEarned = escapeHtml(formatMaybeNumber(user.totalEarned || 0));
   const safeBoostUntil = escapeHtml(
     user.boostUntil ? new Date(user.boostUntil).toLocaleString() : "нет"
   );
@@ -742,7 +762,7 @@ async function applyAdminChanges(extra = {}) {
   });
   setStatus(
     elements.adminStatus,
-    `OK ${endpoint} • store=${store} • verifiedBalance=${verifiedBalance} • server=${getServerUrl()}`
+    `OK ${endpoint} • store=${store} • verifiedBalance=${formatMaybeNumber(verifiedBalance)} • server=${getServerUrl()}`
   );
 }
 
@@ -783,7 +803,7 @@ async function checkConsistency() {
   });
   setStatus(
     elements.adminStatus,
-    `${ok ? "OK" : "MISMATCH"} ${checkEndpoint} • store=${store} • admin=${adminBalance} • webapp=${webappBalance} • server=${getServerUrl()}`,
+    `${ok ? "OK" : "MISMATCH"} ${checkEndpoint} • store=${store} • admin=${formatMaybeNumber(adminBalance)} • webapp=${formatMaybeNumber(webappBalance)} • server=${getServerUrl()}`,
     !ok
   );
 }
@@ -796,7 +816,7 @@ async function copyDiagnostics() {
     `endpoint=${diagnostics.endpoint || "-"}`,
     `errorCode=${diagnostics.errorCode || "-"}`,
     `store=${diagnostics.store || "-"}`,
-    `verifiedBalance=${diagnostics.verifiedBalance || "-"}`
+    `verifiedBalance=${formatMaybeNumber(diagnostics.verifiedBalance || "-")}`
   ];
   const text = lines.join("\n");
   try {
@@ -860,7 +880,7 @@ async function mergeDemoUsers() {
 
   setStatus(
     elements.adminStatus,
-    `Переношу ${sourceBalance} с ${sourceUserId} на ${targetUserId}...`
+    `Переношу ${formatMaybeNumber(sourceBalance)} с ${sourceUserId} на ${targetUserId}...`
   );
 
   const adjustEndpoint = "/api/admin/adjust";
@@ -900,7 +920,7 @@ async function mergeDemoUsers() {
   }
   setStatus(
     elements.adminStatus,
-    `Миграция завершена: ${sourceUserId} -> ${targetUserId}. Новый баланс ${newBalance}.`
+    `Миграция завершена: ${sourceUserId} -> ${targetUserId}. Новый баланс ${formatMaybeNumber(newBalance)}.`
   );
 }
 

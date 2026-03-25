@@ -5,7 +5,8 @@ import {
   getRank,
   getRankPoints,
   getUserById,
-  hasDurableUserStore
+  hasDurableUserStore,
+  upsertLeaderboardEntry
 } from "../../_shared/utils.js";
 import {
   resolveDeviceAuth,
@@ -79,6 +80,7 @@ export async function onRequestGet(context) {
     await saveUser(env, normalized);
     user = normalized;
   }
+  await upsertLeaderboardEntry(env, user);
 
   return withCors({ ok: true, user: summarize(user), store });
 }
