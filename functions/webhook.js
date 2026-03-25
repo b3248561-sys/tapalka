@@ -1,6 +1,23 @@
 import { bt, pickLang, jsonResponse } from "./_shared/utils.js";
 
+function resolveWebAppUrl(env) {
+  const raw = String(env.WEBAPP_URL || "").trim();
+  if (!raw) return "";
+  const build =
+    String(env.WEBAPP_CACHE_BUSTER || env.CF_PAGES_COMMIT_SHA || "20260325-7").trim() ||
+    "20260325-7";
+  try {
+    const url = new URL(raw);
+    url.searchParams.set("v", build);
+    return url.toString();
+  } catch {
+    const separator = raw.includes("?") ? "&" : "?";
+    return `${raw}${separator}v=${encodeURIComponent(build)}`;
+  }
+}
+
 async function sendMessage(env, chatId, text, lang) {
+  const webAppUrl = resolveWebAppUrl(env);
   const payload = {
     chat_id: chatId,
     text,
@@ -9,7 +26,7 @@ async function sendMessage(env, chatId, text, lang) {
         [
           {
             text: bt(lang, "play"),
-            web_app: { url: env.WEBAPP_URL }
+            web_app: { url: webAppUrl || env.WEBAPP_URL }
           }
         ]
       ]
