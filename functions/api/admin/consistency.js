@@ -1,9 +1,9 @@
 import {
   jsonResponse,
+  getUserById,
+  loadUser,
   normalizeUser,
   saveUser,
-  getRank,
-  getUserById,
   hasDurableUserStore
 } from "../../_shared/utils.js";
 import { verifyDevice } from "../../_shared/admin.js";
@@ -16,24 +16,6 @@ const CORS_HEADERS = {
 
 function withCors(data, status = 200) {
   return jsonResponse(data, status, CORS_HEADERS);
-}
-
-function summarize(user) {
-  return {
-    id: String(user.id),
-    name: user.name || "",
-    username: user.username || "",
-    balance: user.balance || 0,
-    tapValue: user.tapValue || 1,
-    totalTaps: user.totalTaps || 0,
-    totalEarned: user.totalEarned || 0,
-    boostUntil: user.boostUntil || 0,
-    bannedUntil: user.bannedUntil || 0,
-    lastDailyTs: user.lastDailyTs || 0,
-    dailyTapCount: user.dailyTapCount || 0,
-    dailyPurchaseCount: user.dailyPurchaseCount || 0,
-    rank: getRank(user.totalEarned || 0)
-  };
 }
 
 export async function onRequestGet(context) {
@@ -52,19 +34,49 @@ export async function onRequestGet(context) {
     return withCors({ ok: false, error: "user_id_required" }, 400);
   }
 
-  let user = await getUserById(env, String(userId));
-  if (!user) {
-    return withCors({ ok: false, error: "not_found" }, 404);
+  let adminUser = await getUserById(env, String(userId));
+  if (!adminUser) {
+    return withCors({ ok: false, error: "not_found", store }, 404);
   }
 
-  const normalized = normalizeUser(user);
+  const normalized = normalizeUser(adminUser);
   if (normalized._dirty) {
     delete normalized._dirty;
     await saveUser(env, normalized);
-    user = normalized;
+    adminUser = normalized;
   }
 
-  return withCors({ ok: true, user: summarize(user), store });
+  // WebApp-side read path without Telegram initData for admin diagnostics.
+  const webappUser = await loadUser(
+    env,
+    String(userId),
+    adminUser.name || "Player",
+    adminUser.username || ""
+  );
+  const adminBalance = Number(adminUser.balance || 0);
+  const webappBalance = Number(webappUser.balance || 0);
+  const consistent =
+    String(adminUser.id) === String(webappUser.id) &&
+    adminBalance === webappBalance;
+
+  return withCors({
+    ok: true,
+    userId: String(userId),
+    store,
+    consistent,
+    admin: {
+      id: String(adminUser.id),
+      balance: adminBalance,
+      tapValue: Number(adminUser.tapValue || 1)
+    },
+    webapp: {
+      id: String(webappUser.id),
+      balance: webappBalance,
+      tapValue: Number(webappUser.tapValue || 1),
+      energy: Number(webappUser.energy || 0),
+      maxEnergy: Number(webappUser.maxEnergy || 0)
+    }
+  });
 }
 
 export async function onRequestOptions() {

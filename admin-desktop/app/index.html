@@ -11,6 +11,7 @@
       <div>
         <h1>Tapalka Admin Logs <span class="badge">v2</span></h1>
         <p class="muted">Локальное приложение для просмотра логов (доступ только с этого ПК)</p>
+        <p class="build-info">Build: <span id="buildVersion">unknown</span></p>
       </div>
       <div class="top-actions">
         <button id="openAdmin" class="ghost">Админ</button>
@@ -99,6 +100,7 @@
       <div class="row">
         <button id="adminLoadUser">Загрузить пользователя</button>
         <button id="adminApply">Применить изменения</button>
+        <button id="adminCheckConsistency" class="ghost">Проверить консистентность</button>
         <button id="adminMergeDemo" class="ghost">Миграция 502564 → 512889</button>
         <button id="adminUnban" class="ghost">Снять бан</button>
         <button id="adminResetDaily" class="ghost">Сбросить день</button>
@@ -108,6 +110,7 @@
       <div id="adminUserCard" class="admin-card muted">Пользователь не загружен.</div>
     </section>
 
+    <script src="./build-meta.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

@@ -35,8 +35,18 @@ function summarize(user) {
   };
 }
 
+async function readVerifiedUser(env, userId) {
+  if (hasDurableUserStore(env)) {
+    const data = await runUserAction(env, userId, "peek");
+    if (!data.ok || !data.user) return null;
+    return data.user;
+  }
+  return getUserById(env, userId);
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
+  const store = hasDurableUserStore(env) ? "do" : "kv";
   const deviceId = request.headers.get("x-device-id");
   const deviceToken = request.headers.get("x-device-token");
   const device = await verifyDevice(env, deviceId, deviceToken);
@@ -111,8 +121,34 @@ export async function onRequestPost(context) {
       { throttleMs: 0 }
     )
   );
+  const verifiedUser = await readVerifiedUser(env, normalizedUserId);
+  if (!verifiedUser) {
+    return withCors(
+      { ok: false, error: "verification_failed", store },
+      500
+    );
+  }
+  const resultUser = summarize(verifiedUser);
+  const verifiedBalance = Number(resultUser.balance || 0);
+  if (Number(summarize(user).balance || 0) !== verifiedBalance) {
+    return withCors(
+      {
+        ok: false,
+        error: "consistency_mismatch",
+        store,
+        verifiedBalance
+      },
+      409
+    );
+  }
 
-  return withCors({ ok: true, user: summarize(user), changes });
+  return withCors({
+    ok: true,
+    user: resultUser,
+    changes,
+    store,
+    verifiedBalance
+  });
 }
 
 export async function onRequestOptions() {

@@ -24,12 +24,14 @@ const elements = {
   adminBanMinutes: document.getElementById("adminBanMinutes"),
   adminLoadUser: document.getElementById("adminLoadUser"),
   adminApply: document.getElementById("adminApply"),
+  adminCheckConsistency: document.getElementById("adminCheckConsistency"),
   adminMergeDemo: document.getElementById("adminMergeDemo"),
   adminUnban: document.getElementById("adminUnban"),
   adminResetDaily: document.getElementById("adminResetDaily"),
   adminClearBoost: document.getElementById("adminClearBoost"),
   adminStatus: document.getElementById("adminStatus"),
-  adminUserCard: document.getElementById("adminUserCard")
+  adminUserCard: document.getElementById("adminUserCard"),
+  buildVersion: document.getElementById("buildVersion")
 };
 
 function saveState(state) {
@@ -46,6 +48,11 @@ function loadState() {
 
 function getState() {
   return loadState();
+}
+
+function getServerUrl() {
+  const state = getState();
+  return state.serverUrl || DEFAULT_SERVER;
 }
 
 function setStatus(el, text, isError = false) {
@@ -535,7 +542,11 @@ async function loadAdminUser() {
     return;
   }
   renderAdminUser(data.user);
-  setStatus(elements.adminStatus, "Пользователь загружен.");
+  const store = data.store || "unknown";
+  setStatus(
+    elements.adminStatus,
+    `Пользователь загружен. store=${store} • server=${getServerUrl()}`
+  );
 }
 
 async function fetchAdminUser(userId) {
@@ -607,18 +618,54 @@ async function applyAdminChanges(extra = {}) {
     setStatus(elements.adminStatus, data.error || "Ошибка изменения.", true);
     return;
   }
-  const verify = await fetchAdminUser(userId);
-  if (!verify?.ok || !verify.user) {
-    renderAdminUser(data.user);
-    setStatus(elements.adminStatus, "Изменения применены (без верификации).");
-    return;
-  }
-  renderAdminUser(verify.user);
+  renderAdminUser(data.user);
   if (payload.deltaBalance !== undefined) elements.adminDeltaBalance.value = "";
   if (payload.setBalance !== undefined) elements.adminSetBalance.value = "";
+  const store = data.store || "unknown";
+  const verifiedBalance =
+    data.verifiedBalance !== undefined
+      ? data.verifiedBalance
+      : data.user?.balance ?? "-";
   setStatus(
     elements.adminStatus,
-    `Изменения применены. ID ${verify.user.id}, баланс ${verify.user.balance}.`
+    `Изменения применены. store=${store} • verifiedBalance=${verifiedBalance} • server=${getServerUrl()}`
+  );
+}
+
+async function checkConsistency() {
+  const userId = elements.adminUserId.value.trim();
+  if (!userId) {
+    setStatus(elements.adminStatus, "Введите User ID.", true);
+    return;
+  }
+  setStatus(elements.adminStatus, "Проверяю консистентность...");
+  const [userData, consistency] = await Promise.all([
+    fetchAdminUser(userId),
+    adminFetch(`/api/admin/consistency?userId=${encodeURIComponent(userId)}`)
+  ]);
+  if (!userData || !consistency) return;
+  if (!userData.ok) {
+    setStatus(elements.adminStatus, userData.error || "Не удалось загрузить user.", true);
+    return;
+  }
+  if (!consistency.ok) {
+    setStatus(
+      elements.adminStatus,
+      consistency.error || "Проверка консистентности не выполнена.",
+      true
+    );
+    return;
+  }
+
+  renderAdminUser(userData.user);
+  const adminBalance = Number(userData.user?.balance || 0);
+  const webappBalance = Number(consistency.webapp?.balance || 0);
+  const ok = Boolean(consistency.consistent) && adminBalance === webappBalance;
+  const store = consistency.store || userData.store || "unknown";
+  setStatus(
+    elements.adminStatus,
+    `${ok ? "OK" : "MISMATCH"} • store=${store} • admin=${adminBalance} • webapp=${webappBalance} • server=${getServerUrl()}`,
+    !ok
   );
 }
 
@@ -721,6 +768,7 @@ elements.tabLogs?.addEventListener("click", () => setActiveView("logs"));
 elements.tabAdmin?.addEventListener("click", () => setActiveView("admin"));
 elements.adminLoadUser?.addEventListener("click", loadAdminUser);
 elements.adminApply?.addEventListener("click", () => applyAdminChanges());
+elements.adminCheckConsistency?.addEventListener("click", checkConsistency);
 elements.adminMergeDemo?.addEventListener("click", mergeDemoUsers);
 elements.adminUnban?.addEventListener("click", unbanUser);
 elements.adminResetDaily?.addEventListener("click", resetDaily);
@@ -739,3 +787,6 @@ elements.deviceName.addEventListener("change", () => {
 });
 renderDeviceInfo();
 setActiveView(window.location.hash === "#admin" ? "admin" : "logs");
+if (elements.buildVersion) {
+  elements.buildVersion.textContent = window.__ADMIN_BUILD__ || "web";
+}

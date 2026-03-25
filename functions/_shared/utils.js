@@ -137,6 +137,30 @@ export async function runUserAction(env, userId, action, payload = {}) {
   return userDoRequest(env, userId, action, payload, { allowError: true });
 }
 
+async function loadLegacyKvUser(env, userId) {
+  if (!env?.KV) return null;
+  return env.KV.get(userKey(userId), "json");
+}
+
+function applyIdentity(user, name, username) {
+  if (name && user.name !== name) {
+    user.name = name;
+  }
+  if (username && user.username !== username) {
+    user.username = username;
+  }
+}
+
+async function migrateKvUserToDo(env, userId, name, username) {
+  const legacy = await loadLegacyKvUser(env, userId);
+  if (!legacy) return null;
+  const normalized = normalizeUser(legacy);
+  applyIdentity(normalized, name, username);
+  if (normalized._dirty) delete normalized._dirty;
+  const data = await userDoRequest(env, userId, "put", { user: normalized });
+  return data.user || normalized;
+}
+
 export function createUser(userId, name, username = "") {
   return {
     id: String(userId),
@@ -168,8 +192,20 @@ export function createUser(userId, name, username = "") {
 
 export async function loadUser(env, userId, name, username) {
   if (hasUserDo(env)) {
-    const data = await userDoRequest(env, userId, "get", { name, username });
-    return data.user;
+    const peek = await userDoRequest(env, userId, "peek", {}, { allowError: true });
+    if (peek.ok) {
+      const data = await userDoRequest(env, userId, "get", { name, username });
+      return data.user;
+    }
+    if (peek.error === "not_found") {
+      const migrated = await migrateKvUserToDo(env, userId, name, username);
+      if (migrated) return migrated;
+      const data = await userDoRequest(env, userId, "get", { name, username });
+      return data.user;
+    }
+    const err = new Error(peek.error || "user_store_error");
+    err.code = peek.error || "user_store_error";
+    throw err;
   }
   const key = userKey(userId);
   let user = await env.KV.get(key, "json");
@@ -212,19 +248,17 @@ export async function saveUser(env, user) {
 export async function getUserById(env, userId) {
   if (hasUserDo(env)) {
     const data = await userDoRequest(env, userId, "peek", {}, { allowError: true });
-    if (!data.ok && data.error === "not_found") {
-      // Backward compatibility: old users may still exist in KV.
-      if (env?.KV) {
-        return env.KV.get(userKey(userId), "json");
-      }
+    if (data.ok) {
+      return data.user;
+    }
+    if (data.error === "not_found") {
+      const migrated = await migrateKvUserToDo(env, userId);
+      if (migrated) return migrated;
       return null;
     }
-    if (!data.ok) {
-      const err = new Error(data.error || "user_store_error");
-      err.code = data.error || "user_store_error";
-      throw err;
-    }
-    return data.user;
+    const err = new Error(data.error || "user_store_error");
+    err.code = data.error || "user_store_error";
+    throw err;
   }
   return env.KV.get(userKey(userId), "json");
 }
