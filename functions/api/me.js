@@ -8,6 +8,7 @@ import {
   syncEnergy,
   saveUser
 } from "../_shared/utils.js";
+import { logEvent } from "../_shared/admin.js";
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -46,7 +47,15 @@ export async function onRequest(context) {
   ensureDaily(profile);
   const now = Date.now();
   const changed = syncEnergy(profile, now);
-  if (changed) await saveUser(env, profile);
+  let openLogged = false;
+  if (!profile.lastOpenLogTs || now - profile.lastOpenLogTs > 60_000) {
+    profile.lastOpenLogTs = now;
+    openLogged = true;
+    context.waitUntil(
+      logEvent(env, request, profile, "open", { screen: "webapp" })
+    );
+  }
+  if (changed || openLogged) await saveUser(env, profile);
   const rank = getRank(profile.totalEarned || 0);
   return jsonResponse({
     ok: true,

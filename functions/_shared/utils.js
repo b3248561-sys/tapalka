@@ -236,6 +236,10 @@ export function normalizeUser(user) {
     user.lastLogTs = 0;
     dirty = true;
   }
+  if (!user.lastOpenLogTs) {
+    user.lastOpenLogTs = 0;
+    dirty = true;
+  }
   if (!user.bannedUntil) {
     user.bannedUntil = 0;
     dirty = true;

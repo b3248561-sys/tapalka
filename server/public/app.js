@@ -1,5 +1,6 @@
 const balanceEl = document.getElementById("balance");
 const balanceLabelEl = document.getElementById("balanceLabel");
+const playerIdEl = document.getElementById("playerId");
 const tapBtn = document.getElementById("tap");
 const rankEl = document.getElementById("rank");
 const rankBarEl = document.getElementById("rankBar");
@@ -817,6 +818,11 @@ async function init() {
     setMeta("player", { name: profile.user.name });
     updateBalance(profile.user.balance);
     updateTapValue(profile.user.tapValue || 1);
+    if (playerIdEl) {
+      const username = profile.user.username ? `@${profile.user.username}` : "";
+      const label = username ? `${username} · ID ${profile.user.id}` : `ID ${profile.user.id}`;
+      playerIdEl.textContent = label;
+    }
     lastDailyTs = profile.user.lastDailyTs || 0;
     boostUntil = profile.user.boostUntil || 0;
     rankState = profile.user.rank || null;
