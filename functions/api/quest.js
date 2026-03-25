@@ -57,6 +57,7 @@ export async function onRequestPost(context) {
     const data = await runUserAction(env, userId, "quest_claim", {
       name: tgUser.first_name,
       username: tgUser.username,
+      avatarUrl: tgUser.photo_url || "",
       questId,
       now
     });
@@ -68,7 +69,13 @@ export async function onRequestPost(context) {
     const { user: _user, log, ...payload } = data;
     result = { payload, log };
   } else {
-    user = await loadUser(env, userId, tgUser.first_name, tgUser.username);
+    user = await loadUser(
+      env,
+      userId,
+      tgUser.first_name,
+      tgUser.username,
+      tgUser.photo_url || ""
+    );
     result = applyQuestClaimAction(user, questId, now);
     if (!result.ok) {
       const { status = 400, ...rest } = result;

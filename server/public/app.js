@@ -55,6 +55,7 @@ let leaderboardState = [];
 let activeTab = "tap";
 let currentUserId = "";
 let equippedCosmetic = "";
+let equippedFrame = "";
 let tapValue = 1;
 let lastTouchAt = 0;
 let lastPointerDownAt = 0;
@@ -72,8 +73,9 @@ let energyRegen = 1;
 let energySyncedAt = Date.now();
 let lastTapPoint = null;
 
-const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "special"];
+const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura"];
+const TAP_THEMES = ["style-crown", "style-neon", "style-sakura"];
 
 const STRINGS = {
   en: {
@@ -122,6 +124,7 @@ const STRINGS = {
     shopCategory_power: "Power",
     shopCategory_energy: "Energy",
     shopCategory_cosmetic: "Cosmetics",
+    shopCategory_frame: "Frames",
     shopCategory_special: "Special",
     glovesName: "Power Gloves",
     glovesDesc: "+{bonus} tap power",
@@ -141,6 +144,12 @@ const STRINGS = {
     neonDesc: "Neon glow for tap panel",
     sakuraName: "Sakura Bloom",
     sakuraDesc: "Soft pink petal vibe",
+    frame_goldName: "Golden Frame",
+    frame_goldDesc: "Luxury avatar frame in rating",
+    frame_neonName: "Neon Frame",
+    frame_neonDesc: "Bright cyber frame in rating",
+    frame_fireName: "Fire Frame",
+    frame_fireDesc: "Hot flame frame in rating",
     player: "Player: {name}",
     niceTap: "Nice tap",
     energyLabel: "Energy",
@@ -197,6 +206,7 @@ const STRINGS = {
     shopCategory_power: "Сила тапа",
     shopCategory_energy: "Энергия",
     shopCategory_cosmetic: "Украшения",
+    shopCategory_frame: "Рамки",
     shopCategory_special: "Особое",
     glovesName: "Перчатки силы",
     glovesDesc: "+{bonus} к силе тапа",
@@ -216,6 +226,12 @@ const STRINGS = {
     neonDesc: "Яркое неоновое свечение",
     sakuraName: "Цветение сакуры",
     sakuraDesc: "Мягкий розовый стиль",
+    frame_goldName: "Золотая рамка",
+    frame_goldDesc: "Премиум-рамка аватарки в рейтинге",
+    frame_neonName: "Неоновая рамка",
+    frame_neonDesc: "Яркая кибер-рамка в рейтинге",
+    frame_fireName: "Огненная рамка",
+    frame_fireDesc: "Пламенная рамка аватарки",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
     energyLabel: "Энергия",
@@ -289,9 +305,28 @@ function setMetaText(text) {
 function applyCosmeticTheme() {
   if (!panelEl) return;
   PANEL_THEMES.forEach((theme) => panelEl.classList.remove(theme));
+  if (tapBtn) TAP_THEMES.forEach((theme) => tapBtn.classList.remove(theme));
   if (equippedCosmetic === "crown") panelEl.classList.add("theme-crown");
   if (equippedCosmetic === "neon") panelEl.classList.add("theme-neon");
   if (equippedCosmetic === "sakura") panelEl.classList.add("theme-sakura");
+  if (tapBtn && equippedCosmetic === "crown") tapBtn.classList.add("style-crown");
+  if (tapBtn && equippedCosmetic === "neon") tapBtn.classList.add("style-neon");
+  if (tapBtn && equippedCosmetic === "sakura") tapBtn.classList.add("style-sakura");
+}
+
+function frameClassFromId(frameId) {
+  if (!frameId) return "";
+  const normalized = String(frameId).replace(/^frame_/, "");
+  if (!normalized) return "";
+  return `frame-${normalized}`;
+}
+
+function avatarInitials(player) {
+  const source =
+    (player?.name && String(player.name).trim()) ||
+    (player?.username && String(player.username).trim()) ||
+    "P";
+  return source.charAt(0).toUpperCase();
 }
 
 function applyTexts() {
@@ -422,6 +457,16 @@ function updateTapValue(value) {
   if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
 }
 
+function updatePlayerIdentity(user) {
+  if (!playerIdEl || !user) return;
+  const username = user.username ? `@${user.username}` : "";
+  const base = username ? `${username} · ID ${user.id}` : `ID ${user.id}`;
+  const badges = [];
+  if (user.equippedCosmetic) badges.push(t(`${user.equippedCosmetic}Name`));
+  if (user.equippedFrame) badges.push(t(`${user.equippedFrame}Name`));
+  playerIdEl.textContent = badges.length ? `${base} · ${badges.join(" + ")}` : base;
+}
+
 function updateRank() {
   if (!rankState || !rankEl || !rankBarEl) return;
   rankEl.textContent = t("rankLabel", { name: t(`rank_${rankState.id}`) });
@@ -502,6 +547,7 @@ function renderShop() {
       const card = document.createElement("article");
       card.className = `shop-item category-${item.category || "power"}`;
       if (item.type === "cosmetic" && equippedCosmetic === item.id) card.classList.add("equipped");
+      if (item.type === "frame" && equippedFrame === item.id) card.classList.add("equipped");
 
       const top = document.createElement("div");
       top.className = "shop-item-top";
@@ -510,7 +556,7 @@ function renderShop() {
       const desc = document.createElement("p");
       if (item.type === "boost") {
         desc.textContent = t("boostDesc", { seconds: Math.floor((item.durationMs || 10000) / 1000) });
-      } else if (item.type === "cosmetic") {
+      } else if (item.type === "cosmetic" || item.type === "frame") {
         desc.textContent = t(`${item.id}Desc`);
       } else {
         const bonus =
@@ -539,9 +585,10 @@ function renderShop() {
           : `${item.price} ${t("priceTaps")}`;
         btn.textContent = active ? t("boostActive", { time: formatTime(boostUntil - Date.now()) }) : t("buy");
         btn.disabled = active;
-      } else if (item.type === "cosmetic") {
+      } else if (item.type === "cosmetic" || item.type === "frame") {
+        const equippedId = item.type === "frame" ? equippedFrame : equippedCosmetic;
         const owned = Number(item.level || 0) >= 1;
-        const isEquipped = owned && item.id === equippedCosmetic;
+        const isEquipped = owned && item.id === equippedId;
         leftMeta.textContent = owned ? t("owned") : t("level", { level: 0, max: 1 });
         rightMeta.textContent = owned
           ? isEquipped
@@ -568,7 +615,7 @@ function renderShop() {
           if (!data.ok) {
             if (["auth_required", "initData missing", "initData invalid", "user missing"].includes(data.error)) {
               setMeta("authError");
-            } else if (data.error === "cosmetic_already_equipped") {
+            } else if (data.error === "cosmetic_already_equipped" || data.error === "frame_already_equipped") {
               setMeta("equipped");
             } else {
               setMetaText(data.error || t("tryAgain"));
@@ -582,7 +629,11 @@ function renderShop() {
             equippedCosmetic = data.equippedCosmetic;
             applyCosmeticTheme();
           }
+          if (typeof data.equippedFrame === "string") {
+            equippedFrame = data.equippedFrame;
+          }
           await loadShop();
+          syncProfileSilently({ force: true });
           if (activeTab === "leaderboard") loadLeaderboard({ force: true, silent: true });
         } catch {
           setMeta("network");
@@ -672,6 +723,27 @@ function renderLeaderboard() {
     rank.className = "leader-rank";
     rank.textContent = `#${player.rank}`;
 
+    const avatar = document.createElement("div");
+    avatar.className = "leader-avatar";
+    const frameClass = frameClassFromId(player.equippedFrame || "");
+    if (frameClass) avatar.classList.add(frameClass);
+    if (player.avatarUrl) {
+      const img = document.createElement("img");
+      img.src = player.avatarUrl;
+      img.alt = player.name || player.username || "avatar";
+      img.loading = "lazy";
+      img.referrerPolicy = "no-referrer";
+      img.addEventListener("error", () => {
+        img.remove();
+        avatar.classList.add("fallback");
+        avatar.textContent = avatarInitials(player);
+      });
+      avatar.appendChild(img);
+    } else {
+      avatar.classList.add("fallback");
+      avatar.textContent = avatarInitials(player);
+    }
+
     const info = document.createElement("div");
     info.className = "leader-info";
     const name = document.createElement("div");
@@ -687,7 +759,7 @@ function renderLeaderboard() {
     value.className = "leader-value";
     value.textContent = String(player.balance || 0);
 
-    row.append(rank, info, value);
+    row.append(rank, avatar, info, value);
     leaderboardListEl.appendChild(row);
   });
 }
@@ -713,6 +785,9 @@ async function loadShop() {
   if (typeof data.equippedCosmetic === "string") {
     equippedCosmetic = data.equippedCosmetic;
     applyCosmeticTheme();
+  }
+  if (typeof data.equippedFrame === "string") {
+    equippedFrame = data.equippedFrame;
   }
   boostUntil = data.boostUntil || 0;
   renderShop();
@@ -791,16 +866,16 @@ async function init() {
     currentUserId = String(profile.user.id || "");
     updateBalance(profile.user.balance);
     updateTapValue(profile.user.tapValue || 1);
-    if (playerIdEl) {
-      const username = profile.user.username ? `@${profile.user.username}` : "";
-      playerIdEl.textContent = username ? `${username} · ID ${profile.user.id}` : `ID ${profile.user.id}`;
-    }
+    updatePlayerIdentity(profile.user);
     lastDailyTs = profile.user.lastDailyTs || 0;
     boostUntil = profile.user.boostUntil || 0;
     rankState = profile.user.rank || null;
     if (typeof profile.user.equippedCosmetic === "string") {
       equippedCosmetic = profile.user.equippedCosmetic;
       applyCosmeticTheme();
+    }
+    if (typeof profile.user.equippedFrame === "string") {
+      equippedFrame = profile.user.equippedFrame;
     }
     updateEnergy(profile.user.energy, profile.user.maxEnergy, profile.user.energyRegen);
     updateDailyStatus();
@@ -825,6 +900,7 @@ async function syncProfileSilently({ force = false } = {}) {
     if (!profile?.ok || !profile.user) return;
     updateBalance(profile.user.balance, { bump: false });
     updateTapValue(profile.user.tapValue || 1);
+    updatePlayerIdentity(profile.user);
     rankState = profile.user.rank || rankState;
     updateRank();
     if (typeof profile.user.energy === "number") {
@@ -833,6 +909,9 @@ async function syncProfileSilently({ force = false } = {}) {
     if (typeof profile.user.equippedCosmetic === "string") {
       equippedCosmetic = profile.user.equippedCosmetic;
       applyCosmeticTheme();
+    }
+    if (typeof profile.user.equippedFrame === "string") {
+      equippedFrame = profile.user.equippedFrame;
     }
     lastDailyTs = profile.user.lastDailyTs || lastDailyTs || 0;
     boostUntil = profile.user.boostUntil || 0;

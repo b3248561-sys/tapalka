@@ -5,6 +5,7 @@ import {
   loadUser,
   getDailyQuests,
   getRank,
+  getRankPoints,
   resolveInitDataMaxAgeSec,
   isDemoAllowed
 } from "../_shared/utils.js";
@@ -37,13 +38,14 @@ export async function onRequest(context) {
     env,
     String(tgUser.id),
     tgUser.first_name,
-    tgUser.username
+    tgUser.username,
+    tgUser.photo_url || ""
   );
 
   return jsonResponse({
     ok: true,
     quests: getDailyQuests(user),
     balance: user.balance,
-    rank: getRank(user.totalEarned || 0)
+    rank: getRank(getRankPoints(user))
   });
 }

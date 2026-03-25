@@ -15,10 +15,10 @@ export class UserStore {
     this.state = state;
   }
 
-  async loadMutableUser({ userId, name, username }) {
+  async loadMutableUser({ userId, name, username, avatarUrl }) {
     let user = await this.state.storage.get("user");
     if (!user) {
-      user = createUser(userId, name, username);
+      user = createUser(userId, name, username, avatarUrl);
     } else {
       let changed = false;
       if (name && user.name !== name) {
@@ -27,6 +27,10 @@ export class UserStore {
       }
       if (typeof username === "string" && user.username !== username) {
         user.username = username;
+        changed = true;
+      }
+      if (typeof avatarUrl === "string" && avatarUrl && user.avatarUrl !== avatarUrl) {
+        user.avatarUrl = avatarUrl;
         changed = true;
       }
       if (changed) {

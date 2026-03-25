@@ -43,7 +43,8 @@ export async function onRequest(context) {
     env,
     String(tgUser.id),
     tgUser.first_name,
-    tgUser.username
+    tgUser.username,
+    tgUser.photo_url || ""
   );
   const now = Date.now();
   const changed = syncEnergy(user, now);
@@ -63,6 +64,7 @@ export async function onRequest(context) {
         energyBonus: item.energyBonus,
         regenBonus: item.regenBonus,
         cosmeticStyle: item.cosmeticStyle || null,
+        frameStyle: item.frameStyle || null,
         maxLevel: item.maxLevel,
         level,
         price,
@@ -80,6 +82,7 @@ export async function onRequest(context) {
       energyBonus: item.energyBonus,
       regenBonus: item.regenBonus,
       cosmeticStyle: item.cosmeticStyle || null,
+      frameStyle: item.frameStyle || null,
       maxLevel: item.maxLevel,
       level,
       price
@@ -92,6 +95,7 @@ export async function onRequest(context) {
     balance: user.balance,
     tapValue: user.tapValue || 1,
     equippedCosmetic: user.equippedCosmetic || "",
+    equippedFrame: user.equippedFrame || "",
     boostUntil: user.boostUntil || 0,
     energy: user.energy,
     maxEnergy: user.maxEnergy,

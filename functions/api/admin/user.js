@@ -3,6 +3,7 @@ import {
   normalizeUser,
   saveUser,
   getRank,
+  getRankPoints,
   getUserById,
   hasDurableUserStore
 } from "../../_shared/utils.js";
@@ -35,7 +36,7 @@ function summarize(user) {
     lastDailyTs: user.lastDailyTs || 0,
     dailyTapCount: user.dailyTapCount || 0,
     dailyPurchaseCount: user.dailyPurchaseCount || 0,
-    rank: getRank(user.totalEarned || 0)
+    rank: getRank(getRankPoints(user))
   };
 }
 

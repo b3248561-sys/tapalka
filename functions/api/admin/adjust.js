@@ -1,6 +1,7 @@
 import {
   jsonResponse,
   getRank,
+  getRankPoints,
   getUserById,
   saveUser,
   normalizeUser,
@@ -36,7 +37,7 @@ function summarize(user) {
     totalEarned: user.totalEarned || 0,
     boostUntil: user.boostUntil || 0,
     bannedUntil: user.bannedUntil || 0,
-    rank: getRank(user.totalEarned || 0)
+    rank: getRank(getRankPoints(user))
   };
 }
 

@@ -42,7 +42,8 @@ export async function onRequest(context) {
     env,
     String(tgUser.id),
     tgUser.first_name,
-    tgUser.username
+    tgUser.username,
+    tgUser.photo_url || ""
   );
   context.waitUntil(upsertLeaderboardEntry(env, currentUser));
   const players = await getLeaderboard(env, { limit });

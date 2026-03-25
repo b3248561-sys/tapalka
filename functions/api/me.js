@@ -22,7 +22,7 @@ export async function onRequest(context) {
   const useDurableStore = hasDurableUserStore(env);
 
   if (isDemoAllowed(env, request) && demoUserId) {
-    const profile = await loadUser(env, String(demoUserId), "Demo", "demo");
+    const profile = await loadUser(env, String(demoUserId), "Demo", "demo", "");
     const now = Date.now();
     const changed = syncEnergy(profile, now);
     if (changed && !useDurableStore) await saveUser(env, profile);
@@ -48,7 +48,8 @@ export async function onRequest(context) {
     env,
     String(tgUser.id),
     tgUser.first_name,
-    tgUser.username
+    tgUser.username,
+    tgUser.photo_url || ""
   );
   const now = Date.now();
   const changed = syncEnergy(profile, now);

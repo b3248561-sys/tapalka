@@ -142,30 +142,34 @@ async function loadLegacyKvUser(env, userId) {
   return env.KV.get(userKey(userId), "json");
 }
 
-function applyIdentity(user, name, username) {
+function applyIdentity(user, name, username, avatarUrl = "") {
   if (name && user.name !== name) {
     user.name = name;
   }
   if (username && user.username !== username) {
     user.username = username;
   }
+  if (avatarUrl && user.avatarUrl !== avatarUrl) {
+    user.avatarUrl = avatarUrl;
+  }
 }
 
-async function migrateKvUserToDo(env, userId, name, username) {
+async function migrateKvUserToDo(env, userId, name, username, avatarUrl = "") {
   const legacy = await loadLegacyKvUser(env, userId);
   if (!legacy) return null;
   const normalized = normalizeUser(legacy);
-  applyIdentity(normalized, name, username);
+  applyIdentity(normalized, name, username, avatarUrl);
   if (normalized._dirty) delete normalized._dirty;
   const data = await userDoRequest(env, userId, "put", { user: normalized });
   return data.user || normalized;
 }
 
-export function createUser(userId, name, username = "") {
+export function createUser(userId, name, username = "", avatarUrl = "") {
   return {
     id: String(userId),
     name: name || "Player",
     username: username || "",
+    avatarUrl: avatarUrl || "",
     balance: 0,
     tapValue: 1,
     items: {},
@@ -184,6 +188,7 @@ export function createUser(userId, name, username = "") {
     lastOpenLogTs: 0,
     bannedUntil: 0,
     equippedCosmetic: "",
+    equippedFrame: "",
     maxEnergy: 50,
     energy: 50,
     energyRegen: 1,
@@ -191,17 +196,31 @@ export function createUser(userId, name, username = "") {
   };
 }
 
-export async function loadUser(env, userId, name, username) {
+export async function loadUser(env, userId, name, username, avatarUrl = "") {
   if (hasUserDo(env)) {
     const peek = await userDoRequest(env, userId, "peek", {}, { allowError: true });
     if (peek.ok) {
-      const data = await userDoRequest(env, userId, "get", { name, username });
+      const data = await userDoRequest(env, userId, "get", {
+        name,
+        username,
+        avatarUrl
+      });
       return data.user;
     }
     if (peek.error === "not_found") {
-      const migrated = await migrateKvUserToDo(env, userId, name, username);
+      const migrated = await migrateKvUserToDo(
+        env,
+        userId,
+        name,
+        username,
+        avatarUrl
+      );
       if (migrated) return migrated;
-      const data = await userDoRequest(env, userId, "get", { name, username });
+      const data = await userDoRequest(env, userId, "get", {
+        name,
+        username,
+        avatarUrl
+      });
       return data.user;
     }
     const err = new Error(peek.error || "user_store_error");
@@ -211,7 +230,7 @@ export async function loadUser(env, userId, name, username) {
   const key = userKey(userId);
   let user = await env.KV.get(key, "json");
   if (!user) {
-    user = createUser(userId, name, username);
+    user = createUser(userId, name, username, avatarUrl);
     await env.KV.put(key, JSON.stringify(user));
   } else {
     let changed = false;
@@ -221,6 +240,10 @@ export async function loadUser(env, userId, name, username) {
     }
     if (username && user.username !== username) {
       user.username = username;
+      changed = true;
+    }
+    if (avatarUrl && user.avatarUrl !== avatarUrl) {
+      user.avatarUrl = avatarUrl;
       changed = true;
     }
     if (changed) {
@@ -276,10 +299,12 @@ export async function upsertLeaderboardEntry(env, user) {
     id: String(user.id),
     name: user.name || "Player",
     username: user.username || "",
+    avatarUrl: user.avatarUrl || "",
     balance: Number(user.balance || 0),
     totalEarned: Number(user.totalEarned || 0),
     totalTaps: Number(user.totalTaps || 0),
     tapValue: Number(user.tapValue || 1),
+    equippedFrame: user.equippedFrame || "",
     updatedAt: Date.now()
   };
   await env.KV.put(leaderboardKey(record.id), JSON.stringify(record));
@@ -321,10 +346,12 @@ export async function getLeaderboard(env, { limit = 50 } = {}) {
     id: String(entry.id),
     name: entry.name || "Player",
     username: entry.username || "",
+    avatarUrl: entry.avatarUrl || "",
     balance: Number(entry.balance || 0),
     totalEarned: Number(entry.totalEarned || 0),
     totalTaps: Number(entry.totalTaps || 0),
-    tapValue: Number(entry.tapValue || 1)
+    tapValue: Number(entry.tapValue || 1),
+    equippedFrame: entry.equippedFrame || ""
   }));
 }
 
@@ -415,6 +442,36 @@ export const SHOP_ITEMS = [
     priceMult: 1,
     type: "cosmetic",
     cosmeticStyle: "sakura"
+  },
+  {
+    id: "frame_gold",
+    category: "frame",
+    basePrice: 4200,
+    tapBonus: 0,
+    maxLevel: 1,
+    priceMult: 1,
+    type: "frame",
+    frameStyle: "gold"
+  },
+  {
+    id: "frame_neon",
+    category: "frame",
+    basePrice: 5200,
+    tapBonus: 0,
+    maxLevel: 1,
+    priceMult: 1,
+    type: "frame",
+    frameStyle: "neon"
+  },
+  {
+    id: "frame_fire",
+    category: "frame",
+    basePrice: 7000,
+    tapBonus: 0,
+    maxLevel: 1,
+    priceMult: 1,
+    type: "frame",
+    frameStyle: "fire"
   }
 ];
 
@@ -439,6 +496,10 @@ export function normalizeUser(user) {
   }
   if (typeof user.username !== "string") {
     user.username = "";
+    dirty = true;
+  }
+  if (typeof user.avatarUrl !== "string") {
+    user.avatarUrl = "";
     dirty = true;
   }
   if (!user.items || typeof user.items !== "object") {
@@ -500,6 +561,10 @@ export function normalizeUser(user) {
     user.equippedCosmetic = "";
     dirty = true;
   }
+  if (typeof user.equippedFrame !== "string") {
+    user.equippedFrame = "";
+    dirty = true;
+  }
   if (typeof user.maxEnergy !== "number" || user.maxEnergy < 10) {
     user.maxEnergy = 50;
     dirty = true;
@@ -550,6 +615,10 @@ export function normalizeUser(user) {
     user.equippedCosmetic = "";
     dirty = true;
   }
+  if (user.equippedFrame && !user.items?.[user.equippedFrame]) {
+    user.equippedFrame = "";
+    dirty = true;
+  }
   if (dirty) user._dirty = true;
   return user;
 }
@@ -581,6 +650,12 @@ export function getRank(totalEarned) {
     nextMin: next ? next.min : null,
     progress: Math.min(1, Math.max(0, progress))
   };
+}
+
+export function getRankPoints(user) {
+  const balance = Number(user?.balance || 0);
+  const totalEarned = Number(user?.totalEarned || 0);
+  return Math.max(balance, totalEarned);
 }
 
 export function isBanned(user) {
@@ -667,6 +742,7 @@ export function summarizeUser(user) {
     id: user.id,
     name: user.name,
     username: user.username || "",
+    avatarUrl: user.avatarUrl || "",
     balance: user.balance,
     tapValue: user.tapValue || 1,
     lastTapTs: user.lastTapTs || 0,
@@ -675,10 +751,11 @@ export function summarizeUser(user) {
     totalEarned: user.totalEarned || 0,
     totalTaps: user.totalTaps || 0,
     equippedCosmetic: user.equippedCosmetic || "",
+    equippedFrame: user.equippedFrame || "",
     energy: user.energy,
     maxEnergy: user.maxEnergy,
     energyRegen: user.energyRegen || 1,
-    rank: getRank(user.totalEarned || 0)
+    rank: getRank(getRankPoints(user))
   };
 }
 
@@ -764,17 +841,24 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
     return { ok: false, status: 404, error: "item_not_found" };
   }
 
-  if (item.type === "cosmetic") {
+  if (item.type === "cosmetic" || item.type === "frame") {
+    const isFrame = item.type === "frame";
+    const equippedKey = isFrame ? "equippedFrame" : "equippedCosmetic";
+    const alreadyEquippedError = isFrame
+      ? "frame_already_equipped"
+      : "cosmetic_already_equipped";
+    const equipAction = isFrame ? "equip_frame" : "equip_cosmetic";
+    const buyAction = isFrame ? "buy_frame" : "buy_cosmetic";
     const level = getItemLevel(user, item.id);
     if (level >= 1) {
-      if (user.equippedCosmetic === item.id) {
-        return { ok: false, status: 400, error: "cosmetic_already_equipped" };
+      if (user[equippedKey] === item.id) {
+        return { ok: false, status: 400, error: alreadyEquippedError };
       }
-      user.equippedCosmetic = item.id;
+      user[equippedKey] = item.id;
       return {
         ok: true,
         log: {
-          action: "equip_cosmetic",
+          action: equipAction,
           extra: { itemId: item.id }
         },
         payload: {
@@ -785,11 +869,13 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
           maxEnergy: user.maxEnergy,
           energyRegen: user.energyRegen || 1,
           equippedCosmetic: user.equippedCosmetic || "",
+          equippedFrame: user.equippedFrame || "",
           item: {
             id: item.id,
-            category: item.category || "cosmetic",
+            category: item.category || (isFrame ? "frame" : "cosmetic"),
             type: item.type,
             cosmeticStyle: item.cosmeticStyle || item.id,
+            frameStyle: item.frameStyle || item.id,
             level: 1,
             maxLevel: 1,
             price: 0
@@ -804,12 +890,12 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
     }
     user.balance -= price;
     user.items[item.id] = 1;
-    user.equippedCosmetic = item.id;
+    user[equippedKey] = item.id;
     user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
     return {
       ok: true,
       log: {
-        action: "buy_cosmetic",
+        action: buyAction,
         extra: { itemId: item.id, price }
       },
       payload: {
@@ -820,11 +906,13 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
         maxEnergy: user.maxEnergy,
         energyRegen: user.energyRegen || 1,
         equippedCosmetic: user.equippedCosmetic || "",
+        equippedFrame: user.equippedFrame || "",
         item: {
           id: item.id,
-          category: item.category || "cosmetic",
+          category: item.category || (isFrame ? "frame" : "cosmetic"),
           type: item.type,
           cosmeticStyle: item.cosmeticStyle || item.id,
+          frameStyle: item.frameStyle || item.id,
           level: 1,
           maxLevel: 1,
           price: 0
@@ -855,6 +943,7 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
         balance: user.balance,
         tapValue: user.tapValue || 1,
         equippedCosmetic: user.equippedCosmetic || "",
+        equippedFrame: user.equippedFrame || "",
         energy: user.energy,
         maxEnergy: user.maxEnergy,
         energyRegen: user.energyRegen || 1,
@@ -912,6 +1001,7 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
       balance: user.balance,
       tapValue: user.tapValue || 1,
       equippedCosmetic: user.equippedCosmetic || "",
+      equippedFrame: user.equippedFrame || "",
       energy: user.energy,
       maxEnergy: user.maxEnergy,
       energyRegen: user.energyRegen || 1,
@@ -1003,7 +1093,7 @@ export function applyQuestClaimAction(user, questId, now = Date.now()) {
       reward: quest.reward,
       balance: user.balance,
       quests: getDailyQuests(user),
-      rank: getRank(user.totalEarned || 0),
+      rank: getRank(getRankPoints(user)),
       energy: user.energy,
       maxEnergy: user.maxEnergy,
       energyRegen: user.energyRegen || 1

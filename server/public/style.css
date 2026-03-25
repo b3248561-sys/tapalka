@@ -286,6 +286,8 @@ body {
 .player-id {
   font-size: 12px;
   color: var(--muted);
+  line-height: 1.3;
+  word-break: break-word;
 }
 
 .balance.bump {
@@ -331,6 +333,33 @@ body {
   opacity: 0.9;
   z-index: -1;
   animation: pulse 2.2s ease-in-out infinite;
+}
+
+.tap.style-crown::before {
+  content: "👑";
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.28));
+}
+
+.tap.style-neon {
+  box-shadow:
+    0 14px 30px rgba(26, 124, 255, 0.36),
+    0 0 0 3px rgba(108, 255, 252, 0.36);
+}
+
+.tap.style-sakura::before {
+  content: "✿";
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  color: #ffe5ec;
+  text-shadow: 0 2px 4px rgba(120, 50, 70, 0.35);
 }
 
 .tap:active {
@@ -748,6 +777,10 @@ body {
   border-color: rgba(238, 144, 94, 0.45);
 }
 
+.shop-item.category-frame {
+  border-color: rgba(255, 190, 72, 0.48);
+}
+
 .shop-item.category-special {
   border-color: rgba(123, 97, 255, 0.4);
 }
@@ -806,13 +839,49 @@ body {
 
 .leader-row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
   border-radius: 14px;
   background: #fffdf8;
   border: 1px solid rgba(28, 26, 23, 0.08);
+}
+
+.leader-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 2px solid rgba(120, 129, 147, 0.35);
+  background: #eef3fb;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #2e3f5f;
+}
+
+.leader-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.leader-avatar.frame-gold {
+  border-color: #efb654;
+  box-shadow: 0 0 0 2px rgba(255, 219, 148, 0.45);
+}
+
+.leader-avatar.frame-neon {
+  border-color: #3ac7ff;
+  box-shadow: 0 0 0 2px rgba(97, 232, 255, 0.34);
+}
+
+.leader-avatar.frame-fire {
+  border-color: #ff8452;
+  box-shadow: 0 0 0 2px rgba(255, 176, 82, 0.42);
 }
 
 .leader-row.is-you {
