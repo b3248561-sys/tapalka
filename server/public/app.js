@@ -718,10 +718,13 @@ function renderLeaderboard() {
     const row = document.createElement("div");
     row.className = "leader-row";
     if (String(player.id) === String(currentUserId)) row.classList.add("is-you");
+    if (player.rank === 1) row.classList.add("top-1");
+    if (player.rank === 2) row.classList.add("top-2");
+    if (player.rank === 3) row.classList.add("top-3");
 
     const rank = document.createElement("div");
     rank.className = "leader-rank";
-    rank.textContent = `#${player.rank}`;
+    rank.textContent = player.rank === 1 ? "🏆 #1" : `#${player.rank}`;
 
     const avatar = document.createElement("div");
     avatar.className = "leader-avatar";
