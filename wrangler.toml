@@ -1,6 +1,4 @@
-name = "tapalka-bot"
 compatibility_date = "2026-03-25"
-pages_build_output_dir = "server/public"
 
 [[durable_objects.bindings]]
 name = "USER_DO"
