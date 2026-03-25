@@ -212,7 +212,13 @@ export async function saveUser(env, user) {
 export async function getUserById(env, userId) {
   if (hasUserDo(env)) {
     const data = await userDoRequest(env, userId, "peek", {}, { allowError: true });
-    if (!data.ok && data.error === "not_found") return null;
+    if (!data.ok && data.error === "not_found") {
+      // Backward compatibility: old users may still exist in KV.
+      if (env?.KV) {
+        return env.KV.get(userKey(userId), "json");
+      }
+      return null;
+    }
     if (!data.ok) {
       const err = new Error(data.error || "user_store_error");
       err.code = data.error || "user_store_error";

@@ -458,7 +458,9 @@ function setActiveView(view) {
 
 function toNumber(value) {
   if (value === "" || value === null || value === undefined) return null;
-  const num = Number(value);
+  const normalized = String(value).trim().replace(/\s+/g, "").replace(",", ".");
+  if (!normalized) return null;
+  const num = Number(normalized);
   return Number.isFinite(num) ? num : null;
 }
 
@@ -546,12 +548,44 @@ async function applyAdminChanges(extra = {}) {
     setStatus(elements.adminStatus, "Введите User ID.", true);
     return;
   }
+  const rawDelta = elements.adminDeltaBalance.value;
+  const rawSet = elements.adminSetBalance.value;
+  const rawTap = elements.adminSetTapValue.value;
+  const rawBan = elements.adminBanMinutes.value;
+
+  const hasRawDelta = String(rawDelta || "").trim() !== "";
+  const hasRawSet = String(rawSet || "").trim() !== "";
+  const hasRawTap = String(rawTap || "").trim() !== "";
+  const hasRawBan = String(rawBan || "").trim() !== "";
+
+  const deltaBalance = toNumber(rawDelta);
+  const setBalance = toNumber(rawSet);
+  const setTapValue = toNumber(rawTap);
+  const banMinutes = toNumber(rawBan);
+
+  if ((hasRawDelta && deltaBalance === null) || (hasRawSet && setBalance === null)) {
+    setStatus(elements.adminStatus, "Некорректное число в поле баланса.", true);
+    return;
+  }
+  if ((hasRawTap && setTapValue === null) || (hasRawBan && banMinutes === null)) {
+    setStatus(elements.adminStatus, "Некорректное число в доп. полях.", true);
+    return;
+  }
+  if (deltaBalance !== null && setBalance !== null) {
+    setStatus(
+      elements.adminStatus,
+      "Заполни только одно поле: 'Баланс (±)' или 'Установить баланс'.",
+      true
+    );
+    return;
+  }
+
   const payload = {
     userId,
-    deltaBalance: toNumber(elements.adminDeltaBalance.value),
-    setBalance: toNumber(elements.adminSetBalance.value),
-    setTapValue: toNumber(elements.adminSetTapValue.value),
-    banMinutes: toNumber(elements.adminBanMinutes.value),
+    deltaBalance,
+    setBalance,
+    setTapValue,
+    banMinutes,
     ...extra
   };
   Object.keys(payload).forEach((key) => {
@@ -580,6 +614,8 @@ async function applyAdminChanges(extra = {}) {
     return;
   }
   renderAdminUser(verify.user);
+  if (payload.deltaBalance !== undefined) elements.adminDeltaBalance.value = "";
+  if (payload.setBalance !== undefined) elements.adminSetBalance.value = "";
   setStatus(
     elements.adminStatus,
     `Изменения применены. ID ${verify.user.id}, баланс ${verify.user.balance}.`

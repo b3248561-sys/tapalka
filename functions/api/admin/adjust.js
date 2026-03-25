@@ -73,6 +73,7 @@ export async function onRequestPost(context) {
       changes = data.changes || {};
     } else {
       const nonBlockingDoErrors = new Set([
+        "not_found",
         "method_not_allowed",
         "user_store_error",
         "invalid_user"
