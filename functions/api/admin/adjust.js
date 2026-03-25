@@ -1,9 +1,12 @@
 import {
   jsonResponse,
-  normalizeUser,
-  saveUser,
   getRank,
-  getUserById
+  getUserById,
+  saveUser,
+  normalizeUser,
+  applyAdminAdjustAction,
+  hasDurableUserStore,
+  runUserAction
 } from "../../_shared/utils.js";
 import { verifyDevice, logEvent } from "../../_shared/admin.js";
 
@@ -15,11 +18,6 @@ const CORS_HEADERS = {
 
 function withCors(data, status = 200) {
   return jsonResponse(data, status, CORS_HEADERS);
-}
-
-function toNumber(value) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
 }
 
 function summarize(user) {
@@ -58,60 +56,50 @@ export async function onRequestPost(context) {
     return withCors({ ok: false, error: "user_id_required" }, 400);
   }
 
-  let user = await getUserById(env, String(userId));
-  if (!user) {
-    return withCors({ ok: false, error: "not_found" }, 404);
-  }
+  let user = null;
+  let changes = null;
+  const now = Date.now();
+  const normalizedUserId = String(userId);
 
-  user = normalizeUser(user);
-
-  const changes = {};
-  const deltaBalance = toNumber(body.deltaBalance);
-  const setBalance = toNumber(body.setBalance);
-  const setTapValue = toNumber(body.setTapValue);
-  const banMinutes = toNumber(body.banMinutes);
-
-  if (deltaBalance !== null) {
-    user.balance = Math.max(0, (user.balance || 0) + deltaBalance);
-    changes.deltaBalance = deltaBalance;
-  }
-  if (setBalance !== null) {
-    user.balance = Math.max(0, setBalance);
-    changes.setBalance = setBalance;
-  }
-  if (setTapValue !== null) {
-    user.tapValue = Math.max(1, Math.floor(setTapValue));
-    changes.setTapValue = user.tapValue;
-  }
-  if (banMinutes !== null) {
-    if (banMinutes <= 0) {
-      user.bannedUntil = 0;
-      changes.banMinutes = 0;
+  let usedDurableAction = false;
+  if (hasDurableUserStore(env)) {
+    const data = await runUserAction(env, normalizedUserId, "admin_adjust", {
+      now,
+      ...body
+    });
+    if (data.ok) {
+      usedDurableAction = true;
+      user = data.user;
+      changes = data.changes || {};
     } else {
-      user.bannedUntil = Date.now() + banMinutes * 60 * 1000;
-      changes.banMinutes = banMinutes;
+      const nonBlockingDoErrors = new Set([
+        "method_not_allowed",
+        "user_store_error",
+        "invalid_user"
+      ]);
+      if (!nonBlockingDoErrors.has(String(data.error || ""))) {
+        const status = data.status || 400;
+        return withCors(
+          { ok: false, error: data.error || "adjust_failed" },
+          status
+        );
+      }
     }
   }
 
-  if (body.resetDaily) {
-    const day = new Date().toISOString().slice(0, 10);
-    user.dailyQuestDay = day;
-    user.dailyTapCount = 0;
-    user.dailyPurchaseCount = 0;
-    user.dailyQuestClaims = {};
-    changes.resetDaily = true;
+  if (!usedDurableAction) {
+    user = await getUserById(env, normalizedUserId);
+    if (!user) {
+      return withCors({ ok: false, error: "not_found" }, 404);
+    }
+    user = normalizeUser(user);
+    const result = applyAdminAdjustAction(user, body, now);
+    if (!result.ok) {
+      return withCors({ ok: false, error: result.error || "adjust_failed" }, result.status || 400);
+    }
+    changes = result.changes;
+    await saveUser(env, user);
   }
-
-  if (body.clearBoost) {
-    user.boostUntil = 0;
-    changes.clearBoost = true;
-  }
-
-  if (!Object.keys(changes).length) {
-    return withCors({ ok: false, error: "no_changes" }, 400);
-  }
-
-  await saveUser(env, user);
   context.waitUntil(
     logEvent(
       env,

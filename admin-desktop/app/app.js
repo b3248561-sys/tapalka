@@ -52,12 +52,14 @@ function setStatus(el, text, isError = false) {
   el.style.color = isError ? "#ff6b6b" : "#a7b0bb";
 }
 
-function bytesToBase64(bytes) {
-  let binary = "";
-  bytes.forEach((b) => {
-    binary += String.fromCharCode(b);
-  });
-  return btoa(binary);
+function escapeHtml(value) {
+  const text = String(value ?? "");
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function base64ToBytes(b64) {
@@ -126,6 +128,7 @@ async function enrollDevice() {
   const prev = getState();
   const state = {
     serverUrl,
+    deviceName,
     deviceId: data.deviceId,
     deviceToken: data.deviceToken || prev.deviceToken || null,
     publicKeyJwk,
@@ -217,23 +220,31 @@ function summarizeEvent(event) {
 function renderSummaryRow(group, columnCount) {
   const latest = summarizeEvent(group.latest);
   const detailId = `detail-${safeId(group.userId)}`;
+  const safeNickname = escapeHtml(group.nickname);
+  const safeUserId = escapeHtml(group.userId || "-");
+  const safeTs = escapeHtml(formatTs(latest.ts));
+  const safeAction = escapeHtml(latest.action);
+  const safeRawIp = escapeHtml(latest.rawIp);
+  const safeIpHash = escapeHtml(latest.ipHash);
+  const safeCountry = escapeHtml(latest.country);
+  const safePath = escapeHtml(latest.path);
   return `
     <tr class="summary-row" data-details="${detailId}">
-      <td>${group.nickname}</td>
-      <td>${formatTs(latest.ts)}</td>
-      <td>${group.userId || "-"}</td>
-      <td>${latest.action}</td>
-      <td>${latest.rawIp}</td>
-      <td>${latest.ipHash}</td>
-      <td>${latest.country}</td>
-      <td>${latest.path}</td>
+      <td>${safeNickname}</td>
+      <td>${safeTs}</td>
+      <td>${safeUserId}</td>
+      <td>${safeAction}</td>
+      <td>${safeRawIp}</td>
+      <td>${safeIpHash}</td>
+      <td>${safeCountry}</td>
+      <td>${safePath}</td>
     </tr>
     <tr id="${detailId}" class="detail-row" style="display:none" data-open="0">
       <td colspan="${columnCount}">
         <div class="detail-panel">
           <div class="detail-header">
-            <span>История пользователя: ${group.nickname} (${group.userId})</span>
-            <span>Событий: ${group.events.length}</span>
+            <span>История пользователя: ${safeNickname} (${safeUserId})</span>
+            <span>Событий: ${Number(group.events.length) || 0}</span>
           </div>
           <div class="table-wrap">
             <table class="detail-table">
@@ -251,14 +262,20 @@ function renderSummaryRow(group, columnCount) {
                 ${group.events
                   .map((event) => {
                     const info = summarizeEvent(event);
+                    const eventTs = escapeHtml(formatTs(info.ts));
+                    const eventAction = escapeHtml(info.action);
+                    const eventRawIp = escapeHtml(info.rawIp);
+                    const eventIpHash = escapeHtml(info.ipHash);
+                    const eventCountry = escapeHtml(info.country);
+                    const eventPath = escapeHtml(info.path);
                     return `
                       <tr>
-                        <td>${formatTs(info.ts)}</td>
-                        <td>${info.action}</td>
-                        <td>${info.rawIp}</td>
-                        <td>${info.ipHash}</td>
-                        <td>${info.country}</td>
-                        <td>${info.path}</td>
+                        <td>${eventTs}</td>
+                        <td>${eventAction}</td>
+                        <td>${eventRawIp}</td>
+                        <td>${eventIpHash}</td>
+                        <td>${eventCountry}</td>
+                        <td>${eventPath}</td>
                       </tr>
                     `;
                   })
@@ -418,6 +435,8 @@ async function loadLogs() {
 
 function clearLocal() {
   localStorage.removeItem("adminState");
+  elements.serverUrl.value = DEFAULT_SERVER;
+  elements.deviceName.value = "My Device";
   renderDeviceInfo();
   setStatus(elements.enrollStatus, "Ключи удалены.");
   elements.logsBody.innerHTML = "";
@@ -450,15 +469,27 @@ function renderAdminUser(user) {
   const bannedUntil = user.bannedUntil && Number(user.bannedUntil) > Date.now()
     ? new Date(user.bannedUntil).toLocaleString()
     : "нет";
+  const safeIdValue = escapeHtml(user.id);
+  const safeNick = escapeHtml(
+    user.username ? `@${user.username}` : user.name || "-"
+  );
+  const safeBalance = escapeHtml(user.balance);
+  const safeTapValue = escapeHtml(user.tapValue);
+  const safeTotalTaps = escapeHtml(user.totalTaps || 0);
+  const safeTotalEarned = escapeHtml(user.totalEarned || 0);
+  const safeBoostUntil = escapeHtml(
+    user.boostUntil ? new Date(user.boostUntil).toLocaleString() : "нет"
+  );
+  const safeBannedUntil = escapeHtml(bannedUntil);
   elements.adminUserCard.innerHTML = `
-    <div><strong>ID:</strong> ${user.id}</div>
-    <div><strong>Ник:</strong> ${user.username ? `@${user.username}` : user.name || "-"}</div>
-    <div><strong>Баланс:</strong> ${user.balance}</div>
-    <div><strong>Сила тапа:</strong> ${user.tapValue}</div>
-    <div><strong>Всего тапов:</strong> ${user.totalTaps || 0}</div>
-    <div><strong>Заработано:</strong> ${user.totalEarned || 0}</div>
-    <div><strong>Буст до:</strong> ${user.boostUntil ? new Date(user.boostUntil).toLocaleString() : "нет"}</div>
-    <div><strong>Бан до:</strong> ${bannedUntil}</div>
+    <div><strong>ID:</strong> ${safeIdValue}</div>
+    <div><strong>Ник:</strong> ${safeNick}</div>
+    <div><strong>Баланс:</strong> ${safeBalance}</div>
+    <div><strong>Сила тапа:</strong> ${safeTapValue}</div>
+    <div><strong>Всего тапов:</strong> ${safeTotalTaps}</div>
+    <div><strong>Заработано:</strong> ${safeTotalEarned}</div>
+    <div><strong>Буст до:</strong> ${safeBoostUntil}</div>
+    <div><strong>Бан до:</strong> ${safeBannedUntil}</div>
   `;
 }
 
@@ -571,5 +602,13 @@ elements.adminClearBoost?.addEventListener("click", clearBoost);
 const state = getState();
 elements.serverUrl.value = state.serverUrl || DEFAULT_SERVER;
 elements.deviceName.value = state.deviceName || "My Device";
+elements.serverUrl.addEventListener("change", () => {
+  const current = getState();
+  saveState({ ...current, serverUrl: elements.serverUrl.value.trim() || DEFAULT_SERVER });
+});
+elements.deviceName.addEventListener("change", () => {
+  const current = getState();
+  saveState({ ...current, deviceName: elements.deviceName.value.trim() || "My Device" });
+});
 renderDeviceInfo();
 setActiveView(window.location.hash === "#admin" ? "admin" : "logs");

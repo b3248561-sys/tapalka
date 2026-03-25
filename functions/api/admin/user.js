@@ -3,7 +3,8 @@ import {
   normalizeUser,
   saveUser,
   getRank,
-  getUserById
+  getUserById,
+  hasDurableUserStore
 } from "../../_shared/utils.js";
 import { verifyDevice } from "../../_shared/admin.js";
 
@@ -56,7 +57,7 @@ export async function onRequestGet(context) {
   }
 
   const normalized = normalizeUser(user);
-  if (normalized._dirty) {
+  if (normalized._dirty && !hasDurableUserStore(env)) {
     delete normalized._dirty;
     await saveUser(env, normalized);
     user = normalized;

@@ -4,11 +4,10 @@ import {
   extractUser,
   loadUser,
   saveUser,
-  getDailyQuests,
-  ensureDaily,
-  getRank,
-  isBanned,
-  syncEnergy
+  applyQuestClaimAction,
+  runUserAction,
+  hasDurableUserStore,
+  resolveInitDataMaxAgeSec
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -24,6 +23,7 @@ export async function onRequestPost(context) {
   const initData = body.initData || request.headers.get("x-init-data");
   const demoUserId = body.demoUserId;
   const questId = body.questId;
+  const maxAgeSec = resolveInitDataMaxAgeSec(env);
 
   if (!questId) {
     return jsonResponse({ ok: false, error: "quest_missing" }, 400);
@@ -36,7 +36,7 @@ export async function onRequestPost(context) {
     if (!initData) {
       return jsonResponse({ ok: false, error: "initData missing" }, 401);
     }
-    const valid = await verifyInitData(initData, env.BOT_TOKEN);
+    const valid = await verifyInitData(initData, env.BOT_TOKEN, maxAgeSec);
     if (!valid) {
       return jsonResponse({ ok: false, error: "initData invalid" }, 401);
     }
@@ -46,54 +46,43 @@ export async function onRequestPost(context) {
     }
   }
 
-  const user = await loadUser(
-    env,
-    String(tgUser.id),
-    tgUser.first_name,
-    tgUser.username
-  );
-  ensureDaily(user);
   const now = Date.now();
-  const changed = syncEnergy(user, now);
-  if (changed) await saveUser(env, user);
-  if (isBanned(user)) {
-    return jsonResponse(
-      { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
-      403
+  const userId = String(tgUser.id);
+  let user = null;
+  let result = null;
+
+  if (hasDurableUserStore(env)) {
+    const data = await runUserAction(env, userId, "quest_claim", {
+      name: tgUser.first_name,
+      username: tgUser.username,
+      questId,
+      now
+    });
+    if (!data.ok) {
+      const { status = 400, ...rest } = data;
+      return jsonResponse({ ok: false, ...rest }, status);
+    }
+    user = data.user;
+    const { user: _user, log, ...payload } = data;
+    result = { payload, log };
+  } else {
+    user = await loadUser(env, userId, tgUser.first_name, tgUser.username);
+    result = applyQuestClaimAction(user, questId, now);
+    if (!result.ok) {
+      const { status = 400, ...rest } = result;
+      await saveUser(env, user);
+      return jsonResponse({ ok: false, ...rest }, status);
+    }
+    await saveUser(env, user);
+  }
+
+  if (result?.log?.action) {
+    context.waitUntil(
+      logEvent(env, request, user, result.log.action, result.log.extra)
     );
   }
-  const quests = getDailyQuests(user);
-  const quest = quests.find((q) => q.id === questId);
-  if (!quest) {
-    return jsonResponse({ ok: false, error: "quest_not_found" }, 404);
-  }
-  if (quest.claimed) {
-    return jsonResponse({ ok: false, error: "quest_claimed" }, 400);
-  }
-  if (quest.progress < quest.target) {
-    return jsonResponse({ ok: false, error: "quest_not_ready" }, 400);
-  }
 
-  user.balance += quest.reward;
-  user.dailyQuestClaims[quest.id] = true;
-  await saveUser(env, user);
-  context.waitUntil(
-    logEvent(env, request, user, "quest_claim", {
-      questId: quest.id,
-      reward: quest.reward
-    })
-  );
-
-  return jsonResponse({
-    ok: true,
-    reward: quest.reward,
-    balance: user.balance,
-    quests: getDailyQuests(user),
-    rank: getRank(user.totalEarned || 0),
-    energy: user.energy,
-    maxEnergy: user.maxEnergy,
-    energyRegen: user.energyRegen || 1
-  });
+  return jsonResponse(result.payload);
 }
 
 export async function onRequest(context) {

@@ -21,6 +21,7 @@ npm run dev
 - `PUBLIC_URL` public HTTPS URL of your server (Telegram requires HTTPS for Web Apps)
 - `PORT` server port, default `3000`
 - `ALLOW_INSECURE_DEMO=1` for local testing without Telegram (do not use in production)
+- `INITDATA_MAX_AGE_SEC` TTL for Telegram `initData` (default `300`, `0` disables TTL check)
 
 ## Recommended: Cloudflare Pages + Functions (no tunnels)
 
@@ -43,12 +44,15 @@ In Pages project settings → Environment variables:
 - `BOT_TOKEN` = your bot token
 - `WEBAPP_URL` = your Pages URL, for example `https://your-project.pages.dev`
 - `ALLOW_INSECURE_DEMO` = `0`
+- `INITDATA_MAX_AGE_SEC` = `300`
+- `TELEGRAM_WEBHOOK_SECRET` = random secret string
+- `REQUIRE_WEBHOOK_SECRET` = `1`
 
 ### 4) Set Telegram webhook
 
 Open in browser (replace token and URL):
 ```
-https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=<WEBAPP_URL>/webhook
+https://api.telegram.org/bot<YOUR_TOKEN>/setWebhook?url=<WEBAPP_URL>/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>
 ```
 
 ### 5) Update BotFather domain

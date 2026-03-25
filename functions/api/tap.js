@@ -4,9 +4,10 @@ import {
   extractUser,
   loadUser,
   saveUser,
-  ensureDaily,
-  isBanned,
-  syncEnergy
+  applyTapAction,
+  runUserAction,
+  hasDurableUserStore,
+  resolveInitDataMaxAgeSec
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -21,9 +22,8 @@ export async function onRequestPost(context) {
 
   const initData = body.initData || request.headers.get("x-init-data");
   const demoUserId = body.demoUserId;
-  let count = Number(body.count || 1);
-  if (!Number.isFinite(count)) count = 1;
-  count = Math.max(1, Math.min(20, Math.floor(count)));
+  const maxAgeSec = resolveInitDataMaxAgeSec(env);
+  const count = body.count;
 
   let tgUser = null;
   if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
@@ -32,7 +32,7 @@ export async function onRequestPost(context) {
     if (!initData) {
       return jsonResponse({ ok: false, error: "initData missing" }, 401);
     }
-    const valid = await verifyInitData(initData, env.BOT_TOKEN);
+    const valid = await verifyInitData(initData, env.BOT_TOKEN, maxAgeSec);
     if (!valid) {
       return jsonResponse({ ok: false, error: "initData invalid" }, 401);
     }
@@ -42,72 +42,50 @@ export async function onRequestPost(context) {
     }
   }
 
-  const user = await loadUser(
-    env,
-    String(tgUser.id),
-    tgUser.first_name,
-    tgUser.username
-  );
-  ensureDaily(user);
   const now = Date.now();
-  syncEnergy(user, now);
-  if (isBanned(user)) {
-    return jsonResponse(
-      { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
-      403
-    );
+  let user = null;
+  let result = null;
+  const userId = String(tgUser.id);
+
+  if (hasDurableUserStore(env)) {
+    const data = await runUserAction(env, userId, "tap", {
+      name: tgUser.first_name,
+      username: tgUser.username,
+      count,
+      now
+    });
+    if (!data.ok) {
+      const { status = 400, ...rest } = data;
+      return jsonResponse({ ok: false, ...rest }, status);
+    }
+    user = data.user;
+    const { user: _user, log, ...payload } = data;
+    result = { payload, log };
+  } else {
+    user = await loadUser(env, userId, tgUser.first_name, tgUser.username);
+    result = applyTapAction(user, { count, now });
+    if (!result.ok) {
+      const { status = 400, ...rest } = result;
+      await saveUser(env, user);
+      return jsonResponse({ ok: false, ...rest }, status);
+    }
+    await saveUser(env, user);
   }
-  if (user.energy <= 0) {
-    return jsonResponse(
-      { ok: false, error: "no_energy", energy: user.energy, maxEnergy: user.maxEnergy },
-      400
-    );
-  }
-  count = Math.min(count, user.energy);
 
-  // No strict rate limit for MVP; allow fast tapping.
-  const boostActive = user.boostUntil && now < user.boostUntil;
-  const multiplier = boostActive ? 2 : 1;
-
-  user.windowStartTs = now;
-  user.windowCount = (user.windowCount || 0) + count;
-  const earned = (user.tapValue || 1) * count * multiplier;
-  user.balance += earned;
-  user.totalEarned = (user.totalEarned || 0) + earned;
-  user.totalTaps = (user.totalTaps || 0) + count;
-  user.dailyTapCount = (user.dailyTapCount || 0) + count;
-  user.lastTapTs = now;
-  user.energy = Math.max(0, (user.energy || 0) - count);
-  user.lastEnergyTs = now;
-
-  if (!user.lastLogTs || now - user.lastLogTs > 2000) {
-    user.lastLogTs = now;
+  if (result?.log?.shouldLog) {
     context.waitUntil(
       logEvent(
         env,
         request,
         user,
-        "tap",
-        { count, earned, multiplier },
+        result.log.action,
+        result.log.extra,
         { throttleMs: 0 }
       )
     );
   }
 
-  await saveUser(env, user);
-
-  return jsonResponse({
-    ok: true,
-    balance: user.balance,
-    tapValue: user.tapValue || 1,
-    multiplier,
-    boostUntil: user.boostUntil || 0,
-    energy: user.energy,
-    maxEnergy: user.maxEnergy,
-    energyRegen: user.energyRegen || 1,
-    windowCount: user.windowCount,
-    lastTapTs: user.lastTapTs
-  });
+  return jsonResponse(result.payload);
 }
 
 export async function onRequest(context) {

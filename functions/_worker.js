@@ -2,7 +2,12 @@ import {
   jsonResponse,
   createUser,
   normalizeUser,
-  ensureDaily
+  ensureDaily,
+  applyTapAction,
+  applyBuyAction,
+  applyDailyAction,
+  applyQuestClaimAction,
+  applyAdminAdjustAction
 } from "./_shared/utils.js";
 
 export class UserStore {
@@ -10,7 +15,7 @@ export class UserStore {
     this.state = state;
   }
 
-  async getUser({ userId, name, username }) {
+  async loadMutableUser({ userId, name, username }) {
     let user = await this.state.storage.get("user");
     if (!user) {
       user = createUser(userId, name, username);
@@ -28,10 +33,20 @@ export class UserStore {
         // fall through to normalize + save
       }
     }
+    return normalizeUser(user);
+  }
+
+  async saveMutableUser(user) {
     const normalized = normalizeUser(user);
     ensureDaily(normalized);
+    if (normalized._dirty) delete normalized._dirty;
     await this.state.storage.put("user", normalized);
     return normalized;
+  }
+
+  async getUser(identity) {
+    const user = await this.loadMutableUser(identity);
+    return this.saveMutableUser(user);
   }
 
   async peekUser() {
@@ -54,6 +69,20 @@ export class UserStore {
     ensureDaily(normalized);
     await this.state.storage.put("user", normalized);
     return normalized;
+  }
+
+  async loadExistingUser() {
+    const user = await this.state.storage.get("user");
+    if (!user) return null;
+    return normalizeUser(user);
+  }
+
+  async applyAction(identity, handler) {
+    const user = await this.loadMutableUser(identity);
+    ensureDaily(user);
+    const result = handler(user);
+    const persisted = await this.saveMutableUser(user);
+    return { result, user: persisted };
   }
 
   async fetch(request) {
@@ -80,6 +109,59 @@ export class UserStore {
       const user = await this.putUser(body.user);
       if (!user) return jsonResponse({ ok: false, error: "invalid_user" }, 400);
       return jsonResponse({ ok: true, user });
+    }
+    if (action === "tap") {
+      const { result, user } = await this.applyAction(body, (candidate) =>
+        applyTapAction(candidate, { count: body.count, now: body.now })
+      );
+      if (!result.ok) {
+        const { status = 400, ...rest } = result;
+        return jsonResponse({ ok: false, status, ...rest }, status);
+      }
+      return jsonResponse({ ...result.payload, user, log: result.log });
+    }
+    if (action === "buy") {
+      const { result, user } = await this.applyAction(body, (candidate) =>
+        applyBuyAction(candidate, body.itemId, body.now)
+      );
+      if (!result.ok) {
+        const { status = 400, ...rest } = result;
+        return jsonResponse({ ok: false, status, ...rest }, status);
+      }
+      return jsonResponse({ ...result.payload, user, log: result.log });
+    }
+    if (action === "daily") {
+      const { result, user } = await this.applyAction(body, (candidate) =>
+        applyDailyAction(candidate, body.now)
+      );
+      if (!result.ok) {
+        const { status = 400, ...rest } = result;
+        return jsonResponse({ ok: false, status, ...rest }, status);
+      }
+      return jsonResponse({ ...result.payload, user, log: result.log });
+    }
+    if (action === "quest_claim") {
+      const { result, user } = await this.applyAction(body, (candidate) =>
+        applyQuestClaimAction(candidate, body.questId, body.now)
+      );
+      if (!result.ok) {
+        const { status = 400, ...rest } = result;
+        return jsonResponse({ ok: false, status, ...rest }, status);
+      }
+      return jsonResponse({ ...result.payload, user, log: result.log });
+    }
+    if (action === "admin_adjust") {
+      const user = await this.loadExistingUser();
+      if (!user) {
+        return jsonResponse({ ok: false, status: 404, error: "not_found" }, 404);
+      }
+      const result = applyAdminAdjustAction(user, body, body.now);
+      if (!result.ok) {
+        const { status = 400, ...rest } = result;
+        return jsonResponse({ ok: false, status, ...rest }, status);
+      }
+      const persisted = await this.saveMutableUser(user);
+      return jsonResponse({ ok: true, user: persisted, changes: result.changes });
     }
     return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
   }

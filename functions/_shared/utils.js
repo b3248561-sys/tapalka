@@ -9,8 +9,25 @@ function buildDataCheckString(initData) {
   return { hash, dataCheckString, params };
 }
 
-export async function verifyInitData(initData, botToken) {
-  const { hash, dataCheckString } = buildDataCheckString(initData);
+function safeEqualHex(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+function parseMaxAgeSec(raw) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return 300;
+  if (value < 0) return 0;
+  return Math.floor(value);
+}
+
+export async function verifyInitData(initData, botToken, maxAgeSec = 300) {
+  if (!initData || !botToken) return false;
+  const { hash, dataCheckString, params } = buildDataCheckString(initData);
   if (!hash) return false;
   const encoder = new TextEncoder();
   const secretKey = await crypto.subtle.digest(
@@ -31,7 +48,16 @@ export async function verifyInitData(initData, botToken) {
   );
   const bytes = new Uint8Array(sig);
   const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return hex === hash;
+  if (!safeEqualHex(hex, hash)) return false;
+
+  const ttlSec = parseMaxAgeSec(maxAgeSec);
+  if (ttlSec === 0) return true;
+  const authDateSec = Number(params.get("auth_date"));
+  if (!Number.isFinite(authDateSec) || authDateSec <= 0) return false;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (authDateSec > nowSec + 30) return false;
+  if (nowSec - authDateSec > ttlSec) return false;
+  return true;
 }
 
 export function extractUser(initData) {
@@ -63,24 +89,41 @@ function hasUserDo(env) {
   return env && env.USER_DO;
 }
 
+export function hasDurableUserStore(env) {
+  return hasUserDo(env);
+}
+
 function getUserStub(env, userId) {
   const id = env.USER_DO.idFromName(String(userId));
   return env.USER_DO.get(id);
 }
 
-async function userDoRequest(env, userId, action, payload = {}) {
+async function userDoRequest(
+  env,
+  userId,
+  action,
+  payload = {},
+  { allowError = false } = {}
+) {
   const stub = getUserStub(env, userId);
   const res = await stub.fetch(`https://user/${action}`, {
     method: "POST",
     body: JSON.stringify({ action, userId: String(userId), ...payload })
   });
   const data = await res.json();
-  if (!data.ok) {
+  if (!data.ok && !allowError) {
     const err = new Error(data.error || "user_store_error");
     err.code = data.error || "user_store_error";
     throw err;
   }
-  return data.user;
+  return data;
+}
+
+export async function runUserAction(env, userId, action, payload = {}) {
+  if (!hasUserDo(env)) {
+    throw new Error("user_store_not_configured");
+  }
+  return userDoRequest(env, userId, action, payload, { allowError: true });
 }
 
 export function createUser(userId, name, username = "") {
@@ -114,7 +157,8 @@ export function createUser(userId, name, username = "") {
 
 export async function loadUser(env, userId, name, username) {
   if (hasUserDo(env)) {
-    return userDoRequest(env, userId, "get", { name, username });
+    const data = await userDoRequest(env, userId, "get", { name, username });
+    return data.user;
   }
   const key = userKey(userId);
   let user = await env.KV.get(key, "json");
@@ -147,7 +191,8 @@ export async function loadUser(env, userId, name, username) {
 
 export async function saveUser(env, user) {
   if (hasUserDo(env)) {
-    return userDoRequest(env, user.id, "put", { user });
+    const data = await userDoRequest(env, user.id, "put", { user });
+    return data.user;
   }
   await env.KV.put(userKey(user.id), JSON.stringify(user));
   return user;
@@ -155,12 +200,14 @@ export async function saveUser(env, user) {
 
 export async function getUserById(env, userId) {
   if (hasUserDo(env)) {
-    try {
-      return await userDoRequest(env, userId, "peek");
-    } catch (err) {
-      if (err && err.code === "not_found") return null;
+    const data = await userDoRequest(env, userId, "peek", {}, { allowError: true });
+    if (!data.ok && data.error === "not_found") return null;
+    if (!data.ok) {
+      const err = new Error(data.error || "user_store_error");
+      err.code = data.error || "user_store_error";
       throw err;
     }
+    return data.user;
   }
   return env.KV.get(userKey(userId), "json");
 }
@@ -231,6 +278,9 @@ export function getItemLevel(user, itemId) {
 
 export function normalizeUser(user) {
   let dirty = false;
+  if (!user || typeof user !== "object") {
+    return createUser("unknown", "Player", "");
+  }
   if (!user.name) {
     user.name = "Player";
     dirty = true;
@@ -243,35 +293,38 @@ export function normalizeUser(user) {
     user.items = {};
     dirty = true;
   }
-  if (!user.tapValue || user.tapValue < 1) {
+  if (typeof user.tapValue !== "number" || user.tapValue < 1) {
     user.tapValue = 1;
     dirty = true;
   }
-  if (!user.boostUntil) {
+  if (typeof user.boostUntil !== "number" || user.boostUntil < 0) {
     user.boostUntil = 0;
     dirty = true;
   }
-  if (!user.lastDailyTs) {
+  if (typeof user.lastDailyTs !== "number" || user.lastDailyTs < 0) {
     user.lastDailyTs = 0;
     dirty = true;
   }
-  if (!user.totalEarned) {
+  if (typeof user.totalEarned !== "number" || user.totalEarned < 0) {
     user.totalEarned = 0;
     dirty = true;
   }
-  if (!user.totalTaps) {
+  if (typeof user.totalTaps !== "number" || user.totalTaps < 0) {
     user.totalTaps = 0;
     dirty = true;
   }
-  if (!user.dailyQuestDay) {
+  if (typeof user.dailyQuestDay !== "string") {
     user.dailyQuestDay = "";
     dirty = true;
   }
-  if (!user.dailyTapCount) {
+  if (typeof user.dailyTapCount !== "number" || user.dailyTapCount < 0) {
     user.dailyTapCount = 0;
     dirty = true;
   }
-  if (!user.dailyPurchaseCount) {
+  if (
+    typeof user.dailyPurchaseCount !== "number" ||
+    user.dailyPurchaseCount < 0
+  ) {
     user.dailyPurchaseCount = 0;
     dirty = true;
   }
@@ -279,23 +332,23 @@ export function normalizeUser(user) {
     user.dailyQuestClaims = {};
     dirty = true;
   }
-  if (!user.lastLogTs) {
+  if (typeof user.lastLogTs !== "number" || user.lastLogTs < 0) {
     user.lastLogTs = 0;
     dirty = true;
   }
-  if (!user.lastOpenLogTs) {
+  if (typeof user.lastOpenLogTs !== "number" || user.lastOpenLogTs < 0) {
     user.lastOpenLogTs = 0;
     dirty = true;
   }
-  if (!user.bannedUntil) {
+  if (typeof user.bannedUntil !== "number" || user.bannedUntil < 0) {
     user.bannedUntil = 0;
     dirty = true;
   }
-  if (!user.maxEnergy || user.maxEnergy < 10) {
+  if (typeof user.maxEnergy !== "number" || user.maxEnergy < 10) {
     user.maxEnergy = 50;
     dirty = true;
   }
-  if (!user.energyRegen || user.energyRegen < 1) {
+  if (typeof user.energyRegen !== "number" || user.energyRegen < 1) {
     user.energyRegen = 1;
     dirty = true;
   }
@@ -303,8 +356,24 @@ export function normalizeUser(user) {
     user.energy = user.maxEnergy;
     dirty = true;
   }
-  if (!user.lastEnergyTs) {
+  if (typeof user.lastEnergyTs !== "number" || user.lastEnergyTs <= 0) {
     user.lastEnergyTs = Date.now();
+    dirty = true;
+  }
+  if (typeof user.windowStartTs !== "number" || user.windowStartTs < 0) {
+    user.windowStartTs = 0;
+    dirty = true;
+  }
+  if (typeof user.windowCount !== "number" || user.windowCount < 0) {
+    user.windowCount = 0;
+    dirty = true;
+  }
+  if (typeof user.balance !== "number" || user.balance < 0) {
+    user.balance = 0;
+    dirty = true;
+  }
+  if (typeof user.lastTapTs !== "number" || user.lastTapTs < 0) {
+    user.lastTapTs = 0;
     dirty = true;
   }
   if (user.energy > user.maxEnergy) {
@@ -417,6 +486,345 @@ export function getDailyQuests(user) {
       claimed: Boolean(user.dailyQuestClaims?.[q.id])
     };
   });
+}
+
+export function resolveInitDataMaxAgeSec(env) {
+  return parseMaxAgeSec(env?.INITDATA_MAX_AGE_SEC ?? 300);
+}
+
+export function summarizeUser(user) {
+  return {
+    id: user.id,
+    name: user.name,
+    username: user.username || "",
+    balance: user.balance,
+    tapValue: user.tapValue || 1,
+    lastTapTs: user.lastTapTs || 0,
+    boostUntil: user.boostUntil || 0,
+    lastDailyTs: user.lastDailyTs || 0,
+    totalEarned: user.totalEarned || 0,
+    totalTaps: user.totalTaps || 0,
+    energy: user.energy,
+    maxEnergy: user.maxEnergy,
+    energyRegen: user.energyRegen || 1,
+    rank: getRank(user.totalEarned || 0)
+  };
+}
+
+export function applyTapAction(user, { count = 1, now = Date.now() } = {}) {
+  ensureDaily(user);
+  syncEnergy(user, now);
+  if (isBanned(user)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "banned",
+      bannedUntil: user.bannedUntil || 0
+    };
+  }
+  if (user.energy <= 0) {
+    return {
+      ok: false,
+      status: 400,
+      error: "no_energy",
+      energy: user.energy,
+      maxEnergy: user.maxEnergy
+    };
+  }
+
+  let safeCount = Number(count || 1);
+  if (!Number.isFinite(safeCount)) safeCount = 1;
+  safeCount = Math.max(1, Math.min(20, Math.floor(safeCount)));
+  safeCount = Math.min(safeCount, user.energy);
+
+  const boostActive = user.boostUntil && now < user.boostUntil;
+  const multiplier = boostActive ? 2 : 1;
+  user.windowStartTs = now;
+  user.windowCount = (user.windowCount || 0) + safeCount;
+  const earned = (user.tapValue || 1) * safeCount * multiplier;
+  user.balance += earned;
+  user.totalEarned = (user.totalEarned || 0) + earned;
+  user.totalTaps = (user.totalTaps || 0) + safeCount;
+  user.dailyTapCount = (user.dailyTapCount || 0) + safeCount;
+  user.lastTapTs = now;
+  user.energy = Math.max(0, (user.energy || 0) - safeCount);
+  user.lastEnergyTs = now;
+  let shouldLog = false;
+  if (!user.lastLogTs || now - user.lastLogTs > 2000) {
+    user.lastLogTs = now;
+    shouldLog = true;
+  }
+
+  return {
+    ok: true,
+    log: { action: "tap", extra: { count: safeCount, earned, multiplier }, shouldLog },
+    payload: {
+      ok: true,
+      balance: user.balance,
+      tapValue: user.tapValue || 1,
+      multiplier,
+      boostUntil: user.boostUntil || 0,
+      energy: user.energy,
+      maxEnergy: user.maxEnergy,
+      energyRegen: user.energyRegen || 1,
+      windowCount: user.windowCount,
+      lastTapTs: user.lastTapTs
+    }
+  };
+}
+
+export function applyBuyAction(user, itemId, now = Date.now()) {
+  ensureDaily(user);
+  syncEnergy(user, now);
+  if (isBanned(user)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "banned",
+      bannedUntil: user.bannedUntil || 0
+    };
+  }
+  if (!itemId) {
+    return { ok: false, status: 400, error: "item_missing" };
+  }
+
+  const item = SHOP_ITEMS.find((candidate) => candidate.id === itemId);
+  if (!item) {
+    return { ok: false, status: 404, error: "item_not_found" };
+  }
+
+  if (item.type === "boost") {
+    if (user.boostUntil && now < user.boostUntil) {
+      return { ok: false, status: 400, error: "boost_active" };
+    }
+    const price = computePrice(item, 0);
+    if (user.balance < price) {
+      return { ok: false, status: 400, error: "not_enough" };
+    }
+    user.balance -= price;
+    user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
+    user.boostUntil = now + (item.durationMs || 10000);
+    return {
+      ok: true,
+      log: {
+        action: "buy_boost",
+        extra: { itemId: item.id, price, durationMs: item.durationMs || 10000 }
+      },
+      payload: {
+        ok: true,
+        balance: user.balance,
+        tapValue: user.tapValue || 1,
+        energy: user.energy,
+        maxEnergy: user.maxEnergy,
+        energyRegen: user.energyRegen || 1,
+        boostUntil: user.boostUntil,
+        item: {
+          id: item.id,
+          price,
+          active: true,
+          durationMs: item.durationMs || 10000
+        }
+      }
+    };
+  }
+
+  const level = getItemLevel(user, item.id);
+  if (level >= item.maxLevel) {
+    return { ok: false, status: 400, error: "item_maxed" };
+  }
+  const price = computePrice(item, level);
+  if (user.balance < price) {
+    return { ok: false, status: 400, error: "not_enough" };
+  }
+
+  user.balance -= price;
+  user.items[item.id] = level + 1;
+  if (item.type === "upgrade") {
+    user.tapValue = (user.tapValue || 1) + (item.tapBonus || 0);
+  } else if (item.type === "energy_cap") {
+    user.maxEnergy = (user.maxEnergy || 50) + (item.energyBonus || 0);
+    user.energy = Math.min(
+      user.maxEnergy,
+      (user.energy || 0) + (item.energyBonus || 0)
+    );
+    user.lastEnergyTs = now;
+  } else if (item.type === "energy_regen") {
+    user.energyRegen = (user.energyRegen || 1) + (item.regenBonus || 1);
+  }
+  user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
+
+  return {
+    ok: true,
+    log: {
+      action: "buy_upgrade",
+      extra: {
+        itemId: item.id,
+        level: user.items[item.id],
+        price,
+        tapBonus: item.tapBonus,
+        energyBonus: item.energyBonus,
+        regenBonus: item.regenBonus
+      }
+    },
+    payload: {
+      ok: true,
+      balance: user.balance,
+      tapValue: user.tapValue || 1,
+      energy: user.energy,
+      maxEnergy: user.maxEnergy,
+      energyRegen: user.energyRegen || 1,
+      item: {
+        id: item.id,
+        level: user.items[item.id],
+        maxLevel: item.maxLevel,
+        price: computePrice(item, user.items[item.id]),
+        tapBonus: item.tapBonus,
+        energyBonus: item.energyBonus,
+        regenBonus: item.regenBonus
+      }
+    }
+  };
+}
+
+export function applyDailyAction(user, now = Date.now()) {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  ensureDaily(user);
+  syncEnergy(user, now);
+  if (isBanned(user)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "banned",
+      bannedUntil: user.bannedUntil || 0
+    };
+  }
+  const nextAt = (user.lastDailyTs || 0) + DAY_MS;
+  if (now < nextAt) {
+    return { ok: false, status: 400, error: "daily_not_ready", nextAt };
+  }
+  const reward = 120 + Math.floor((user.tapValue || 1) * 10);
+  user.balance += reward;
+  user.totalEarned = (user.totalEarned || 0) + reward;
+  user.lastDailyTs = now;
+  return {
+    ok: true,
+    log: { action: "daily_claim", extra: { reward } },
+    payload: {
+      ok: true,
+      reward,
+      balance: user.balance,
+      nextAt: now + DAY_MS,
+      energy: user.energy,
+      maxEnergy: user.maxEnergy,
+      energyRegen: user.energyRegen || 1
+    }
+  };
+}
+
+export function applyQuestClaimAction(user, questId, now = Date.now()) {
+  ensureDaily(user);
+  syncEnergy(user, now);
+  if (isBanned(user)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "banned",
+      bannedUntil: user.bannedUntil || 0
+    };
+  }
+  if (!questId) {
+    return { ok: false, status: 400, error: "quest_missing" };
+  }
+  const quests = getDailyQuests(user);
+  const quest = quests.find((candidate) => candidate.id === questId);
+  if (!quest) {
+    return { ok: false, status: 404, error: "quest_not_found" };
+  }
+  if (quest.claimed) {
+    return { ok: false, status: 400, error: "quest_claimed" };
+  }
+  if (quest.progress < quest.target) {
+    return { ok: false, status: 400, error: "quest_not_ready" };
+  }
+  user.balance += quest.reward;
+  user.totalEarned = (user.totalEarned || 0) + quest.reward;
+  user.dailyQuestClaims[quest.id] = true;
+  return {
+    ok: true,
+    log: {
+      action: "quest_claim",
+      extra: { questId: quest.id, reward: quest.reward }
+    },
+    payload: {
+      ok: true,
+      reward: quest.reward,
+      balance: user.balance,
+      quests: getDailyQuests(user),
+      rank: getRank(user.totalEarned || 0),
+      energy: user.energy,
+      maxEnergy: user.maxEnergy,
+      energyRegen: user.energyRegen || 1
+    }
+  };
+}
+
+function toNumberOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+export function applyAdminAdjustAction(user, body = {}, now = Date.now()) {
+  if (!user || !user.id) {
+    return { ok: false, status: 404, error: "not_found" };
+  }
+
+  const changes = {};
+  const deltaBalance = toNumberOrNull(body.deltaBalance);
+  const setBalance = toNumberOrNull(body.setBalance);
+  const setTapValue = toNumberOrNull(body.setTapValue);
+  const banMinutes = toNumberOrNull(body.banMinutes);
+
+  if (deltaBalance !== null) {
+    user.balance = Math.max(0, (user.balance || 0) + deltaBalance);
+    changes.deltaBalance = deltaBalance;
+  }
+  if (setBalance !== null) {
+    user.balance = Math.max(0, setBalance);
+    changes.setBalance = setBalance;
+  }
+  if (setTapValue !== null) {
+    user.tapValue = Math.max(1, Math.floor(setTapValue));
+    changes.setTapValue = user.tapValue;
+  }
+  if (banMinutes !== null) {
+    if (banMinutes <= 0) {
+      user.bannedUntil = 0;
+      changes.banMinutes = 0;
+    } else {
+      user.bannedUntil = now + banMinutes * 60 * 1000;
+      changes.banMinutes = banMinutes;
+    }
+  }
+
+  if (body.resetDaily) {
+    const day = new Date(now).toISOString().slice(0, 10);
+    user.dailyQuestDay = day;
+    user.dailyTapCount = 0;
+    user.dailyPurchaseCount = 0;
+    user.dailyQuestClaims = {};
+    changes.resetDaily = true;
+  }
+
+  if (body.clearBoost) {
+    user.boostUntil = 0;
+    changes.clearBoost = true;
+  }
+
+  if (!Object.keys(changes).length) {
+    return { ok: false, status: 400, error: "no_changes" };
+  }
+
+  return { ok: true, changes };
 }
 
 const BOT_STRINGS = {

@@ -4,12 +4,10 @@ import {
   extractUser,
   loadUser,
   saveUser,
-  SHOP_ITEMS,
-  computePrice,
-  getItemLevel,
-  ensureDaily,
-  isBanned,
-  syncEnergy
+  applyBuyAction,
+  runUserAction,
+  hasDurableUserStore,
+  resolveInitDataMaxAgeSec
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -25,6 +23,7 @@ export async function onRequestPost(context) {
   const initData = body.initData || request.headers.get("x-init-data");
   const demoUserId = body.demoUserId;
   const itemId = body.itemId;
+  const maxAgeSec = resolveInitDataMaxAgeSec(env);
 
   if (!itemId) {
     return jsonResponse({ ok: false, error: "item_missing" }, 400);
@@ -37,7 +36,7 @@ export async function onRequestPost(context) {
     if (!initData) {
       return jsonResponse({ ok: false, error: "initData missing" }, 401);
     }
-    const valid = await verifyInitData(initData, env.BOT_TOKEN);
+    const valid = await verifyInitData(initData, env.BOT_TOKEN, maxAgeSec);
     if (!valid) {
       return jsonResponse({ ok: false, error: "initData invalid" }, 401);
     }
@@ -47,113 +46,43 @@ export async function onRequestPost(context) {
     }
   }
 
-  const user = await loadUser(
-    env,
-    String(tgUser.id),
-    tgUser.first_name,
-    tgUser.username
-  );
-  ensureDaily(user);
+  const userId = String(tgUser.id);
   const now = Date.now();
-  syncEnergy(user, now);
-  if (isBanned(user)) {
-    return jsonResponse(
-      { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
-      403
-    );
-  }
-  const item = SHOP_ITEMS.find((i) => i.id === itemId);
-  if (!item) {
-    return jsonResponse({ ok: false, error: "item_not_found" }, 404);
-  }
+  let user = null;
+  let result = null;
 
-  if (item.type === "boost") {
-    if (user.boostUntil && now < user.boostUntil) {
-      return jsonResponse({ ok: false, error: "boost_active" }, 400);
-    }
-    const price = computePrice(item, 0);
-    if (user.balance < price) {
-      return jsonResponse({ ok: false, error: "not_enough" }, 400);
-    }
-    user.balance -= price;
-    user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
-    user.boostUntil = now + (item.durationMs || 10000);
-    await saveUser(env, user);
-    context.waitUntil(
-      logEvent(env, request, user, "buy_boost", {
-        itemId: item.id,
-        price,
-        durationMs: item.durationMs || 10000
-      })
-    );
-    return jsonResponse({
-      ok: true,
-      balance: user.balance,
-      tapValue: user.tapValue || 1,
-      energy: user.energy,
-      maxEnergy: user.maxEnergy,
-      energyRegen: user.energyRegen || 1,
-      boostUntil: user.boostUntil,
-      item: {
-        id: item.id,
-        price,
-        active: true,
-        durationMs: item.durationMs || 10000
-      }
+  if (hasDurableUserStore(env)) {
+    const data = await runUserAction(env, userId, "buy", {
+      name: tgUser.first_name,
+      username: tgUser.username,
+      itemId,
+      now
     });
-  }
-
-  const level = getItemLevel(user, item.id);
-  if (level >= item.maxLevel) {
-    return jsonResponse({ ok: false, error: "item_maxed" }, 400);
-  }
-
-  const price = computePrice(item, level);
-  if (user.balance < price) {
-    return jsonResponse({ ok: false, error: "not_enough" }, 400);
-  }
-
-  user.balance -= price;
-  user.items[item.id] = level + 1;
-  if (item.type === "upgrade") {
-    user.tapValue = (user.tapValue || 1) + (item.tapBonus || 0);
-  } else if (item.type === "energy_cap") {
-    user.maxEnergy = (user.maxEnergy || 50) + (item.energyBonus || 0);
-    user.energy = Math.min(user.maxEnergy, (user.energy || 0) + (item.energyBonus || 0));
-  } else if (item.type === "energy_regen") {
-    user.energyRegen = (user.energyRegen || 1) + (item.regenBonus || 1);
-  }
-  user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
-
-  await saveUser(env, user);
-  context.waitUntil(
-    logEvent(env, request, user, "buy_upgrade", {
-      itemId: item.id,
-      level: user.items[item.id],
-      price,
-      tapBonus: item.tapBonus,
-      energyBonus: item.energyBonus,
-      regenBonus: item.regenBonus
-    })
-  );
-
-  return jsonResponse({
-    ok: true,
-    balance: user.balance,
-    tapValue: user.tapValue,
-    energy: user.energy,
-    maxEnergy: user.maxEnergy,
-    energyRegen: user.energyRegen || 1,
-    item: {
-      id: item.id,
-      level: user.items[item.id],
-      maxLevel: item.maxLevel,
-      price: computePrice(item, user.items[item.id]),
-      tapBonus: item.tapBonus,
-      energyBonus: item.energyBonus,
-      regenBonus: item.regenBonus
+    if (!data.ok) {
+      const { status = 400, ...rest } = data;
+      return jsonResponse({ ok: false, ...rest }, status);
     }
-  });
+    user = data.user;
+    const { user: _user, log, ...payload } = data;
+    result = { payload, log };
+  } else {
+    user = await loadUser(env, userId, tgUser.first_name, tgUser.username);
+    result = applyBuyAction(user, itemId, now);
+    if (!result.ok) {
+      const { status = 400, ...rest } = result;
+      await saveUser(env, user);
+      return jsonResponse({ ok: false, ...rest }, status);
+    }
+    await saveUser(env, user);
+  }
+
+  if (result?.log?.action) {
+    context.waitUntil(
+      logEvent(env, request, user, result.log.action, result.log.extra)
+    );
+  }
+
+  return jsonResponse(result.payload);
 }
 
 export async function onRequest(context) {

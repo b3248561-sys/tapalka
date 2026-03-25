@@ -4,8 +4,8 @@ import {
   extractUser,
   loadUser,
   getDailyQuests,
-  ensureDaily,
-  getRank
+  getRank,
+  resolveInitDataMaxAgeSec
 } from "../_shared/utils.js";
 
 export async function onRequest(context) {
@@ -13,6 +13,7 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const initData = url.searchParams.get("initData") || request.headers.get("x-init-data");
   const demoUserId = url.searchParams.get("demoUserId");
+  const maxAgeSec = resolveInitDataMaxAgeSec(env);
 
   let tgUser = null;
   if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
@@ -21,7 +22,7 @@ export async function onRequest(context) {
     if (!initData) {
       return jsonResponse({ ok: false, error: "initData missing" }, 401);
     }
-    const valid = await verifyInitData(initData, env.BOT_TOKEN);
+    const valid = await verifyInitData(initData, env.BOT_TOKEN, maxAgeSec);
     if (!valid) {
       return jsonResponse({ ok: false, error: "initData invalid" }, 401);
     }
@@ -37,7 +38,6 @@ export async function onRequest(context) {
     tgUser.first_name,
     tgUser.username
   );
-  ensureDaily(user);
 
   return jsonResponse({
     ok: true,

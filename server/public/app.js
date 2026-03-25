@@ -47,6 +47,8 @@ let boostUntil = 0;
 let questsState = [];
 let rankState = null;
 let lastQuestSyncAt = 0;
+let lastProfileSyncAt = 0;
+let isProfileSyncing = false;
 let energy = 0;
 let maxEnergy = 0;
 let energyRegen = 1;
@@ -514,9 +516,10 @@ async function loadProfile() {
   return res.json();
 }
 
-function updateBalance(value) {
+function updateBalance(value, { bump = true } = {}) {
   balanceEl.textContent = String(value);
   if (shopBalanceEl) shopBalanceEl.textContent = String(value);
+  if (!bump) return;
   balanceEl.classList.remove("bump");
   requestAnimationFrame(() => {
     balanceEl.classList.add("bump");
@@ -837,6 +840,47 @@ async function init() {
   }
 }
 
+async function syncProfileSilently({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && document.visibilityState === "hidden") return;
+  if (!force && now - lastProfileSyncAt < 1000) return;
+  if (isProfileSyncing) return;
+  isProfileSyncing = true;
+  try {
+    const profile = await loadProfile();
+    if (!profile?.ok || !profile.user) return;
+    updateBalance(profile.user.balance, { bump: false });
+    updateTapValue(profile.user.tapValue || 1);
+    rankState = profile.user.rank || rankState;
+    updateRank();
+    if (typeof profile.user.energy === "number") {
+      updateEnergy(
+        profile.user.energy,
+        profile.user.maxEnergy,
+        profile.user.energyRegen
+      );
+    }
+    lastDailyTs = profile.user.lastDailyTs || lastDailyTs || 0;
+    boostUntil = profile.user.boostUntil || 0;
+    updateDailyStatus();
+    lastProfileSyncAt = now;
+  } catch {
+    // silent background sync
+  } finally {
+    isProfileSyncing = false;
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    syncProfileSilently({ force: true });
+  }
+});
+
+window.addEventListener("focus", () => {
+  syncProfileSilently({ force: true });
+});
+
 tapBtn.addEventListener("click", async () => {
   const now = Date.now();
   if (now - lastTouchAt < 300) return;
@@ -1018,4 +1062,5 @@ setInterval(() => {
   if (boostUntil && Date.now() < boostUntil) {
     renderShop();
   }
+  syncProfileSilently();
 }, 1000);

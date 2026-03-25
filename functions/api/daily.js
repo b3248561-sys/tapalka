@@ -4,12 +4,12 @@ import {
   extractUser,
   loadUser,
   saveUser,
-  isBanned,
-  syncEnergy
+  applyDailyAction,
+  runUserAction,
+  hasDurableUserStore,
+  resolveInitDataMaxAgeSec
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -22,6 +22,7 @@ export async function onRequestPost(context) {
 
   const initData = body.initData || request.headers.get("x-init-data");
   const demoUserId = body.demoUserId;
+  const maxAgeSec = resolveInitDataMaxAgeSec(env);
 
   let tgUser = null;
   if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
@@ -30,7 +31,7 @@ export async function onRequestPost(context) {
     if (!initData) {
       return jsonResponse({ ok: false, error: "initData missing" }, 401);
     }
-    const valid = await verifyInitData(initData, env.BOT_TOKEN);
+    const valid = await verifyInitData(initData, env.BOT_TOKEN, maxAgeSec);
     if (!valid) {
       return jsonResponse({ ok: false, error: "initData invalid" }, 401);
     }
@@ -40,45 +41,42 @@ export async function onRequestPost(context) {
     }
   }
 
-  const user = await loadUser(
-    env,
-    String(tgUser.id),
-    tgUser.first_name,
-    tgUser.username
-  );
   const now = Date.now();
-  const changed = syncEnergy(user, now);
-  if (changed) await saveUser(env, user);
-  if (isBanned(user)) {
-    return jsonResponse(
-      { ok: false, error: "banned", bannedUntil: user.bannedUntil || 0 },
-      403
+  const userId = String(tgUser.id);
+  let user = null;
+  let result = null;
+
+  if (hasDurableUserStore(env)) {
+    const data = await runUserAction(env, userId, "daily", {
+      name: tgUser.first_name,
+      username: tgUser.username,
+      now
+    });
+    if (!data.ok) {
+      const { status = 400, ...rest } = data;
+      return jsonResponse({ ok: false, ...rest }, status);
+    }
+    user = data.user;
+    const { user: _user, log, ...payload } = data;
+    result = { payload, log };
+  } else {
+    user = await loadUser(env, userId, tgUser.first_name, tgUser.username);
+    result = applyDailyAction(user, now);
+    if (!result.ok) {
+      const { status = 400, ...rest } = result;
+      await saveUser(env, user);
+      return jsonResponse({ ok: false, ...rest }, status);
+    }
+    await saveUser(env, user);
+  }
+
+  if (result?.log?.action) {
+    context.waitUntil(
+      logEvent(env, request, user, result.log.action, result.log.extra)
     );
   }
-  const nextAt = (user.lastDailyTs || 0) + DAY_MS;
-  if (now < nextAt) {
-    return jsonResponse({
-      ok: false,
-      error: "daily_not_ready",
-      nextAt
-    }, 400);
-  }
 
-  const reward = 120 + Math.floor((user.tapValue || 1) * 10);
-  user.balance += reward;
-  user.lastDailyTs = now;
-  await saveUser(env, user);
-  context.waitUntil(logEvent(env, request, user, "daily_claim", { reward }));
-
-  return jsonResponse({
-    ok: true,
-    reward,
-    balance: user.balance,
-    nextAt: now + DAY_MS,
-    energy: user.energy,
-    maxEnergy: user.maxEnergy,
-    energyRegen: user.energyRegen || 1
-  });
+  return jsonResponse(result.payload);
 }
 
 export async function onRequest(context) {
