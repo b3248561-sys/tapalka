@@ -7,7 +7,8 @@ import {
   saveUser,
   summarizeUser,
   resolveInitDataMaxAgeSec,
-  hasDurableUserStore
+  hasDurableUserStore,
+  isDemoAllowed
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -19,7 +20,7 @@ export async function onRequest(context) {
   const maxAgeSec = resolveInitDataMaxAgeSec(env);
   const useDurableStore = hasDurableUserStore(env);
 
-  if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
+  if (isDemoAllowed(env, request) && demoUserId) {
     const profile = await loadUser(env, String(demoUserId), "Demo", "demo");
     const now = Date.now();
     const changed = syncEnergy(profile, now);

@@ -7,7 +7,8 @@ import {
   applyDailyAction,
   runUserAction,
   hasDurableUserStore,
-  resolveInitDataMaxAgeSec
+  resolveInitDataMaxAgeSec,
+  isDemoAllowed
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -25,7 +26,7 @@ export async function onRequestPost(context) {
   const maxAgeSec = resolveInitDataMaxAgeSec(env);
 
   let tgUser = null;
-  if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
+  if (isDemoAllowed(env, request) && demoUserId) {
     tgUser = { id: String(demoUserId), first_name: "Demo" };
   } else {
     if (!initData) {

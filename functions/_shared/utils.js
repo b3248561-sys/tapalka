@@ -492,6 +492,16 @@ export function resolveInitDataMaxAgeSec(env) {
   return parseMaxAgeSec(env?.INITDATA_MAX_AGE_SEC ?? 300);
 }
 
+export function isDemoAllowed(env, request) {
+  if (env?.ALLOW_INSECURE_DEMO !== "1") return false;
+  try {
+    const host = new URL(request.url).hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
 export function summarizeUser(user) {
   return {
     id: user.id,

@@ -64,6 +64,7 @@ Use `/setdomain` and set the same `WEBAPP_URL`.
 1. Set `ALLOW_INSECURE_DEMO=1` in `.env`.
 2. Run server.
 3. Open `http://localhost:3000/?demo=1`.
+4. In production, `?demo=1` is ignored; WebApp must use Telegram `initData`.
 
 ## Bot usage
 

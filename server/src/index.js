@@ -148,10 +148,22 @@ function getAuthFromRequest(req) {
   return { initData, demoUserId };
 }
 
+function isLocalRequest(req) {
+  try {
+    const hostHeader = String(req.headers.host || "").split(":")[0].toLowerCase();
+    if (hostHeader === "localhost" || hostHeader === "127.0.0.1" || hostHeader === "::1") {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
 async function resolveUser(req, res) {
   const { initData, demoUserId } = getAuthFromRequest(req);
 
-  if (ALLOW_INSECURE_DEMO && demoUserId) {
+  if (ALLOW_INSECURE_DEMO && isLocalRequest(req) && demoUserId) {
     return { id: String(demoUserId), first_name: "Demo", username: "demo" };
   }
 

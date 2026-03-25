@@ -9,7 +9,8 @@ import {
   syncEnergy,
   saveUser,
   resolveInitDataMaxAgeSec,
-  hasDurableUserStore
+  hasDurableUserStore,
+  isDemoAllowed
 } from "../_shared/utils.js";
 
 export async function onRequest(context) {
@@ -21,7 +22,7 @@ export async function onRequest(context) {
   const useDurableStore = hasDurableUserStore(env);
 
   let tgUser = null;
-  if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
+  if (isDemoAllowed(env, request) && demoUserId) {
     tgUser = { id: String(demoUserId), first_name: "Demo" };
   } else {
     if (!initData) {

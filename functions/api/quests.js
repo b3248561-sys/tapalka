@@ -5,7 +5,8 @@ import {
   loadUser,
   getDailyQuests,
   getRank,
-  resolveInitDataMaxAgeSec
+  resolveInitDataMaxAgeSec,
+  isDemoAllowed
 } from "../_shared/utils.js";
 
 export async function onRequest(context) {
@@ -16,7 +17,7 @@ export async function onRequest(context) {
   const maxAgeSec = resolveInitDataMaxAgeSec(env);
 
   let tgUser = null;
-  if (env.ALLOW_INSECURE_DEMO === "1" && demoUserId) {
+  if (isDemoAllowed(env, request) && demoUserId) {
     tgUser = { id: String(demoUserId), first_name: "Demo" };
   } else {
     if (!initData) {

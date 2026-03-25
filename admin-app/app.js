@@ -24,6 +24,7 @@ const elements = {
   adminBanMinutes: document.getElementById("adminBanMinutes"),
   adminLoadUser: document.getElementById("adminLoadUser"),
   adminApply: document.getElementById("adminApply"),
+  adminMergeDemo: document.getElementById("adminMergeDemo"),
   adminUnban: document.getElementById("adminUnban"),
   adminResetDaily: document.getElementById("adminResetDaily"),
   adminClearBoost: document.getElementById("adminClearBoost"),
@@ -535,6 +536,10 @@ async function loadAdminUser() {
   setStatus(elements.adminStatus, "Пользователь загружен.");
 }
 
+async function fetchAdminUser(userId) {
+  return adminFetch(`/api/admin/user?userId=${encodeURIComponent(userId)}`);
+}
+
 async function applyAdminChanges(extra = {}) {
   const userId = elements.adminUserId.value.trim();
   if (!userId) {
@@ -568,8 +573,17 @@ async function applyAdminChanges(extra = {}) {
     setStatus(elements.adminStatus, data.error || "Ошибка изменения.", true);
     return;
   }
-  renderAdminUser(data.user);
-  setStatus(elements.adminStatus, "Изменения применены.");
+  const verify = await fetchAdminUser(userId);
+  if (!verify?.ok || !verify.user) {
+    renderAdminUser(data.user);
+    setStatus(elements.adminStatus, "Изменения применены (без верификации).");
+    return;
+  }
+  renderAdminUser(verify.user);
+  setStatus(
+    elements.adminStatus,
+    `Изменения применены. ID ${verify.user.id}, баланс ${verify.user.balance}.`
+  );
 }
 
 async function unbanUser() {
@@ -584,6 +598,82 @@ async function clearBoost() {
   await applyAdminChanges({ clearBoost: true });
 }
 
+async function mergeDemoUsers() {
+  const sourceUserId = "502564";
+  const targetUserId = "512889";
+  setStatus(elements.adminStatus, "Миграция: загружаю пользователей...");
+
+  const [source, target] = await Promise.all([
+    fetchAdminUser(sourceUserId),
+    fetchAdminUser(targetUserId)
+  ]);
+
+  if (!source?.ok || !source.user) {
+    setStatus(elements.adminStatus, `Источник ${sourceUserId} не найден.`, true);
+    return;
+  }
+  if (!target?.ok || !target.user) {
+    setStatus(elements.adminStatus, `Целевой ${targetUserId} не найден.`, true);
+    return;
+  }
+
+  const sourceBalance = Number(source.user.balance || 0);
+  const targetBalance = Number(target.user.balance || 0);
+  if (!Number.isFinite(sourceBalance) || sourceBalance <= 0) {
+    setStatus(
+      elements.adminStatus,
+      `Миграция не нужна: у ${sourceUserId} баланс ${source.user.balance}.`
+    );
+    elements.adminUserId.value = targetUserId;
+    await loadAdminUser();
+    return;
+  }
+
+  setStatus(
+    elements.adminStatus,
+    `Переношу ${sourceBalance} с ${sourceUserId} на ${targetUserId}...`
+  );
+
+  const addToTarget = await adminFetch("/api/admin/adjust", {
+    method: "POST",
+    body: JSON.stringify({ userId: targetUserId, deltaBalance: sourceBalance })
+  });
+  if (!addToTarget?.ok) {
+    setStatus(
+      elements.adminStatus,
+      `Ошибка начисления в ${targetUserId}: ${addToTarget?.error || "unknown"}`,
+      true
+    );
+    return;
+  }
+
+  const clearSource = await adminFetch("/api/admin/adjust", {
+    method: "POST",
+    body: JSON.stringify({ userId: sourceUserId, setBalance: 0 })
+  });
+  if (!clearSource?.ok) {
+    setStatus(
+      elements.adminStatus,
+      `Начислил в ${targetUserId}, но не обнулил ${sourceUserId}: ${clearSource?.error || "unknown"}`,
+      true
+    );
+    return;
+  }
+
+  const verifiedTarget = await fetchAdminUser(targetUserId);
+  const newBalance = verifiedTarget?.ok ? verifiedTarget.user.balance : targetBalance + sourceBalance;
+  elements.adminUserId.value = targetUserId;
+  if (verifiedTarget?.ok) {
+    renderAdminUser(verifiedTarget.user);
+  } else {
+    await loadAdminUser();
+  }
+  setStatus(
+    elements.adminStatus,
+    `Миграция завершена: ${sourceUserId} -> ${targetUserId}. Новый баланс ${newBalance}.`
+  );
+}
+
 elements.enrollBtn.addEventListener("click", enrollDevice);
 elements.loadLogs.addEventListener("click", loadLogs);
 elements.clearLocal.addEventListener("click", clearLocal);
@@ -595,6 +685,7 @@ elements.tabLogs?.addEventListener("click", () => setActiveView("logs"));
 elements.tabAdmin?.addEventListener("click", () => setActiveView("admin"));
 elements.adminLoadUser?.addEventListener("click", loadAdminUser);
 elements.adminApply?.addEventListener("click", () => applyAdminChanges());
+elements.adminMergeDemo?.addEventListener("click", mergeDemoUsers);
 elements.adminUnban?.addEventListener("click", unbanUser);
 elements.adminResetDaily?.addEventListener("click", resetDaily);
 elements.adminClearBoost?.addEventListener("click", clearBoost);

@@ -32,7 +32,12 @@ const questsListEl = document.getElementById("questsList");
 
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const params = new URLSearchParams(window.location.search);
-const demoMode = params.get("demo") === "1";
+const demoRequested = params.get("demo") === "1";
+const isLocalHost =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
+  window.location.hostname === "::1";
+const demoMode = demoRequested && isLocalHost;
 
 let initData = "";
 let demoUserId = null;
@@ -474,11 +479,16 @@ if (demoMode) {
     localStorage.setItem("demoUserId", demoUserId);
   }
   setMeta("demo");
+} else if (demoRequested && !isLocalHost) {
+  setMeta("authError");
 }
 
 async function apiRequest(path, options = {}) {
   const init = tg?.initData || initData || "";
   if (init && init !== initData) initData = init;
+  if (!demoMode && !initData) {
+    return { ok: false, error: "auth_required" };
+  }
   const opts = {
     ...options,
     headers: { "Content-Type": "application/json" }
@@ -505,6 +515,9 @@ async function apiRequest(path, options = {}) {
 async function loadProfile() {
   const init = tg?.initData || initData || "";
   if (init && init !== initData) initData = init;
+  if (!demoMode && !initData) {
+    return { ok: false, error: "auth_required" };
+  }
   const headers = {};
   let url = "/api/me";
   if (demoMode) {
@@ -682,7 +695,16 @@ function renderShop() {
           body: JSON.stringify({ itemId: item.id })
         });
         if (!data.ok) {
-          setMetaText(data.error || t("tryAgain"));
+          if (
+            data.error === "auth_required" ||
+            data.error === "initData missing" ||
+            data.error === "initData invalid" ||
+            data.error === "user missing"
+          ) {
+            setMeta("authError");
+          } else {
+            setMetaText(data.error || t("tryAgain"));
+          }
           return;
         }
         updateBalance(data.balance);
@@ -739,7 +761,16 @@ function renderQuests() {
           body: JSON.stringify({ questId: quest.id })
         });
         if (!data.ok) {
-          setMetaText(data.error || t("tryAgain"));
+          if (
+            data.error === "auth_required" ||
+            data.error === "initData missing" ||
+            data.error === "initData invalid" ||
+            data.error === "user missing"
+          ) {
+            setMeta("authError");
+          } else {
+            setMetaText(data.error || t("tryAgain"));
+          }
           return;
         }
         updateBalance(data.balance);
@@ -766,6 +797,7 @@ function renderQuests() {
 async function loadShop() {
   const init = tg?.initData || initData || "";
   if (init && init !== initData) initData = init;
+  if (!demoMode && !initData) return;
   const headers = {};
   let url = "/api/shop";
   if (demoMode) {
@@ -790,6 +822,7 @@ async function loadShop() {
 async function loadQuests({ silent = false } = {}) {
   const init = tg?.initData || initData || "";
   if (init && init !== initData) initData = init;
+  if (!demoMode && !initData) return;
   const headers = {};
   let url = "/api/quests";
   if (demoMode) {
@@ -813,9 +846,28 @@ async function loadQuests({ silent = false } = {}) {
 async function init() {
   setLoadingState(true);
   try {
+    const init = tg?.initData || initData || "";
+    if (init && init !== initData) initData = init;
+    if (!demoMode && !initData) {
+      if (tapBtn) tapBtn.disabled = true;
+      setMeta("authError");
+      return;
+    }
+
     const profile = await loadProfile();
     if (!profile.ok) {
-      setMetaText(profile.error || t("authError"));
+      const authErrors = new Set([
+        "auth_required",
+        "initData missing",
+        "initData invalid",
+        "user missing"
+      ]);
+      if (authErrors.has(String(profile.error || ""))) {
+        if (tapBtn) tapBtn.disabled = true;
+        setMeta("authError");
+      } else {
+        setMetaText(profile.error || t("authError"));
+      }
       return;
     }
     setMeta("player", { name: profile.user.name });
@@ -938,6 +990,15 @@ if (dailyBtnEl) {
         body: "{}"
       });
       if (!data.ok) {
+        if (
+          data.error === "auth_required" ||
+          data.error === "initData missing" ||
+          data.error === "initData invalid" ||
+          data.error === "user missing"
+        ) {
+          setMeta("authError");
+          return;
+        }
         if (data.error === "daily_not_ready" && data.nextAt) {
           lastDailyTs = data.nextAt - 24 * 60 * 60 * 1000;
           updateDailyStatus();
@@ -959,6 +1020,10 @@ if (dailyBtnEl) {
 }
 
 async function sendTap(count = 1, point = null) {
+  if (!demoMode && !initData) {
+    setMeta("authError");
+    return;
+  }
   if (!demoMode && energy <= 0) {
     setMeta("energyEmpty");
     return;
@@ -973,6 +1038,13 @@ async function sendTap(count = 1, point = null) {
         setMeta("rateLimited");
       } else if (data.error === "no_energy") {
         setMeta("energyEmpty");
+      } else if (
+        data.error === "auth_required" ||
+        data.error === "initData missing" ||
+        data.error === "initData invalid" ||
+        data.error === "user missing"
+      ) {
+        setMeta("authError");
       } else if (data.error) {
         setMetaText(data.error);
       } else {
