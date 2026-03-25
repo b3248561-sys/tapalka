@@ -28,6 +28,8 @@ const elements = {
   adminCheckConsistency: document.getElementById("adminCheckConsistency"),
   adminMergeDemo: document.getElementById("adminMergeDemo"),
   adminUnban: document.getElementById("adminUnban"),
+  adminHideFromLeaderboard: document.getElementById("adminHideFromLeaderboard"),
+  adminShowInLeaderboard: document.getElementById("adminShowInLeaderboard"),
   adminResetDaily: document.getElementById("adminResetDaily"),
   adminClearBoost: document.getElementById("adminClearBoost"),
   adminStatus: document.getElementById("adminStatus"),
@@ -541,6 +543,9 @@ function renderAdminUser(user) {
     user.boostUntil ? new Date(user.boostUntil).toLocaleString() : "нет"
   );
   const safeBannedUntil = escapeHtml(bannedUntil);
+  const safeLeaderboardStatus = escapeHtml(
+    user.leaderboardHidden ? "скрыт" : "виден"
+  );
   elements.adminUserCard.innerHTML = `
     <div><strong>ID:</strong> ${safeIdValue}</div>
     <div><strong>Ник:</strong> ${safeNick}</div>
@@ -550,6 +555,7 @@ function renderAdminUser(user) {
     <div><strong>Заработано:</strong> ${safeTotalEarned}</div>
     <div><strong>Буст до:</strong> ${safeBoostUntil}</div>
     <div><strong>Бан до:</strong> ${safeBannedUntil}</div>
+    <div><strong>Рейтинг:</strong> ${safeLeaderboardStatus}</div>
   `;
 }
 
@@ -813,6 +819,14 @@ async function clearBoost() {
   await applyAdminChanges({ clearBoost: true });
 }
 
+async function hideFromLeaderboard() {
+  await applyAdminChanges({ removeFromLeaderboard: true });
+}
+
+async function showInLeaderboard() {
+  await applyAdminChanges({ returnToLeaderboard: true });
+}
+
 async function mergeDemoUsers() {
   const sourceUserId = "502564";
   const targetUserId = "512889";
@@ -905,6 +919,8 @@ elements.adminApply?.addEventListener("click", () => applyAdminChanges());
 elements.adminCheckConsistency?.addEventListener("click", checkConsistency);
 elements.adminMergeDemo?.addEventListener("click", mergeDemoUsers);
 elements.adminUnban?.addEventListener("click", unbanUser);
+elements.adminHideFromLeaderboard?.addEventListener("click", hideFromLeaderboard);
+elements.adminShowInLeaderboard?.addEventListener("click", showInLeaderboard);
 elements.adminResetDaily?.addEventListener("click", resetDaily);
 elements.adminClearBoost?.addEventListener("click", clearBoost);
 

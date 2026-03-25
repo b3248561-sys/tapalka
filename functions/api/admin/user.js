@@ -33,6 +33,7 @@ function summarize(user) {
     totalEarned: user.totalEarned || 0,
     boostUntil: user.boostUntil || 0,
     bannedUntil: user.bannedUntil || 0,
+    leaderboardHidden: Boolean(user.leaderboardHidden),
     lastDailyTs: user.lastDailyTs || 0,
     dailyTapCount: user.dailyTapCount || 0,
     dailyPurchaseCount: user.dailyPurchaseCount || 0,

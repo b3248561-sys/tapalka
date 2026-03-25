@@ -189,6 +189,7 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     bannedUntil: 0,
     equippedCosmetic: "",
     equippedFrame: "",
+    leaderboardHidden: false,
     maxEnergy: 50,
     energy: 50,
     energyRegen: 1,
@@ -295,6 +296,11 @@ function leaderboardKey(userId) {
 
 export async function upsertLeaderboardEntry(env, user) {
   if (!env?.KV || !user?.id) return;
+  const key = leaderboardKey(user.id);
+  if (user.leaderboardHidden) {
+    await env.KV.delete(key);
+    return;
+  }
   const record = {
     id: String(user.id),
     name: user.name || "Player",
@@ -307,7 +313,7 @@ export async function upsertLeaderboardEntry(env, user) {
     equippedFrame: user.equippedFrame || "",
     updatedAt: Date.now()
   };
-  await env.KV.put(leaderboardKey(record.id), JSON.stringify(record));
+  await env.KV.put(key, JSON.stringify(record));
 }
 
 export async function getLeaderboard(env, { limit = 50 } = {}) {
@@ -565,6 +571,10 @@ export function normalizeUser(user) {
     user.equippedFrame = "";
     dirty = true;
   }
+  if (typeof user.leaderboardHidden !== "boolean") {
+    user.leaderboardHidden = false;
+    dirty = true;
+  }
   if (typeof user.maxEnergy !== "number" || user.maxEnergy < 10) {
     user.maxEnergy = 50;
     dirty = true;
@@ -752,6 +762,7 @@ export function summarizeUser(user) {
     totalTaps: user.totalTaps || 0,
     equippedCosmetic: user.equippedCosmetic || "",
     equippedFrame: user.equippedFrame || "",
+    leaderboardHidden: Boolean(user.leaderboardHidden),
     energy: user.energy,
     maxEnergy: user.maxEnergy,
     energyRegen: user.energyRegen || 1,
@@ -1151,6 +1162,15 @@ export function applyAdminAdjustAction(user, body = {}, now = Date.now()) {
   if (body.clearBoost) {
     user.boostUntil = 0;
     changes.clearBoost = true;
+  }
+
+  if (body.removeFromLeaderboard) {
+    user.leaderboardHidden = true;
+    changes.removeFromLeaderboard = true;
+  }
+  if (body.returnToLeaderboard) {
+    user.leaderboardHidden = false;
+    changes.returnToLeaderboard = true;
   }
 
   if (!Object.keys(changes).length) {
