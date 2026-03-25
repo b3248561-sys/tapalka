@@ -6,7 +6,8 @@ import {
   normalizeUser,
   applyAdminAdjustAction,
   hasDurableUserStore,
-  runUserAction
+  runUserAction,
+  upsertLeaderboardEntry
 } from "../../_shared/utils.js";
 import {
   resolveDeviceAuth,
@@ -140,6 +141,7 @@ export async function onRequestPost(context) {
       { throttleMs: 0 }
     )
   );
+  context.waitUntil(upsertLeaderboardEntry(env, user));
   const verifiedUser = await readVerifiedUser(env, normalizedUserId);
   if (!verifiedUser) {
     return withCors(

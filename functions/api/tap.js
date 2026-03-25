@@ -8,7 +8,8 @@ import {
   runUserAction,
   hasDurableUserStore,
   resolveInitDataMaxAgeSec,
-  isDemoAllowed
+  isDemoAllowed,
+  upsertLeaderboardEntry
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -85,6 +86,7 @@ export async function onRequestPost(context) {
       )
     );
   }
+  context.waitUntil(upsertLeaderboardEntry(env, user));
 
   return jsonResponse(result.payload);
 }

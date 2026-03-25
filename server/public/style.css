@@ -652,6 +652,215 @@ body {
   cursor: wait;
 }
 
+/* refreshed shop + cosmetics + leaderboard */
+.tabs {
+  width: min(440px, calc(100% - 20px));
+  gap: 6px;
+}
+
+.tab {
+  min-width: 90px;
+  padding: 8px 14px;
+}
+
+.shop {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.86), rgba(255, 250, 237, 0.9));
+  border: 1px solid rgba(31, 39, 55, 0.08);
+  box-shadow: 0 16px 40px rgba(28, 26, 23, 0.1);
+  gap: 14px;
+}
+
+.shop-list {
+  display: grid;
+  gap: 14px;
+}
+
+.shop-section {
+  display: grid;
+  gap: 10px;
+}
+
+.shop-section-head h3 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(28, 26, 23, 0.7);
+}
+
+.shop-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.shop-item {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 248, 227, 0.95));
+  border: 1px solid rgba(28, 26, 23, 0.08);
+}
+
+.shop-item-top h4 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.shop-item-top p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shop-item .shop-meta {
+  margin-top: 0;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.shop-item.category-power {
+  border-color: rgba(72, 142, 255, 0.4);
+}
+
+.shop-item.category-energy {
+  border-color: rgba(26, 185, 169, 0.38);
+}
+
+.shop-item.category-cosmetic {
+  border-color: rgba(238, 144, 94, 0.45);
+}
+
+.shop-item.category-special {
+  border-color: rgba(123, 97, 255, 0.4);
+}
+
+.shop-item.equipped {
+  box-shadow: 0 0 0 1px rgba(255, 164, 61, 0.55), 0 10px 24px rgba(255, 182, 73, 0.25);
+}
+
+.shop-buy {
+  width: 100%;
+  justify-self: stretch;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.leaderboard {
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.76);
+  border-radius: 20px;
+  padding: 16px;
+  border: 1px solid rgba(28, 26, 23, 0.08);
+  box-shadow: 0 14px 32px rgba(28, 26, 23, 0.1);
+  display: grid;
+  gap: 12px;
+}
+
+.leaderboard-head {
+  display: grid;
+  gap: 2px;
+}
+
+.leaderboard-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.leaderboard-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 8px;
+}
+
+.leaderboard-empty {
+  padding: 12px;
+  border-radius: 12px;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px dashed rgba(28, 26, 23, 0.16);
+}
+
+.leader-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fffdf8;
+  border: 1px solid rgba(28, 26, 23, 0.08);
+}
+
+.leader-row.is-you {
+  border-color: rgba(43, 145, 255, 0.48);
+  background: linear-gradient(135deg, rgba(228, 242, 255, 0.9), rgba(255, 255, 255, 0.95));
+}
+
+.leader-rank {
+  font-weight: 700;
+  font-size: 13px;
+  color: #3b4458;
+  min-width: 30px;
+}
+
+.leader-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.leader-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.leader-value {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.panel.theme-crown {
+  box-shadow: 0 18px 42px rgba(164, 106, 0, 0.24);
+  border-color: rgba(255, 171, 56, 0.45);
+}
+
+.panel.theme-crown .tap {
+  background: linear-gradient(145deg, #ffc642, #de8d00);
+  box-shadow: 0 14px 30px rgba(190, 120, 0, 0.42);
+}
+
+.panel.theme-neon {
+  box-shadow: 0 18px 42px rgba(13, 171, 198, 0.3);
+  border-color: rgba(14, 191, 187, 0.5);
+}
+
+.panel.theme-neon .tap {
+  background: linear-gradient(145deg, #00d1d5, #2477ff);
+  box-shadow: 0 14px 30px rgba(26, 124, 255, 0.36);
+}
+
+.panel.theme-sakura {
+  box-shadow: 0 18px 42px rgba(233, 134, 152, 0.26);
+  border-color: rgba(236, 156, 171, 0.52);
+}
+
+.panel.theme-sakura .tap {
+  background: linear-gradient(145deg, #ff9cb6, #ff7d94);
+  box-shadow: 0 14px 30px rgba(225, 108, 142, 0.38);
+}
+
+@media (max-width: 430px) {
+  .tab {
+    min-width: 82px;
+    padding: 8px 10px;
+  }
+}
+
 @keyframes floatOrb {
   0%,
   100% {

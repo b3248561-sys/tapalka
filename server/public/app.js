@@ -20,8 +20,13 @@ const tapValueEl = document.getElementById("tapValue");
 const shopBalanceEl = document.getElementById("shopBalance");
 const screenTapEl = document.getElementById("screenTap");
 const screenShopEl = document.getElementById("screenShop");
+const screenLeaderboardEl = document.getElementById("screenLeaderboard");
 const tabTapEl = document.getElementById("tabTap");
 const tabShopEl = document.getElementById("tabShop");
+const tabLeaderboardEl = document.getElementById("tabLeaderboard");
+const leaderboardTitleEl = document.getElementById("leaderboardTitle");
+const leaderboardSubtitleEl = document.getElementById("leaderboardSubtitle");
+const leaderboardListEl = document.getElementById("leaderboardList");
 const dailyTitleEl = document.getElementById("dailyTitle");
 const dailySubtitleEl = document.getElementById("dailySubtitle");
 const dailyBtnEl = document.getElementById("dailyBtn");
@@ -29,6 +34,7 @@ const dailyStatusEl = document.getElementById("dailyStatus");
 const questsTitleEl = document.getElementById("questsTitle");
 const questsSubtitleEl = document.getElementById("questsSubtitle");
 const questsListEl = document.getElementById("questsList");
+const panelEl = document.querySelector(".panel");
 
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const params = new URLSearchParams(window.location.search);
@@ -44,21 +50,30 @@ let demoUserId = null;
 let currentLang = "en";
 let metaState = { key: "loading", vars: {} };
 let shopState = [];
+let questsState = [];
+let leaderboardState = [];
+let activeTab = "tap";
+let currentUserId = "";
+let equippedCosmetic = "";
 let tapValue = 1;
 let lastTouchAt = 0;
 let lastPointerDownAt = 0;
 let lastDailyTs = 0;
 let boostUntil = 0;
-let questsState = [];
 let rankState = null;
 let lastQuestSyncAt = 0;
 let lastProfileSyncAt = 0;
+let lastLeaderboardSyncAt = 0;
 let isProfileSyncing = false;
+let isLeaderboardSyncing = false;
 let energy = 0;
 let maxEnergy = 0;
 let energyRegen = 1;
 let energySyncedAt = Date.now();
 let lastTapPoint = null;
+
+const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "special"];
+const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura"];
 
 const STRINGS = {
   en: {
@@ -69,23 +84,28 @@ const STRINGS = {
     demo: "Demo mode",
     balanceLabel: "Balance",
     shopTitle: "Shop",
-    shopSubtitle: "Spend taps to upgrade",
+    shopSubtitle: "Build your setup with taps",
     tapValue: "+{value} / tap",
     tabTap: "Tap",
     tabShop: "Shop",
+    tabLeaderboard: "Leaderboard",
+    leaderboardTitle: "Leaderboard",
+    leaderboardSubtitle: "Top players by taps",
+    leaderboardEmpty: "Leaderboard is empty",
+    leaderboardYou: "You",
     dailyTitle: "Daily Bonus",
     dailySubtitle: "Come back every day",
     dailyClaim: "Claim",
     dailyReady: "Ready",
     dailyNext: "Next in {time}",
     boostActive: "Active {time}",
-    boostReady: "Ready",
     questsTitle: "Daily Quests",
     questsSubtitle: "Complete and claim rewards",
     questTap: "Tap {count} times",
     questBuy: "Buy {count} item",
     questClaim: "Claim",
     questClaimed: "Claimed",
+    questReward: "+{reward} taps",
     rankLabel: "Rank: {name}",
     rank_bronze: "Bronze",
     rank_silver: "Silver",
@@ -94,8 +114,15 @@ const STRINGS = {
     rank_diamond: "Diamond",
     rank_master: "Master",
     buy: "Buy",
+    equip: "Equip",
+    equipped: "Equipped",
     owned: "Owned",
     level: "Level {level}/{max}",
+    priceTaps: "taps",
+    shopCategory_power: "Power",
+    shopCategory_energy: "Energy",
+    shopCategory_cosmetic: "Cosmetics",
+    shopCategory_special: "Special",
     glovesName: "Power Gloves",
     glovesDesc: "+{bonus} tap power",
     energyName: "Energy Drink",
@@ -108,6 +135,12 @@ const STRINGS = {
     rechargeDesc: "+{bonus} energy/sec",
     boostName: "x2 Booster",
     boostDesc: "x2 taps for {seconds}s",
+    crownName: "Golden Crown",
+    crownDesc: "Royal tap button style",
+    neonName: "Neon Pulse",
+    neonDesc: "Neon glow for tap panel",
+    sakuraName: "Sakura Bloom",
+    sakuraDesc: "Soft pink petal vibe",
     player: "Player: {name}",
     niceTap: "Nice tap",
     energyLabel: "Energy",
@@ -126,23 +159,28 @@ const STRINGS = {
     demo: "Демо режим",
     balanceLabel: "Баланс",
     shopTitle: "Магазин",
-    shopSubtitle: "Трать тапы на апгрейды",
+    shopSubtitle: "Собери лучший набор за тапы",
     tapValue: "+{value} / тап",
     tabTap: "Тап",
     tabShop: "Магазин",
+    tabLeaderboard: "Рейтинг",
+    leaderboardTitle: "Рейтинг",
+    leaderboardSubtitle: "Лучшие игроки по тапам",
+    leaderboardEmpty: "Рейтинг пока пуст",
+    leaderboardYou: "Ты",
     dailyTitle: "Ежедневный бонус",
     dailySubtitle: "Заходи каждый день",
     dailyClaim: "Забрать",
     dailyReady: "Доступно",
     dailyNext: "Следующий через {time}",
     boostActive: "Активен {time}",
-    boostReady: "Готово",
     questsTitle: "Квесты на день",
     questsSubtitle: "Выполняй и забирай награды",
     questTap: "Тапни {count} раз",
     questBuy: "Купи {count} предмет",
     questClaim: "Забрать",
     questClaimed: "Забрано",
+    questReward: "+{reward} тапов",
     rankLabel: "Лига: {name}",
     rank_bronze: "Бронза",
     rank_silver: "Серебро",
@@ -151,8 +189,15 @@ const STRINGS = {
     rank_diamond: "Алмаз",
     rank_master: "Мастер",
     buy: "Купить",
+    equip: "Надеть",
+    equipped: "Надето",
     owned: "Куплено",
     level: "Уровень {level}/{max}",
+    priceTaps: "тапов",
+    shopCategory_power: "Сила тапа",
+    shopCategory_energy: "Энергия",
+    shopCategory_cosmetic: "Украшения",
+    shopCategory_special: "Особое",
     glovesName: "Перчатки силы",
     glovesDesc: "+{bonus} к силе тапа",
     energyName: "Энергетик",
@@ -165,6 +210,12 @@ const STRINGS = {
     rechargeDesc: "+{bonus} энергии/с",
     boostName: "Бустер x2",
     boostDesc: "x2 тапы на {seconds}с",
+    crownName: "Золотая корона",
+    crownDesc: "Королевский стиль кнопки",
+    neonName: "Неоновый импульс",
+    neonDesc: "Яркое неоновое свечение",
+    sakuraName: "Цветение сакуры",
+    sakuraDesc: "Мягкий розовый стиль",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
     energyLabel: "Энергия",
@@ -174,204 +225,6 @@ const STRINGS = {
     tryAgain: "Попробуй еще",
     network: "Ошибка сети",
     rateLimited: "Слишком быстро. Помедленнее."
-  },
-  es: {
-    title: "Tapalka",
-    subtitle: "Toca y gana puntos",
-    tap: "Tocar",
-    loading: "Cargando...",
-    demo: "Modo demo",
-    balanceLabel: "Saldo",
-    shopTitle: "Tienda",
-    shopSubtitle: "Gasta taps en mejoras",
-    tapValue: "+{value} / toque",
-    buy: "Comprar",
-    owned: "Comprado",
-    level: "Nivel {level}/{max}",
-    glovesName: "Guantes de poder",
-    glovesDesc: "+{bonus} fuerza de toque",
-    energyName: "Bebida energética",
-    energyDesc: "+{bonus} fuerza de toque",
-    turboName: "Núcleo turbo",
-    turboDesc: "+{bonus} fuerza de toque",
-    capName: "Tanque de energía",
-    capDesc: "+{bonus} energía máxima",
-    rechargeName: "Chip de recarga",
-    rechargeDesc: "+{bonus} energía/seg",
-    player: "Jugador: {name}",
-    niceTap: "Buen toque",
-    energyLabel: "Energia",
-    energyEmpty: "Sin energia",
-    authError: "Error de autorización",
-    failedLoad: "No se pudo cargar",
-    tryAgain: "Inténtalo de nuevo",
-    network: "Error de red",
-    rateLimited: "Demasiado rápido. Más lento."
-  },
-  pt: {
-    title: "Tapalka",
-    subtitle: "Toque e ganhe pontos",
-    tap: "Toque",
-    loading: "Carregando...",
-    demo: "Modo demo",
-    balanceLabel: "Saldo",
-    shopTitle: "Loja",
-    shopSubtitle: "Gaste taps em upgrades",
-    tapValue: "+{value} / toque",
-    buy: "Comprar",
-    owned: "Comprado",
-    level: "Nível {level}/{max}",
-    glovesName: "Luvas de força",
-    glovesDesc: "+{bonus} força de toque",
-    energyName: "Bebida energética",
-    energyDesc: "+{bonus} força de toque",
-    turboName: "Núcleo turbo",
-    turboDesc: "+{bonus} força de toque",
-    capName: "Tanque de energia",
-    capDesc: "+{bonus} energia máxima",
-    rechargeName: "Chip de recarga",
-    rechargeDesc: "+{bonus} energia/seg",
-    player: "Jogador: {name}",
-    niceTap: "Bom toque",
-    energyLabel: "Energia",
-    energyEmpty: "Sem energia",
-    authError: "Erro de autorização",
-    failedLoad: "Falha ao carregar",
-    tryAgain: "Tente novamente",
-    network: "Erro de rede",
-    rateLimited: "Rápido demais. Mais devagar."
-  },
-  tr: {
-    title: "Tapalka",
-    subtitle: "Dokun ve puan kazan",
-    tap: "Dokun",
-    loading: "Yükleniyor...",
-    demo: "Demo modu",
-    balanceLabel: "Bakiye",
-    shopTitle: "Mağaza",
-    shopSubtitle: "Tap ile yükselt",
-    tapValue: "+{value} / dokunuş",
-    buy: "Satın al",
-    owned: "Satın alındı",
-    level: "Seviye {level}/{max}",
-    glovesName: "Güç eldivenleri",
-    glovesDesc: "+{bonus} dokunuş gücü",
-    energyName: "Enerji içeceği",
-    energyDesc: "+{bonus} dokunuş gücü",
-    turboName: "Turbo çekirdek",
-    turboDesc: "+{bonus} dokunuş gücü",
-    capName: "Enerji tankı",
-    capDesc: "+{bonus} maksimum enerji",
-    rechargeName: "Şarj çipi",
-    rechargeDesc: "+{bonus} enerji/sn",
-    player: "Oyuncu: {name}",
-    niceTap: "Güzel dokunuş",
-    energyLabel: "Enerji",
-    energyEmpty: "Enerji yok",
-    authError: "Yetkilendirme hatası",
-    failedLoad: "Yüklenemedi",
-    tryAgain: "Tekrar dene",
-    network: "Ağ hatası",
-    rateLimited: "Çok hızlı. Yavaşla."
-  },
-  id: {
-    title: "Tapalka",
-    subtitle: "Ketuk untuk dapat poin",
-    tap: "Ketuk",
-    loading: "Memuat...",
-    demo: "Mode demo",
-    balanceLabel: "Saldo",
-    shopTitle: "Toko",
-    shopSubtitle: "Pakai taps untuk upgrade",
-    tapValue: "+{value} / ketuk",
-    buy: "Beli",
-    owned: "Dimiliki",
-    level: "Level {level}/{max}",
-    glovesName: "Sarung tangan power",
-    glovesDesc: "+{bonus} kekuatan tap",
-    energyName: "Minuman energi",
-    energyDesc: "+{bonus} kekuatan tap",
-    turboName: "Inti turbo",
-    turboDesc: "+{bonus} kekuatan tap",
-    capName: "Tangki energi",
-    capDesc: "+{bonus} energi maksimum",
-    rechargeName: "Chip isi ulang",
-    rechargeDesc: "+{bonus} energi/dtk",
-    player: "Pemain: {name}",
-    niceTap: "Ketukan bagus",
-    energyLabel: "Energi",
-    energyEmpty: "Energi habis",
-    authError: "Kesalahan otorisasi",
-    failedLoad: "Gagal memuat",
-    tryAgain: "Coba lagi",
-    network: "Kesalahan jaringan",
-    rateLimited: "Terlalu cepat. Pelan dulu."
-  },
-  de: {
-    title: "Tapalka",
-    subtitle: "Tippe und sammle Punkte",
-    tap: "Tippen",
-    loading: "Lädt...",
-    demo: "Demo-Modus",
-    balanceLabel: "Kontostand",
-    shopTitle: "Shop",
-    shopSubtitle: "Nutze taps für Upgrades",
-    tapValue: "+{value} / Tipp",
-    buy: "Kaufen",
-    owned: "Gekauft",
-    level: "Level {level}/{max}",
-    glovesName: "Power-Handschuhe",
-    glovesDesc: "+{bonus} Tipp-Kraft",
-    energyName: "Energiegetränk",
-    energyDesc: "+{bonus} Tipp-Kraft",
-    turboName: "Turbo-Kern",
-    turboDesc: "+{bonus} Tipp-Kraft",
-    capName: "Energie-Tank",
-    capDesc: "+{bonus} max Energie",
-    rechargeName: "Ladechip",
-    rechargeDesc: "+{bonus} Energie/s",
-    player: "Spieler: {name}",
-    niceTap: "Guter Tipp",
-    energyLabel: "Energie",
-    energyEmpty: "Keine Energie",
-    authError: "Autorisierungsfehler",
-    failedLoad: "Laden fehlgeschlagen",
-    tryAgain: "Erneut versuchen",
-    network: "Netzwerkfehler",
-    rateLimited: "Zu schnell. Langsamer."
-  },
-  fr: {
-    title: "Tapalka",
-    subtitle: "Tape pour gagner des points",
-    tap: "Taper",
-    loading: "Chargement...",
-    demo: "Mode démo",
-    balanceLabel: "Solde",
-    shopTitle: "Boutique",
-    shopSubtitle: "Dépense tes taps",
-    tapValue: "+{value} / tap",
-    buy: "Acheter",
-    owned: "Acheté",
-    level: "Niveau {level}/{max}",
-    glovesName: "Gants de puissance",
-    glovesDesc: "+{bonus} puissance de tap",
-    energyName: "Boisson énergisante",
-    energyDesc: "+{bonus} puissance de tap",
-    turboName: "Noyau turbo",
-    turboDesc: "+{bonus} puissance de tap",
-    capName: "Réservoir d'énergie",
-    capDesc: "+{bonus} énergie max",
-    rechargeName: "Puce de recharge",
-    rechargeDesc: "+{bonus} énergie/s",
-    player: "Joueur : {name}",
-    niceTap: "Bon tap",
-    energyLabel: "Énergie",
-    energyEmpty: "Plus d'énergie",
-    authError: "Erreur d'autorisation",
-    failedLoad: "Échec du chargement",
-    tryAgain: "Réessayer",
-    network: "Erreur réseau",
-    rateLimited: "Trop rapide. Ralentis."
   }
 };
 
@@ -386,7 +239,6 @@ const LANG_LABELS = {
   de: "DE",
   fr: "FR"
 };
-
 const LANG_META = {
   en: { label: "English", flag: "🇬🇧" },
   ru: { label: "Русский", flag: "🇷🇺" },
@@ -420,6 +272,28 @@ function t(key, vars = {}) {
   return text;
 }
 
+function setMeta(key, vars = {}) {
+  metaState = { key, vars };
+  if (!metaEl) return;
+  metaEl.textContent = t(key, vars);
+  metaEl.classList.toggle("error", key === "energyEmpty" || key === "authError");
+}
+
+function setMetaText(text) {
+  metaState = { key: "custom", vars: {} };
+  if (!metaEl) return;
+  metaEl.textContent = text;
+  metaEl.classList.add("error");
+}
+
+function applyCosmeticTheme() {
+  if (!panelEl) return;
+  PANEL_THEMES.forEach((theme) => panelEl.classList.remove(theme));
+  if (equippedCosmetic === "crown") panelEl.classList.add("theme-crown");
+  if (equippedCosmetic === "neon") panelEl.classList.add("theme-neon");
+  if (equippedCosmetic === "sakura") panelEl.classList.add("theme-sakura");
+}
+
 function applyTexts() {
   if (titleEl) titleEl.textContent = t("title");
   if (subtitleEl) subtitleEl.textContent = t("subtitle");
@@ -430,33 +304,25 @@ function applyTexts() {
   if (shopSubtitleEl) shopSubtitleEl.textContent = t("shopSubtitle");
   if (questsTitleEl) questsTitleEl.textContent = t("questsTitle");
   if (questsSubtitleEl) questsSubtitleEl.textContent = t("questsSubtitle");
-  if (tabTapEl) tabTapEl.textContent = t("tabTap");
-  if (tabShopEl) tabShopEl.textContent = t("tabShop");
   if (dailyTitleEl) dailyTitleEl.textContent = t("dailyTitle");
   if (dailySubtitleEl) dailySubtitleEl.textContent = t("dailySubtitle");
   if (dailyBtnEl) dailyBtnEl.textContent = t("dailyClaim");
-  if (langToggle) langToggle.textContent = LANG_LABELS[currentLang] || currentLang.toUpperCase();
+  if (leaderboardTitleEl) leaderboardTitleEl.textContent = t("leaderboardTitle");
+  if (leaderboardSubtitleEl) leaderboardSubtitleEl.textContent = t("leaderboardSubtitle");
+  if (tabTapEl) tabTapEl.textContent = t("tabTap");
+  if (tabShopEl) tabShopEl.textContent = t("tabShop");
+  if (tabLeaderboardEl) tabLeaderboardEl.textContent = t("tabLeaderboard");
   if (langToggle && LANG_META[currentLang]) {
-    langToggle.textContent = `${LANG_META[currentLang].flag} ${LANG_LABELS[currentLang] || currentLang.toUpperCase()}`;
+    langToggle.textContent = `${LANG_META[currentLang].flag} ${LANG_LABELS[currentLang]}`;
   }
   if (tapValueEl) tapValueEl.textContent = t("tapValue", { value: tapValue });
   setMeta(metaState.key, metaState.vars);
   updateRank();
   renderLangMenu();
-  renderQuests();
   renderShop();
-}
-
-function setMeta(key, vars = {}) {
-  metaState = { key, vars };
-  metaEl.textContent = t(key, vars);
-  if (metaEl) metaEl.classList.toggle("error", key === "noEnergy" || key === "energyEmpty" || key === "authError");
-}
-
-function setMetaText(text) {
-  metaState = { key: "custom", vars: {} };
-  metaEl.textContent = text;
-  if (metaEl) metaEl.classList.add("error");
+  renderQuests();
+  renderLeaderboard();
+  updateDailyStatus();
 }
 
 if (tg) {
@@ -465,12 +331,10 @@ if (tg) {
   initData = tg.initData || "";
 }
 
-const savedLang = localStorage.getItem("lang");
 currentLang = normalizeLang(
-  savedLang || tg?.initDataUnsafe?.user?.language_code || navigator.language
+  localStorage.getItem("lang") || tg?.initDataUnsafe?.user?.language_code || navigator.language
 );
 applyTexts();
-setActiveTab("tap");
 
 if (demoMode) {
   demoUserId = localStorage.getItem("demoUserId");
@@ -484,45 +348,38 @@ if (demoMode) {
 }
 
 async function apiRequest(path, options = {}) {
-  const init = tg?.initData || initData || "";
-  if (init && init !== initData) initData = init;
-  if (!demoMode && !initData) {
-    return { ok: false, error: "auth_required" };
-  }
-  const opts = {
-    ...options,
-    headers: { "Content-Type": "application/json" }
-  };
-  let url = path;
+  const latestInit = tg?.initData || initData || "";
+  if (latestInit && latestInit !== initData) initData = latestInit;
+  if (!demoMode && !initData) return { ok: false, error: "auth_required" };
+
+  const headers = {};
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  const opts = { ...options, headers: { ...headers, ...(options.headers || {}) } };
 
   if (demoMode) {
     const body = opts.body ? JSON.parse(opts.body) : {};
     body.demoUserId = demoUserId;
     opts.body = JSON.stringify(body);
-  } else if (initData) {
+  } else {
     const body = opts.body ? JSON.parse(opts.body) : {};
     body.initData = initData;
     opts.body = JSON.stringify(body);
     opts.headers["x-init-data"] = initData;
-  } else if (init) {
-    opts.headers["x-init-data"] = init;
   }
-
-  const res = await fetch(url, { ...opts, cache: "no-store" });
+  const res = await fetch(path, { ...opts, cache: "no-store" });
   return res.json();
 }
 
 async function loadProfile() {
-  const init = tg?.initData || initData || "";
-  if (init && init !== initData) initData = init;
-  if (!demoMode && !initData) {
-    return { ok: false, error: "auth_required" };
-  }
+  const latestInit = tg?.initData || initData || "";
+  if (latestInit && latestInit !== initData) initData = latestInit;
+  if (!demoMode && !initData) return { ok: false, error: "auth_required" };
+
   const headers = {};
   let url = "/api/me";
   if (demoMode) {
     url += `?demoUserId=${encodeURIComponent(demoUserId)}`;
-  } else if (initData) {
+  } else {
     headers["x-init-data"] = initData;
   }
   const res = await fetch(url, { headers, cache: "no-store" });
@@ -530,13 +387,11 @@ async function loadProfile() {
 }
 
 function updateBalance(value, { bump = true } = {}) {
-  balanceEl.textContent = String(value);
+  if (balanceEl) balanceEl.textContent = String(value);
   if (shopBalanceEl) shopBalanceEl.textContent = String(value);
-  if (!bump) return;
+  if (!bump || !balanceEl) return;
   balanceEl.classList.remove("bump");
-  requestAnimationFrame(() => {
-    balanceEl.classList.add("bump");
-  });
+  requestAnimationFrame(() => balanceEl.classList.add("bump"));
 }
 
 function updateEnergy(value, max, regen) {
@@ -552,20 +407,14 @@ function updateEnergy(value, max, regen) {
 }
 
 function tickEnergy() {
-  if (!maxEnergy || !energyRegen) return;
-  if (energy >= maxEnergy) return;
-  const now = Date.now();
-  const elapsed = (now - energySyncedAt) / 1000;
-  if (elapsed <= 0) return;
+  if (!maxEnergy || !energyRegen || energy >= maxEnergy) return;
+  const elapsed = (Date.now() - energySyncedAt) / 1000;
   const regen = Math.floor(elapsed * energyRegen);
   if (regen <= 0) return;
   energy = Math.min(maxEnergy, energy + regen);
-  energySyncedAt = now;
+  energySyncedAt = Date.now();
   if (energyTextEl) energyTextEl.textContent = `${Math.round(energy)}/${Math.round(maxEnergy)}`;
-  if (energyBarEl) {
-    const pct = maxEnergy > 0 ? Math.min(100, (energy / maxEnergy) * 100) : 0;
-    energyBarEl.style.width = `${pct}%`;
-  }
+  if (energyBarEl) energyBarEl.style.width = `${Math.min(100, (energy / maxEnergy) * 100)}%`;
 }
 
 function updateTapValue(value) {
@@ -574,26 +423,9 @@ function updateTapValue(value) {
 }
 
 function updateRank() {
-  if (!rankEl || !rankBarEl || !rankState) return;
-  const nameKey = `rank_${rankState.id}`;
-  const name = t(nameKey);
-  rankEl.textContent = t("rankLabel", { name });
+  if (!rankState || !rankEl || !rankBarEl) return;
+  rankEl.textContent = t("rankLabel", { name: t(`rank_${rankState.id}`) });
   rankBarEl.style.width = `${Math.round((rankState.progress || 0) * 100)}%`;
-}
-
-function setActiveTab(tab) {
-  const isTap = tab === "tap";
-  if (screenTapEl && screenShopEl) {
-    const current = isTap ? screenShopEl : screenTapEl;
-    current.classList.add("leaving");
-    setTimeout(() => {
-      current.classList.remove("leaving");
-    }, 200);
-  }
-  if (screenTapEl) screenTapEl.classList.toggle("active", isTap);
-  if (screenShopEl) screenShopEl.classList.toggle("active", !isTap);
-  if (tabTapEl) tabTapEl.classList.toggle("active", isTap);
-  if (tabShopEl) tabShopEl.classList.toggle("active", !isTap);
 }
 
 function formatTime(ms) {
@@ -608,26 +440,32 @@ function formatTime(ms) {
 
 function updateDailyStatus() {
   if (!dailyStatusEl || !dailyBtnEl) return;
-  const now = Date.now();
   const nextAt = (lastDailyTs || 0) + 24 * 60 * 60 * 1000;
-  if (now >= nextAt) {
+  if (Date.now() >= nextAt) {
     dailyStatusEl.textContent = t("dailyReady");
     dailyBtnEl.disabled = false;
   } else {
-    dailyStatusEl.textContent = t("dailyNext", { time: formatTime(nextAt - now) });
+    dailyStatusEl.textContent = t("dailyNext", { time: formatTime(nextAt - Date.now()) });
     dailyBtnEl.disabled = true;
   }
 }
 
-function updateBoostStatus() {
-  if (!shopState || shopState.length === 0) return;
-  renderShop();
+function setActiveTab(tab) {
+  activeTab = tab;
+  if (screenTapEl) screenTapEl.classList.toggle("active", tab === "tap");
+  if (screenShopEl) screenShopEl.classList.toggle("active", tab === "shop");
+  if (screenLeaderboardEl) screenLeaderboardEl.classList.toggle("active", tab === "leaderboard");
+  if (tabTapEl) tabTapEl.classList.toggle("active", tab === "tap");
+  if (tabShopEl) tabShopEl.classList.toggle("active", tab === "shop");
+  if (tabLeaderboardEl) tabLeaderboardEl.classList.toggle("active", tab === "leaderboard");
+  if (tab === "leaderboard") loadLeaderboard({ force: true, silent: true });
 }
 
 function renderSkeletons() {
-  const skeletonItem = '<div class="skeleton-card"></div>';
-  if (shopListEl) shopListEl.innerHTML = skeletonItem.repeat(3);
-  if (questsListEl) questsListEl.innerHTML = skeletonItem.repeat(2);
+  const skeleton = '<div class="skeleton-card"></div>';
+  if (shopListEl) shopListEl.innerHTML = skeleton.repeat(4);
+  if (questsListEl) questsListEl.innerHTML = skeleton.repeat(2);
+  if (leaderboardListEl) leaderboardListEl.innerHTML = skeleton.repeat(4);
 }
 
 function setLoadingState(isLoading) {
@@ -636,95 +474,134 @@ function setLoadingState(isLoading) {
 }
 
 function renderShop() {
-  if (!shopListEl || !Array.isArray(shopState) || shopState.length === 0) return;
+  if (!shopListEl || !shopState.length) return;
   shopListEl.innerHTML = "";
-  const now = Date.now();
+  const grouped = new Map();
+  SHOP_CATEGORY_ORDER.forEach((category) => grouped.set(category, []));
   shopState.forEach((item) => {
-    const row = document.createElement("div");
-    row.className = "shop-item";
+    const category = item.category || "power";
+    if (!grouped.has(category)) grouped.set(category, []);
+    grouped.get(category).push(item);
+  });
 
-    const left = document.createElement("div");
-    const title = document.createElement("h4");
-    const desc = document.createElement("p");
-    const meta = document.createElement("div");
-    meta.className = "shop-meta";
+  grouped.forEach((items, category) => {
+    if (!items.length) return;
+    const section = document.createElement("section");
+    section.className = "shop-section";
 
-    title.textContent = t(`${item.id}Name`);
-    const bonusValue =
-      item.type === "energy_cap"
-        ? item.energyBonus
-        : item.type === "energy_regen"
-        ? item.regenBonus
-        : item.tapBonus;
-    desc.textContent = t(`${item.id}Desc`, { bonus: bonusValue });
-    const levelText = document.createElement("span");
-    const priceText = document.createElement("span");
-    if (item.type === "boost") {
-      const active = boostUntil && now < boostUntil;
-      const remainingMs = active ? boostUntil - now : 0;
-      levelText.textContent = t("boostDesc", { seconds: Math.floor((item.durationMs || 10000) / 1000) });
-      if (active) {
-        priceText.textContent = t("boostActive", { time: formatTime(remainingMs) });
+    const head = document.createElement("div");
+    head.className = "shop-section-head";
+    const headTitle = document.createElement("h3");
+    headTitle.textContent = t(`shopCategory_${category}`);
+    head.appendChild(headTitle);
+
+    const grid = document.createElement("div");
+    grid.className = "shop-grid";
+
+    items.forEach((item) => {
+      const card = document.createElement("article");
+      card.className = `shop-item category-${item.category || "power"}`;
+      if (item.type === "cosmetic" && equippedCosmetic === item.id) card.classList.add("equipped");
+
+      const top = document.createElement("div");
+      top.className = "shop-item-top";
+      const itemTitle = document.createElement("h4");
+      itemTitle.textContent = t(`${item.id}Name`);
+      const desc = document.createElement("p");
+      if (item.type === "boost") {
+        desc.textContent = t("boostDesc", { seconds: Math.floor((item.durationMs || 10000) / 1000) });
+      } else if (item.type === "cosmetic") {
+        desc.textContent = t(`${item.id}Desc`);
       } else {
-        priceText.textContent = `${item.price} taps`;
+        const bonus =
+          item.type === "energy_cap"
+            ? item.energyBonus
+            : item.type === "energy_regen"
+            ? item.regenBonus
+            : item.tapBonus;
+        desc.textContent = t(`${item.id}Desc`, { bonus });
       }
-    } else {
-      levelText.textContent = t("level", { level: item.level, max: item.maxLevel });
-      priceText.textContent = item.level >= item.maxLevel ? t("owned") : `${item.price} taps`;
-    }
-    meta.append(levelText, priceText);
+      top.append(itemTitle, desc);
 
-    left.append(title, desc, meta);
+      const meta = document.createElement("div");
+      meta.className = "shop-meta";
+      const leftMeta = document.createElement("span");
+      const rightMeta = document.createElement("span");
 
-    const btn = document.createElement("button");
-    btn.className = "shop-buy";
-    if (item.type === "boost") {
-      const active = boostUntil && now < boostUntil;
-      const remainingMs = active ? boostUntil - now : 0;
-      btn.textContent = active ? t("boostActive", { time: formatTime(remainingMs) }) : t("buy");
-      btn.disabled = active;
-    } else {
-      btn.textContent = item.level >= item.maxLevel ? t("owned") : t("buy");
-      btn.disabled = item.level >= item.maxLevel;
-    }
-    btn.addEventListener("click", async () => {
-      btn.disabled = true;
-      try {
-        const data = await apiRequest("/api/buy", {
-          method: "POST",
-          body: JSON.stringify({ itemId: item.id })
-        });
-        if (!data.ok) {
-          if (
-            data.error === "auth_required" ||
-            data.error === "initData missing" ||
-            data.error === "initData invalid" ||
-            data.error === "user missing"
-          ) {
-            setMeta("authError");
-          } else {
-            setMetaText(data.error || t("tryAgain"));
+      const btn = document.createElement("button");
+      btn.className = "shop-buy";
+
+      if (item.type === "boost") {
+        const active = boostUntil && Date.now() < boostUntil;
+        leftMeta.textContent = t("boostName");
+        rightMeta.textContent = active
+          ? t("boostActive", { time: formatTime(boostUntil - Date.now()) })
+          : `${item.price} ${t("priceTaps")}`;
+        btn.textContent = active ? t("boostActive", { time: formatTime(boostUntil - Date.now()) }) : t("buy");
+        btn.disabled = active;
+      } else if (item.type === "cosmetic") {
+        const owned = Number(item.level || 0) >= 1;
+        const isEquipped = owned && item.id === equippedCosmetic;
+        leftMeta.textContent = owned ? t("owned") : t("level", { level: 0, max: 1 });
+        rightMeta.textContent = owned
+          ? isEquipped
+            ? t("equipped")
+            : t("equip")
+          : `${item.price} ${t("priceTaps")}`;
+        btn.textContent = owned ? (isEquipped ? t("equipped") : t("equip")) : t("buy");
+        btn.disabled = isEquipped;
+      } else {
+        leftMeta.textContent = t("level", { level: item.level, max: item.maxLevel });
+        rightMeta.textContent = item.level >= item.maxLevel ? t("owned") : `${item.price} ${t("priceTaps")}`;
+        btn.textContent = item.level >= item.maxLevel ? t("owned") : t("buy");
+        btn.disabled = item.level >= item.maxLevel;
+      }
+      meta.append(leftMeta, rightMeta);
+
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          const data = await apiRequest("/api/buy", {
+            method: "POST",
+            body: JSON.stringify({ itemId: item.id })
+          });
+          if (!data.ok) {
+            if (["auth_required", "initData missing", "initData invalid", "user missing"].includes(data.error)) {
+              setMeta("authError");
+            } else if (data.error === "cosmetic_already_equipped") {
+              setMeta("equipped");
+            } else {
+              setMetaText(data.error || t("tryAgain"));
+            }
+            return;
           }
-          return;
+          updateBalance(data.balance);
+          updateTapValue(data.tapValue);
+          if (typeof data.boostUntil === "number") boostUntil = data.boostUntil;
+          if (typeof data.equippedCosmetic === "string") {
+            equippedCosmetic = data.equippedCosmetic;
+            applyCosmeticTheme();
+          }
+          await loadShop();
+          if (activeTab === "leaderboard") loadLeaderboard({ force: true, silent: true });
+        } catch {
+          setMeta("network");
+        } finally {
+          btn.disabled = false;
         }
-        updateBalance(data.balance);
-        updateTapValue(data.tapValue);
-        if (data.boostUntil) boostUntil = data.boostUntil;
-        await loadShop();
-      } catch {
-        setMeta("network");
-      } finally {
-        btn.disabled = false;
-      }
+      });
+
+      card.append(top, meta, btn);
+      grid.appendChild(card);
     });
 
-    row.append(left, btn);
-    shopListEl.append(row);
+    section.append(head, grid);
+    shopListEl.appendChild(section);
   });
 }
 
 function renderQuests() {
-  if (!questsListEl || !Array.isArray(questsState) || questsState.length === 0) return;
+  if (!questsListEl || !questsState.length) return;
   questsListEl.innerHTML = "";
   questsState.forEach((quest) => {
     const row = document.createElement("div");
@@ -732,20 +609,14 @@ function renderQuests() {
 
     const left = document.createElement("div");
     const title = document.createElement("h4");
+    title.textContent = quest.type === "tap" ? t("questTap", { count: quest.target }) : t("questBuy", { count: quest.target });
     const desc = document.createElement("p");
+    desc.textContent = t("questReward", { reward: quest.reward });
     const meta = document.createElement("div");
     meta.className = "quest-meta";
-
-    if (quest.type === "tap") {
-      title.textContent = t("questTap", { count: quest.target });
-    } else {
-      title.textContent = t("questBuy", { count: quest.target });
-    }
-    desc.textContent = `+${quest.reward} taps`;
-    const progressText = document.createElement("span");
-    progressText.textContent = `${quest.progress}/${quest.target}`;
-    meta.append(progressText);
-
+    const progress = document.createElement("span");
+    progress.textContent = `${quest.progress}/${quest.target}`;
+    meta.appendChild(progress);
     left.append(title, desc, meta);
 
     const btn = document.createElement("button");
@@ -754,19 +625,13 @@ function renderQuests() {
     btn.disabled = quest.claimed || quest.progress < quest.target;
     btn.addEventListener("click", async () => {
       btn.disabled = true;
-      btn.classList.add("loading");
       try {
         const data = await apiRequest("/api/quest", {
           method: "POST",
           body: JSON.stringify({ questId: quest.id })
         });
         if (!data.ok) {
-          if (
-            data.error === "auth_required" ||
-            data.error === "initData missing" ||
-            data.error === "initData invalid" ||
-            data.error === "user missing"
-          ) {
+          if (["auth_required", "initData missing", "initData invalid", "user missing"].includes(data.error)) {
             setMeta("authError");
           } else {
             setMetaText(data.error || t("tryAgain"));
@@ -774,9 +639,7 @@ function renderQuests() {
           return;
         }
         updateBalance(data.balance);
-        if (typeof data.energy === "number") {
-          updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
-        }
+        if (typeof data.energy === "number") updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
         rankState = data.rank || rankState;
         questsState = data.quests || questsState;
         updateRank();
@@ -785,49 +648,86 @@ function renderQuests() {
         setMeta("network");
       } finally {
         btn.disabled = false;
-        btn.classList.remove("loading");
       }
     });
 
     row.append(left, btn);
-    questsListEl.append(row);
+    questsListEl.appendChild(row);
+  });
+}
+
+function renderLeaderboard() {
+  if (!leaderboardListEl) return;
+  if (!leaderboardState.length) {
+    leaderboardListEl.innerHTML = `<div class="leaderboard-empty">${t("leaderboardEmpty")}</div>`;
+    return;
+  }
+  leaderboardListEl.innerHTML = "";
+  leaderboardState.forEach((player) => {
+    const row = document.createElement("div");
+    row.className = "leader-row";
+    if (String(player.id) === String(currentUserId)) row.classList.add("is-you");
+
+    const rank = document.createElement("div");
+    rank.className = "leader-rank";
+    rank.textContent = `#${player.rank}`;
+
+    const info = document.createElement("div");
+    info.className = "leader-info";
+    const name = document.createElement("div");
+    name.className = "leader-name";
+    const label = player.username ? `@${player.username}` : player.name || `ID ${player.id}`;
+    name.textContent = String(player.id) === String(currentUserId) ? `${label} (${t("leaderboardYou")})` : label;
+    const sub = document.createElement("div");
+    sub.className = "leader-sub";
+    sub.textContent = `ID ${player.id} • +${player.tapValue || 1}/tap`;
+    info.append(name, sub);
+
+    const value = document.createElement("div");
+    value.className = "leader-value";
+    value.textContent = String(player.balance || 0);
+
+    row.append(rank, info, value);
+    leaderboardListEl.appendChild(row);
   });
 }
 
 async function loadShop() {
-  const init = tg?.initData || initData || "";
-  if (init && init !== initData) initData = init;
+  const latestInit = tg?.initData || initData || "";
+  if (latestInit && latestInit !== initData) initData = latestInit;
   if (!demoMode && !initData) return;
+
   const headers = {};
   let url = "/api/shop";
   if (demoMode) {
     url += `?demoUserId=${encodeURIComponent(demoUserId)}`;
-  } else if (initData) {
+  } else {
     headers["x-init-data"] = initData;
   }
   const res = await fetch(url, { headers, cache: "no-store" });
   const data = await res.json();
-  if (!data.ok) {
-    return;
-  }
+  if (!data.ok) return;
   shopState = data.items || [];
   updateTapValue(data.tapValue || 1);
-  if (typeof data.energy === "number") {
-    updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+  if (typeof data.energy === "number") updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+  if (typeof data.equippedCosmetic === "string") {
+    equippedCosmetic = data.equippedCosmetic;
+    applyCosmeticTheme();
   }
   boostUntil = data.boostUntil || 0;
   renderShop();
 }
 
 async function loadQuests({ silent = false } = {}) {
-  const init = tg?.initData || initData || "";
-  if (init && init !== initData) initData = init;
+  const latestInit = tg?.initData || initData || "";
+  if (latestInit && latestInit !== initData) initData = latestInit;
   if (!demoMode && !initData) return;
+
   const headers = {};
   let url = "/api/quests";
   if (demoMode) {
     url += `?demoUserId=${encodeURIComponent(demoUserId)}`;
-  } else if (initData) {
+  } else {
     headers["x-init-data"] = initData;
   }
   try {
@@ -843,26 +743,42 @@ async function loadQuests({ silent = false } = {}) {
   }
 }
 
+async function loadLeaderboard({ force = false, silent = false } = {}) {
+  if (!force && Date.now() - lastLeaderboardSyncAt < 7000) return;
+  if (isLeaderboardSyncing) return;
+  const latestInit = tg?.initData || initData || "";
+  if (latestInit && latestInit !== initData) initData = latestInit;
+  if (!demoMode && !initData) return;
+
+  isLeaderboardSyncing = true;
+  const headers = {};
+  let url = "/api/leaderboard?limit=50";
+  if (demoMode) {
+    url += `&demoUserId=${encodeURIComponent(demoUserId)}`;
+  } else {
+    headers["x-init-data"] = initData;
+  }
+  try {
+    const res = await fetch(url, { headers, cache: "no-store" });
+    const data = await res.json();
+    if (!data.ok) return;
+    leaderboardState = data.players || [];
+    if (data.currentUserId) currentUserId = String(data.currentUserId);
+    renderLeaderboard();
+    lastLeaderboardSyncAt = Date.now();
+  } catch {
+    if (!silent) setMeta("network");
+  } finally {
+    isLeaderboardSyncing = false;
+  }
+}
+
 async function init() {
   setLoadingState(true);
   try {
-    const init = tg?.initData || initData || "";
-    if (init && init !== initData) initData = init;
-    if (!demoMode && !initData) {
-      if (tapBtn) tapBtn.disabled = true;
-      setMeta("authError");
-      return;
-    }
-
     const profile = await loadProfile();
     if (!profile.ok) {
-      const authErrors = new Set([
-        "auth_required",
-        "initData missing",
-        "initData invalid",
-        "user missing"
-      ]);
-      if (authErrors.has(String(profile.error || ""))) {
+      if (["auth_required", "initData missing", "initData invalid", "user missing"].includes(profile.error)) {
         if (tapBtn) tapBtn.disabled = true;
         setMeta("authError");
       } else {
@@ -870,22 +786,28 @@ async function init() {
       }
       return;
     }
+
     setMeta("player", { name: profile.user.name });
+    currentUserId = String(profile.user.id || "");
     updateBalance(profile.user.balance);
     updateTapValue(profile.user.tapValue || 1);
     if (playerIdEl) {
       const username = profile.user.username ? `@${profile.user.username}` : "";
-      const label = username ? `${username} · ID ${profile.user.id}` : `ID ${profile.user.id}`;
-      playerIdEl.textContent = label;
+      playerIdEl.textContent = username ? `${username} · ID ${profile.user.id}` : `ID ${profile.user.id}`;
     }
     lastDailyTs = profile.user.lastDailyTs || 0;
     boostUntil = profile.user.boostUntil || 0;
     rankState = profile.user.rank || null;
+    if (typeof profile.user.equippedCosmetic === "string") {
+      equippedCosmetic = profile.user.equippedCosmetic;
+      applyCosmeticTheme();
+    }
     updateEnergy(profile.user.energy, profile.user.maxEnergy, profile.user.energyRegen);
     updateDailyStatus();
     await loadShop();
     await loadQuests();
-  } catch (err) {
+    await loadLeaderboard({ force: true, silent: true });
+  } catch {
     setMeta("failedLoad");
   } finally {
     setLoadingState(false);
@@ -906,18 +828,18 @@ async function syncProfileSilently({ force = false } = {}) {
     rankState = profile.user.rank || rankState;
     updateRank();
     if (typeof profile.user.energy === "number") {
-      updateEnergy(
-        profile.user.energy,
-        profile.user.maxEnergy,
-        profile.user.energyRegen
-      );
+      updateEnergy(profile.user.energy, profile.user.maxEnergy, profile.user.energyRegen);
+    }
+    if (typeof profile.user.equippedCosmetic === "string") {
+      equippedCosmetic = profile.user.equippedCosmetic;
+      applyCosmeticTheme();
     }
     lastDailyTs = profile.user.lastDailyTs || lastDailyTs || 0;
     boostUntil = profile.user.boostUntil || 0;
     updateDailyStatus();
     lastProfileSyncAt = now;
   } catch {
-    // silent background sync
+    // silent
   } finally {
     isProfileSyncing = false;
   }
@@ -926,53 +848,55 @@ async function syncProfileSilently({ force = false } = {}) {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     syncProfileSilently({ force: true });
+    loadLeaderboard({ force: true, silent: true });
   }
 });
 
 window.addEventListener("focus", () => {
   syncProfileSilently({ force: true });
+  loadLeaderboard({ force: true, silent: true });
 });
 
-tapBtn.addEventListener("click", async () => {
-  const now = Date.now();
-  if (now - lastTouchAt < 300) return;
-  if (now - lastPointerDownAt < 300) return;
-  await sendTap(1, lastTapPoint);
-});
-
-tapBtn.addEventListener(
-  "touchstart",
-  async (event) => {
-    lastTouchAt = Date.now();
-    const count = Math.max(1, event.touches?.length || 1);
-    if (event.touches && event.touches[0]) {
-      lastTapPoint = { x: event.touches[0].clientX, y: event.touches[0].clientY };
-    }
-    event.preventDefault();
-    await sendTap(count, lastTapPoint);
-  },
-  { passive: false }
-);
-
-tapBtn.addEventListener("pointerdown", async (event) => {
-  if (event.pointerType === "touch") return;
-  lastPointerDownAt = Date.now();
-  lastTapPoint = { x: event.clientX, y: event.clientY };
-  await sendTap(1, lastTapPoint);
-});
-
-langToggle.addEventListener("click", () => {
-  if (!langMenuEl) return;
-  const open = langMenuEl.classList.toggle("open");
-  langToggle.setAttribute("aria-expanded", open ? "true" : "false");
-});
-
-if (tabTapEl) {
-  tabTapEl.addEventListener("click", () => setActiveTab("tap"));
+if (tapBtn) {
+  tapBtn.addEventListener("click", async () => {
+    const now = Date.now();
+    if (now - lastTouchAt < 300) return;
+    if (now - lastPointerDownAt < 300) return;
+    await sendTap(1, lastTapPoint);
+  });
+  tapBtn.addEventListener(
+    "touchstart",
+    async (event) => {
+      lastTouchAt = Date.now();
+      const count = Math.max(1, event.touches?.length || 1);
+      if (event.touches && event.touches[0]) {
+        lastTapPoint = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      }
+      event.preventDefault();
+      await sendTap(count, lastTapPoint);
+    },
+    { passive: false }
+  );
+  tapBtn.addEventListener("pointerdown", async (event) => {
+    if (event.pointerType === "touch") return;
+    lastPointerDownAt = Date.now();
+    lastTapPoint = { x: event.clientX, y: event.clientY };
+    await sendTap(1, lastTapPoint);
+  });
 }
-if (tabShopEl) {
-  tabShopEl.addEventListener("click", () => setActiveTab("shop"));
+
+if (langToggle) {
+  langToggle.addEventListener("click", () => {
+    if (!langMenuEl) return;
+    const open = langMenuEl.classList.toggle("open");
+    langToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  });
 }
+
+if (tabTapEl) tabTapEl.addEventListener("click", () => setActiveTab("tap"));
+if (tabShopEl) tabShopEl.addEventListener("click", () => setActiveTab("shop"));
+if (tabLeaderboardEl) tabLeaderboardEl.addEventListener("click", () => setActiveTab("leaderboard"));
+setActiveTab("tap");
 
 document.addEventListener("click", (event) => {
   if (!langMenuEl) return;
@@ -985,17 +909,9 @@ if (dailyBtnEl) {
   dailyBtnEl.addEventListener("click", async () => {
     dailyBtnEl.disabled = true;
     try {
-      const data = await apiRequest("/api/daily", {
-        method: "POST",
-        body: "{}"
-      });
+      const data = await apiRequest("/api/daily", { method: "POST", body: "{}" });
       if (!data.ok) {
-        if (
-          data.error === "auth_required" ||
-          data.error === "initData missing" ||
-          data.error === "initData invalid" ||
-          data.error === "user missing"
-        ) {
+        if (["auth_required", "initData missing", "initData invalid", "user missing"].includes(data.error)) {
           setMeta("authError");
           return;
         }
@@ -1006,9 +922,7 @@ if (dailyBtnEl) {
         return;
       }
       updateBalance(data.balance);
-      if (typeof data.energy === "number") {
-        updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
-      }
+      if (typeof data.energy === "number") updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
       lastDailyTs = Date.now();
       updateDailyStatus();
     } catch {
@@ -1038,12 +952,7 @@ async function sendTap(count = 1, point = null) {
         setMeta("rateLimited");
       } else if (data.error === "no_energy") {
         setMeta("energyEmpty");
-      } else if (
-        data.error === "auth_required" ||
-        data.error === "initData missing" ||
-        data.error === "initData invalid" ||
-        data.error === "user missing"
-      ) {
+      } else if (["auth_required", "initData missing", "initData invalid", "user missing"].includes(data.error)) {
         setMeta("authError");
       } else if (data.error) {
         setMetaText(data.error);
@@ -1054,10 +963,8 @@ async function sendTap(count = 1, point = null) {
     }
     updateBalance(data.balance);
     if (data.tapValue) updateTapValue(data.tapValue);
-    if (typeof data.energy === "number") {
-      updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
-    }
-    if (data.boostUntil) boostUntil = data.boostUntil;
+    if (typeof data.energy === "number") updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+    if (typeof data.boostUntil === "number") boostUntil = data.boostUntil;
     setMeta("niceTap");
     const mult = data.multiplier || 1;
     showSpark(`+${(data.tapValue || 1) * count * mult}`, point);
@@ -1066,39 +973,34 @@ async function sendTap(count = 1, point = null) {
     } else if (navigator.vibrate) {
       navigator.vibrate(10);
     }
-    const now = Date.now();
-    if (now - lastQuestSyncAt > 1000) {
-      lastQuestSyncAt = now;
+    if (Date.now() - lastQuestSyncAt > 1000) {
+      lastQuestSyncAt = Date.now();
       loadQuests({ silent: true });
     }
-  } catch (err) {
+    if (activeTab === "leaderboard") loadLeaderboard({ force: true, silent: true });
+  } catch {
     setMeta("network");
   }
 }
 
 function showSpark(text, point = null) {
-  const panel = document.querySelector(".panel");
-  if (!panel) return;
+  if (!panelEl) return;
   const spark = document.createElement("div");
   spark.className = "spark";
   spark.textContent = text;
-  const rect = panel.getBoundingClientRect();
+  const rect = panelEl.getBoundingClientRect();
   if (point && point.x && point.y) {
     const x = Math.min(Math.max(point.x - rect.left, 20), rect.width - 20);
     const y = Math.min(Math.max(point.y - rect.top, 30), rect.height - 80);
     spark.style.left = `${x}px`;
     spark.style.top = `${y}px`;
   } else {
-    const x = 40 + Math.random() * (panel.clientWidth - 80);
-    const y = 40 + Math.random() * 60;
-    spark.style.left = `${x}px`;
-    spark.style.top = `${y}px`;
+    spark.style.left = `${40 + Math.random() * (panelEl.clientWidth - 80)}px`;
+    spark.style.top = `${40 + Math.random() * 60}px`;
   }
-  panel.appendChild(spark);
+  panelEl.appendChild(spark);
   setTimeout(() => spark.remove(), 800);
 }
-
-init();
 
 function renderLangMenu() {
   if (!langDropdownEl) return;
@@ -1107,14 +1009,11 @@ function renderLangMenu() {
     const option = document.createElement("div");
     option.className = "lang-option";
     if (code === currentLang) option.classList.add("active");
-
     const flag = document.createElement("span");
     flag.className = "lang-flag";
-    flag.textContent = LANG_META[code]?.flag || "";
-
+    flag.textContent = LANG_META[code].flag;
     const label = document.createElement("span");
-    label.textContent = LANG_META[code]?.label || code.toUpperCase();
-
+    label.textContent = LANG_META[code].label;
     option.append(flag, label);
     option.addEventListener("click", () => {
       currentLang = code;
@@ -1123,16 +1022,16 @@ function renderLangMenu() {
       if (langToggle) langToggle.setAttribute("aria-expanded", "false");
       applyTexts();
     });
-
     langDropdownEl.appendChild(option);
   });
 }
 
+init();
+
 setInterval(() => {
   updateDailyStatus();
   tickEnergy();
-  if (boostUntil && Date.now() < boostUntil) {
-    renderShop();
-  }
+  if (boostUntil && Date.now() < boostUntil) renderShop();
   syncProfileSilently();
+  if (activeTab === "leaderboard") loadLeaderboard({ silent: true });
 }, 1000);

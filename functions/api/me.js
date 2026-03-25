@@ -8,7 +8,8 @@ import {
   summarizeUser,
   resolveInitDataMaxAgeSec,
   hasDurableUserStore,
-  isDemoAllowed
+  isDemoAllowed,
+  upsertLeaderboardEntry
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -25,6 +26,7 @@ export async function onRequest(context) {
     const now = Date.now();
     const changed = syncEnergy(profile, now);
     if (changed && !useDurableStore) await saveUser(env, profile);
+    context.waitUntil(upsertLeaderboardEntry(env, profile));
     return jsonResponse({ ok: true, user: summarizeUser(profile) });
   }
 
@@ -50,6 +52,7 @@ export async function onRequest(context) {
   );
   const now = Date.now();
   const changed = syncEnergy(profile, now);
+  context.waitUntil(upsertLeaderboardEntry(env, profile));
   if (useDurableStore) {
     context.waitUntil(
       logEvent(env, request, profile, "open", { screen: "webapp" })

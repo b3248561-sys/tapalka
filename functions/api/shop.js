@@ -10,7 +10,8 @@ import {
   saveUser,
   resolveInitDataMaxAgeSec,
   hasDurableUserStore,
-  isDemoAllowed
+  isDemoAllowed,
+  upsertLeaderboardEntry
 } from "../_shared/utils.js";
 
 export async function onRequest(context) {
@@ -47,6 +48,7 @@ export async function onRequest(context) {
   const now = Date.now();
   const changed = syncEnergy(user, now);
   if (changed && !useDurableStore) await saveUser(env, user);
+  context.waitUntil(upsertLeaderboardEntry(env, user));
   const items = SHOP_ITEMS.map((item) => {
     const level = getItemLevel(user, item.id);
     const price = computePrice(item, level);
@@ -54,11 +56,13 @@ export async function onRequest(context) {
       const active = user.boostUntil && now < user.boostUntil;
       return {
         id: item.id,
+        category: item.category || "special",
         type: item.type,
         basePrice: item.basePrice,
         tapBonus: item.tapBonus,
         energyBonus: item.energyBonus,
         regenBonus: item.regenBonus,
+        cosmeticStyle: item.cosmeticStyle || null,
         maxLevel: item.maxLevel,
         level,
         price,
@@ -69,11 +73,13 @@ export async function onRequest(context) {
     }
     return {
       id: item.id,
+      category: item.category || "power",
       type: item.type,
       basePrice: item.basePrice,
       tapBonus: item.tapBonus,
       energyBonus: item.energyBonus,
       regenBonus: item.regenBonus,
+      cosmeticStyle: item.cosmeticStyle || null,
       maxLevel: item.maxLevel,
       level,
       price
@@ -85,6 +91,7 @@ export async function onRequest(context) {
     items,
     balance: user.balance,
     tapValue: user.tapValue || 1,
+    equippedCosmetic: user.equippedCosmetic || "",
     boostUntil: user.boostUntil || 0,
     energy: user.energy,
     maxEnergy: user.maxEnergy,
