@@ -13,6 +13,7 @@ const elements = {
   filterInput: document.getElementById("filterInput"),
   clearLocal: document.getElementById("clearLocal"),
   openAdmin: document.getElementById("openAdmin"),
+  copyDiag: document.getElementById("copyDiag"),
   tabLogs: document.getElementById("tabLogs"),
   tabAdmin: document.getElementById("tabAdmin"),
   adminView: document.querySelector('[data-view="admin"]'),
@@ -34,6 +35,16 @@ const elements = {
   buildVersion: document.getElementById("buildVersion")
 };
 
+const diagnostics = {
+  endpoint: "-",
+  errorCode: "-",
+  store: "-",
+  verifiedBalance: "-",
+  serverUrl: DEFAULT_SERVER,
+  build: "-",
+  deviceIdPrefix: "-"
+};
+
 function saveState(state) {
   localStorage.setItem("adminState", JSON.stringify(state));
 }
@@ -53,6 +64,30 @@ function getState() {
 function getServerUrl() {
   const state = getState();
   return state.serverUrl || DEFAULT_SERVER;
+}
+
+function getDeviceIdPrefix() {
+  const state = getState();
+  const id = String(state.deviceId || "");
+  if (!id) return "-";
+  return id.length <= 10 ? id : `${id.slice(0, 10)}...`;
+}
+
+function updateDiagnostics(partial = {}) {
+  Object.assign(diagnostics, partial);
+}
+
+function getErrorCode(data) {
+  return (
+    data?.authErrorCode ||
+    data?.error ||
+    "unknown_error"
+  );
+}
+
+function formatApiError(endpoint, data) {
+  const code = getErrorCode(data);
+  return `Ошибка ${endpoint}: ${code} • server=${getServerUrl()}`;
 }
 
 function setStatus(el, text, isError = false) {
@@ -192,9 +227,14 @@ function renderDeviceInfo() {
   const state = getState();
   if (!state.deviceId) {
     elements.deviceInfo.textContent = "Устройство не зарегистрировано.";
+    updateDiagnostics({ deviceIdPrefix: "-", serverUrl: getServerUrl() });
     return;
   }
   elements.deviceInfo.textContent = `Device ID: ${state.deviceId} • fingerprint: ${state.fingerprint || "n/a"}`;
+  updateDiagnostics({
+    deviceIdPrefix: getDeviceIdPrefix(),
+    serverUrl: getServerUrl()
+  });
 }
 
 function safeId(value) {
@@ -318,33 +358,35 @@ async function loadLogs() {
     setStatus(elements.logsStatus, "Сначала зарегистрируйте устройство.", true);
     return;
   }
-  const serverUrl = state.serverUrl || DEFAULT_SERVER;
   setStatus(elements.logsStatus, "Загружаю логи...");
   let cursor;
   const allLogs = [];
   while (true) {
-    const url = new URL(`${serverUrl}/api/admin/logs`);
-    url.searchParams.set("limit", "200");
-    if (cursor) url.searchParams.set("cursor", cursor);
-    let resp;
-    let data;
-    try {
-      resp = await fetch(url.toString(), {
-        headers: {
-          "x-device-id": state.deviceId,
-          "x-device-token": state.deviceToken
-        }
-      });
-      data = await resp.json();
-    } catch {
-      setStatus(elements.logsStatus, "Ошибка чтения ответа сервера.", true);
-      return;
-    }
+    const query = new URLSearchParams({ limit: "200" });
+    if (cursor) query.set("cursor", cursor);
+    const endpoint = `/api/admin/logs?${query.toString()}`;
+    const data = await adminFetch(endpoint, {}, { statusEl: elements.logsStatus });
+    if (!data) return;
     if (!data.ok) {
-      setStatus(elements.logsStatus, data.error || "Ошибка загрузки", true);
+      const code = getErrorCode(data);
+      updateDiagnostics({
+        endpoint,
+        errorCode: code,
+        store: data.store || "-",
+        serverUrl: getServerUrl(),
+        deviceIdPrefix: getDeviceIdPrefix()
+      });
+      setStatus(elements.logsStatus, formatApiError(endpoint, data), true);
       return;
     }
     allLogs.push(...(data.logs || []));
+    updateDiagnostics({
+      endpoint,
+      errorCode: "-",
+      store: data.store || diagnostics.store || "-",
+      serverUrl: getServerUrl(),
+      deviceIdPrefix: getDeviceIdPrefix()
+    });
     cursor = data.cursor;
     if (!cursor) break;
   }
@@ -445,6 +487,14 @@ function clearLocal() {
   localStorage.removeItem("adminState");
   elements.serverUrl.value = DEFAULT_SERVER;
   elements.deviceName.value = "My Device";
+  updateDiagnostics({
+    endpoint: "-",
+    errorCode: "-",
+    store: "-",
+    verifiedBalance: "-",
+    serverUrl: DEFAULT_SERVER,
+    deviceIdPrefix: "-"
+  });
   renderDeviceInfo();
   setStatus(elements.enrollStatus, "Ключи удалены.");
   elements.logsBody.innerHTML = "";
@@ -503,26 +553,68 @@ function renderAdminUser(user) {
   `;
 }
 
-async function adminFetch(path, options = {}) {
+async function adminFetch(path, options = {}, meta = {}) {
   const state = getState();
   if (!state.deviceId || !state.deviceToken) {
-    setStatus(elements.adminStatus, "Сначала зарегистрируйте устройство.", true);
+    const statusEl = meta.statusEl || elements.adminStatus;
+    setStatus(statusEl, "Сначала зарегистрируйте устройство.", true);
     return null;
   }
   const serverUrl = state.serverUrl || DEFAULT_SERVER;
+  const method = String(options.method || "GET").toUpperCase();
+  const headers = {
+    "x-device-id": state.deviceId,
+    "x-device-token": state.deviceToken,
+    ...(options.headers || {})
+  };
+  let body = options.body;
+  if (method !== "GET" && method !== "HEAD") {
+    let payload = {};
+    if (body && typeof body === "string") {
+      try {
+        payload = JSON.parse(body);
+      } catch {
+        payload = {};
+      }
+    } else if (body && typeof body === "object") {
+      payload = body;
+    }
+    payload.deviceId = state.deviceId;
+    payload.deviceToken = state.deviceToken;
+    body = JSON.stringify(payload);
+    headers["content-type"] = "application/json";
+  }
+
   try {
     const resp = await fetch(`${serverUrl}${path}`, {
       ...options,
-      headers: {
-        "content-type": "application/json",
-        "x-device-id": state.deviceId,
-        "x-device-token": state.deviceToken,
-        ...(options.headers || {})
-      }
+      method,
+      headers,
+      body
     });
-    return await resp.json();
+    let data = null;
+    try {
+      data = await resp.json();
+    } catch {
+      data = { ok: false, error: "invalid_json_response" };
+    }
+    updateDiagnostics({
+      endpoint: path,
+      errorCode: data?.ok ? "-" : getErrorCode(data),
+      store: data?.store || "-",
+      serverUrl,
+      deviceIdPrefix: getDeviceIdPrefix()
+    });
+    return data;
   } catch {
-    setStatus(elements.adminStatus, "Ошибка сети или доступа к серверу.", true);
+    const statusEl = meta.statusEl || elements.adminStatus;
+    updateDiagnostics({
+      endpoint: path,
+      errorCode: "network_error",
+      serverUrl,
+      deviceIdPrefix: getDeviceIdPrefix()
+    });
+    setStatus(statusEl, `Ошибка ${path}: network_error • server=${serverUrl}`, true);
     return null;
   }
 }
@@ -534,18 +626,26 @@ async function loadAdminUser() {
     return;
   }
   setStatus(elements.adminStatus, "Загружаю пользователя...");
-  const data = await adminFetch(`/api/admin/user?userId=${encodeURIComponent(userId)}`);
+  const endpoint = `/api/admin/user?userId=${encodeURIComponent(userId)}`;
+  const data = await adminFetch(endpoint);
   if (!data) return;
   if (!data.ok) {
-    setStatus(elements.adminStatus, data.error || "Пользователь не найден.", true);
+    setStatus(elements.adminStatus, formatApiError(endpoint, data), true);
     renderAdminUser(null);
     return;
   }
   renderAdminUser(data.user);
   const store = data.store || "unknown";
+  updateDiagnostics({
+    endpoint,
+    errorCode: "-",
+    store,
+    verifiedBalance: data.user?.balance ?? "-",
+    serverUrl: getServerUrl()
+  });
   setStatus(
     elements.adminStatus,
-    `Пользователь загружен. store=${store} • server=${getServerUrl()}`
+    `OK ${endpoint} • store=${store} • server=${getServerUrl()}`
   );
 }
 
@@ -609,13 +709,14 @@ async function applyAdminChanges(extra = {}) {
     return;
   }
   setStatus(elements.adminStatus, "Применяю изменения...");
-  const data = await adminFetch("/api/admin/adjust", {
+  const endpoint = "/api/admin/adjust";
+  const data = await adminFetch(endpoint, {
     method: "POST",
     body: JSON.stringify(payload)
   });
   if (!data) return;
   if (!data.ok) {
-    setStatus(elements.adminStatus, data.error || "Ошибка изменения.", true);
+    setStatus(elements.adminStatus, formatApiError(endpoint, data), true);
     return;
   }
   renderAdminUser(data.user);
@@ -626,9 +727,16 @@ async function applyAdminChanges(extra = {}) {
     data.verifiedBalance !== undefined
       ? data.verifiedBalance
       : data.user?.balance ?? "-";
+  updateDiagnostics({
+    endpoint,
+    errorCode: "-",
+    store,
+    verifiedBalance,
+    serverUrl: getServerUrl()
+  });
   setStatus(
     elements.adminStatus,
-    `Изменения применены. store=${store} • verifiedBalance=${verifiedBalance} • server=${getServerUrl()}`
+    `OK ${endpoint} • store=${store} • verifiedBalance=${verifiedBalance} • server=${getServerUrl()}`
   );
 }
 
@@ -639,21 +747,19 @@ async function checkConsistency() {
     return;
   }
   setStatus(elements.adminStatus, "Проверяю консистентность...");
+  const userEndpoint = `/api/admin/user?userId=${encodeURIComponent(userId)}`;
+  const checkEndpoint = `/api/admin/consistency?userId=${encodeURIComponent(userId)}`;
   const [userData, consistency] = await Promise.all([
-    fetchAdminUser(userId),
-    adminFetch(`/api/admin/consistency?userId=${encodeURIComponent(userId)}`)
+    adminFetch(userEndpoint),
+    adminFetch(checkEndpoint)
   ]);
   if (!userData || !consistency) return;
   if (!userData.ok) {
-    setStatus(elements.adminStatus, userData.error || "Не удалось загрузить user.", true);
+    setStatus(elements.adminStatus, formatApiError(userEndpoint, userData), true);
     return;
   }
   if (!consistency.ok) {
-    setStatus(
-      elements.adminStatus,
-      consistency.error || "Проверка консистентности не выполнена.",
-      true
-    );
+    setStatus(elements.adminStatus, formatApiError(checkEndpoint, consistency), true);
     return;
   }
 
@@ -662,11 +768,37 @@ async function checkConsistency() {
   const webappBalance = Number(consistency.webapp?.balance || 0);
   const ok = Boolean(consistency.consistent) && adminBalance === webappBalance;
   const store = consistency.store || userData.store || "unknown";
+  updateDiagnostics({
+    endpoint: checkEndpoint,
+    errorCode: ok ? "-" : "consistency_mismatch",
+    store,
+    verifiedBalance: webappBalance,
+    serverUrl: getServerUrl()
+  });
   setStatus(
     elements.adminStatus,
-    `${ok ? "OK" : "MISMATCH"} • store=${store} • admin=${adminBalance} • webapp=${webappBalance} • server=${getServerUrl()}`,
+    `${ok ? "OK" : "MISMATCH"} ${checkEndpoint} • store=${store} • admin=${adminBalance} • webapp=${webappBalance} • server=${getServerUrl()}`,
     !ok
   );
+}
+
+async function copyDiagnostics() {
+  const lines = [
+    `build=${diagnostics.build || "-"}`,
+    `serverUrl=${diagnostics.serverUrl || getServerUrl()}`,
+    `deviceIdPrefix=${diagnostics.deviceIdPrefix || getDeviceIdPrefix()}`,
+    `endpoint=${diagnostics.endpoint || "-"}`,
+    `errorCode=${diagnostics.errorCode || "-"}`,
+    `store=${diagnostics.store || "-"}`,
+    `verifiedBalance=${diagnostics.verifiedBalance || "-"}`
+  ];
+  const text = lines.join("\n");
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus(elements.adminStatus, "Диагностика скопирована в буфер.");
+  } catch {
+    setStatus(elements.adminStatus, "Не удалось скопировать диагностику.", true);
+  }
 }
 
 async function unbanUser() {
@@ -717,27 +849,28 @@ async function mergeDemoUsers() {
     `Переношу ${sourceBalance} с ${sourceUserId} на ${targetUserId}...`
   );
 
-  const addToTarget = await adminFetch("/api/admin/adjust", {
+  const adjustEndpoint = "/api/admin/adjust";
+  const addToTarget = await adminFetch(adjustEndpoint, {
     method: "POST",
     body: JSON.stringify({ userId: targetUserId, deltaBalance: sourceBalance })
   });
   if (!addToTarget?.ok) {
     setStatus(
       elements.adminStatus,
-      `Ошибка начисления в ${targetUserId}: ${addToTarget?.error || "unknown"}`,
+      formatApiError(adjustEndpoint, addToTarget),
       true
     );
     return;
   }
 
-  const clearSource = await adminFetch("/api/admin/adjust", {
+  const clearSource = await adminFetch(adjustEndpoint, {
     method: "POST",
     body: JSON.stringify({ userId: sourceUserId, setBalance: 0 })
   });
   if (!clearSource?.ok) {
     setStatus(
       elements.adminStatus,
-      `Начислил в ${targetUserId}, но не обнулил ${sourceUserId}: ${clearSource?.error || "unknown"}`,
+      formatApiError(adjustEndpoint, clearSource),
       true
     );
     return;
@@ -760,6 +893,7 @@ async function mergeDemoUsers() {
 elements.enrollBtn.addEventListener("click", enrollDevice);
 elements.loadLogs.addEventListener("click", loadLogs);
 elements.clearLocal.addEventListener("click", clearLocal);
+elements.copyDiag?.addEventListener("click", copyDiagnostics);
 elements.openAdmin?.addEventListener("click", () => {
   window.location.hash = "#admin";
   setActiveView("admin");
@@ -788,5 +922,7 @@ elements.deviceName.addEventListener("change", () => {
 renderDeviceInfo();
 setActiveView(window.location.hash === "#admin" ? "admin" : "logs");
 if (elements.buildVersion) {
-  elements.buildVersion.textContent = window.__ADMIN_BUILD__ || "web";
+  const build = window.__ADMIN_BUILD__ || "web";
+  elements.buildVersion.textContent = build;
+  updateDiagnostics({ build });
 }

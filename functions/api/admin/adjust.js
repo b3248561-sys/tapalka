@@ -8,7 +8,11 @@ import {
   hasDurableUserStore,
   runUserAction
 } from "../../_shared/utils.js";
-import { verifyDevice, logEvent } from "../../_shared/admin.js";
+import {
+  resolveDeviceAuth,
+  verifyDeviceDetailed,
+  logEvent
+} from "../../_shared/admin.js";
 
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -47,12 +51,6 @@ async function readVerifiedUser(env, userId) {
 export async function onRequestPost(context) {
   const { request, env } = context;
   const store = hasDurableUserStore(env) ? "do" : "kv";
-  const deviceId = request.headers.get("x-device-id");
-  const deviceToken = request.headers.get("x-device-token");
-  const device = await verifyDevice(env, deviceId, deviceToken);
-  if (!device) {
-    return withCors({ ok: false, error: "unauthorized" }, 401);
-  }
 
   let body = {};
   try {
@@ -60,6 +58,27 @@ export async function onRequestPost(context) {
   } catch {
     body = {};
   }
+  const auth = resolveDeviceAuth(request, {
+    body,
+    allowBodyFallback: true
+  });
+  const authCheck = await verifyDeviceDetailed(
+    env,
+    auth.deviceId,
+    auth.deviceToken
+  );
+  if (!authCheck.ok) {
+    return withCors(
+      {
+        ok: false,
+        error: "unauthorized",
+        store,
+        authErrorCode: authCheck.errorCode || auth.errorCode || "auth_missing"
+      },
+      401
+    );
+  }
+  const device = authCheck.device;
 
   const userId = body.userId || body.id;
   if (!userId) {

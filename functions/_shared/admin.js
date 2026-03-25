@@ -84,6 +84,115 @@ export async function verifyDevice(env, deviceId, token) {
   return device;
 }
 
+function normalizeAuthValue(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+export function resolveDeviceAuth(
+  request,
+  { body = null, allowBodyFallback = false, allowQueryFallback = false } = {}
+) {
+  const headerDeviceId = normalizeAuthValue(request.headers.get("x-device-id"));
+  const headerDeviceToken = normalizeAuthValue(
+    request.headers.get("x-device-token")
+  );
+  if (headerDeviceId && headerDeviceToken) {
+    return {
+      deviceId: headerDeviceId,
+      deviceToken: headerDeviceToken,
+      source: "headers",
+      errorCode: null
+    };
+  }
+  if (headerDeviceId || headerDeviceToken) {
+    return {
+      deviceId: headerDeviceId,
+      deviceToken: headerDeviceToken,
+      source: "headers",
+      errorCode: "auth_missing"
+    };
+  }
+
+  if (allowBodyFallback && body && typeof body === "object") {
+    const bodyDeviceId = normalizeAuthValue(body.deviceId);
+    const bodyDeviceToken = normalizeAuthValue(body.deviceToken);
+    if (bodyDeviceId && bodyDeviceToken) {
+      return {
+        deviceId: bodyDeviceId,
+        deviceToken: bodyDeviceToken,
+        source: "body",
+        errorCode: null
+      };
+    }
+    if (bodyDeviceId || bodyDeviceToken) {
+      return {
+        deviceId: bodyDeviceId,
+        deviceToken: bodyDeviceToken,
+        source: "body",
+        errorCode: "auth_missing"
+      };
+    }
+  }
+
+  if (allowQueryFallback) {
+    const url = new URL(request.url);
+    const queryDeviceId = normalizeAuthValue(
+      url.searchParams.get("deviceId")
+    );
+    const queryDeviceToken = normalizeAuthValue(
+      url.searchParams.get("deviceToken")
+    );
+    if (queryDeviceId && queryDeviceToken) {
+      return {
+        deviceId: queryDeviceId,
+        deviceToken: queryDeviceToken,
+        source: "query",
+        errorCode: null
+      };
+    }
+    if (queryDeviceId || queryDeviceToken) {
+      return {
+        deviceId: queryDeviceId,
+        deviceToken: queryDeviceToken,
+        source: "query",
+        errorCode: "auth_missing"
+      };
+    }
+  }
+
+  return {
+    deviceId: "",
+    deviceToken: "",
+    source: "none",
+    errorCode: "auth_missing"
+  };
+}
+
+export async function verifyDeviceDetailed(env, deviceId, token) {
+  const normalizedDeviceId = normalizeAuthValue(deviceId);
+  const normalizedToken = normalizeAuthValue(token);
+  if (!normalizedDeviceId || !normalizedToken) {
+    return { ok: false, errorCode: "auth_missing", device: null };
+  }
+
+  const device =
+    (await env.KV.get(`${DEVICE_KEY_PREFIX}${normalizedDeviceId}`, "json")) ||
+    (await loadDevices(env)).find((d) => d.id === normalizedDeviceId);
+  if (!device) {
+    return { ok: false, errorCode: "auth_device_not_found", device: null };
+  }
+  if (!device.enabled) {
+    return { ok: false, errorCode: "auth_device_disabled", device: null };
+  }
+  const tokenHash = await sha256Hex(normalizedToken);
+  if (tokenHash !== device.tokenHash) {
+    return { ok: false, errorCode: "auth_token_mismatch", device: null };
+  }
+
+  return { ok: true, errorCode: null, device };
+}
+
 export async function getAdminDevices(env) {
   const devices = await loadDevices(env);
   return devices.filter((d) => d.enabled && d.publicKeyJwk);

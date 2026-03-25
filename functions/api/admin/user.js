@@ -6,7 +6,10 @@ import {
   getUserById,
   hasDurableUserStore
 } from "../../_shared/utils.js";
-import { verifyDevice } from "../../_shared/admin.js";
+import {
+  resolveDeviceAuth,
+  verifyDeviceDetailed
+} from "../../_shared/admin.js";
 
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -39,11 +42,22 @@ function summarize(user) {
 export async function onRequestGet(context) {
   const { request, env } = context;
   const store = hasDurableUserStore(env) ? "do" : "kv";
-  const deviceId = request.headers.get("x-device-id");
-  const deviceToken = request.headers.get("x-device-token");
-  const device = await verifyDevice(env, deviceId, deviceToken);
-  if (!device) {
-    return withCors({ ok: false, error: "unauthorized" }, 401);
+  const auth = resolveDeviceAuth(request);
+  const authCheck = await verifyDeviceDetailed(
+    env,
+    auth.deviceId,
+    auth.deviceToken
+  );
+  if (!authCheck.ok) {
+    return withCors(
+      {
+        ok: false,
+        error: "unauthorized",
+        store,
+        authErrorCode: authCheck.errorCode || auth.errorCode || "auth_missing"
+      },
+      401
+    );
   }
 
   const url = new URL(request.url);
