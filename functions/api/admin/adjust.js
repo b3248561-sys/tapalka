@@ -1,9 +1,9 @@
 import {
   jsonResponse,
-  userKey,
   normalizeUser,
   saveUser,
-  getRank
+  getRank,
+  getUserById
 } from "../../_shared/utils.js";
 import { verifyDevice, logEvent } from "../../_shared/admin.js";
 
@@ -58,8 +58,7 @@ export async function onRequestPost(context) {
     return withCors({ ok: false, error: "user_id_required" }, 400);
   }
 
-  const key = userKey(String(userId));
-  let user = await env.KV.get(key, "json");
+  let user = await getUserById(env, String(userId));
   if (!user) {
     return withCors({ ok: false, error: "not_found" }, 404);
   }

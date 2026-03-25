@@ -59,35 +59,67 @@ export function userKey(userId) {
   return `user:${userId}`;
 }
 
+function hasUserDo(env) {
+  return env && env.USER_DO;
+}
+
+function getUserStub(env, userId) {
+  const id = env.USER_DO.idFromName(String(userId));
+  return env.USER_DO.get(id);
+}
+
+async function userDoRequest(env, userId, action, payload = {}) {
+  const stub = getUserStub(env, userId);
+  const res = await stub.fetch(`https://user/${action}`, {
+    method: "POST",
+    body: JSON.stringify({ action, userId: String(userId), ...payload })
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    const err = new Error(data.error || "user_store_error");
+    err.code = data.error || "user_store_error";
+    throw err;
+  }
+  return data.user;
+}
+
+export function createUser(userId, name, username = "") {
+  return {
+    id: String(userId),
+    name: name || "Player",
+    username: username || "",
+    balance: 0,
+    tapValue: 1,
+    items: {},
+    boostUntil: 0,
+    lastDailyTs: 0,
+    totalEarned: 0,
+    totalTaps: 0,
+    dailyQuestDay: "",
+    dailyTapCount: 0,
+    dailyPurchaseCount: 0,
+    dailyQuestClaims: {},
+    lastTapTs: 0,
+    windowStartTs: 0,
+    windowCount: 0,
+    lastLogTs: 0,
+    lastOpenLogTs: 0,
+    bannedUntil: 0,
+    maxEnergy: 50,
+    energy: 50,
+    energyRegen: 1,
+    lastEnergyTs: Date.now()
+  };
+}
+
 export async function loadUser(env, userId, name, username) {
+  if (hasUserDo(env)) {
+    return userDoRequest(env, userId, "get", { name, username });
+  }
   const key = userKey(userId);
   let user = await env.KV.get(key, "json");
   if (!user) {
-    user = {
-      id: String(userId),
-      name: name || "Player",
-      username: username || "",
-      balance: 0,
-      tapValue: 1,
-      items: {},
-      boostUntil: 0,
-      lastDailyTs: 0,
-      totalEarned: 0,
-      totalTaps: 0,
-      dailyQuestDay: "",
-      dailyTapCount: 0,
-      dailyPurchaseCount: 0,
-      dailyQuestClaims: {},
-      lastTapTs: 0,
-      windowStartTs: 0,
-      windowCount: 0,
-      lastLogTs: 0,
-      bannedUntil: 0,
-      maxEnergy: 50,
-      energy: 50,
-      energyRegen: 1,
-      lastEnergyTs: Date.now()
-    };
+    user = createUser(userId, name, username);
     await env.KV.put(key, JSON.stringify(user));
   } else {
     let changed = false;
@@ -114,8 +146,23 @@ export async function loadUser(env, userId, name, username) {
 }
 
 export async function saveUser(env, user) {
+  if (hasUserDo(env)) {
+    return userDoRequest(env, user.id, "put", { user });
+  }
   await env.KV.put(userKey(user.id), JSON.stringify(user));
   return user;
+}
+
+export async function getUserById(env, userId) {
+  if (hasUserDo(env)) {
+    try {
+      return await userDoRequest(env, userId, "peek");
+    } catch (err) {
+      if (err && err.code === "not_found") return null;
+      throw err;
+    }
+  }
+  return env.KV.get(userKey(userId), "json");
 }
 
 export const SHOP_ITEMS = [
