@@ -106,13 +106,16 @@ function verifyInitData(initData, botToken, maxAgeSec = 300) {
   if (!initData || !botToken) return false;
   const { hash, dataCheckString, params } = parseInitData(initData);
   if (!hash) return false;
-  const secretKey = crypto.createHash("sha256").update(botToken).digest();
+  const secretKey = crypto
+    .createHmac("sha256", "WebAppData")
+    .update(botToken)
+    .digest();
   const hmac = crypto
     .createHmac("sha256", secretKey)
     .update(dataCheckString)
     .digest("hex");
 
-  const hashBuf = Buffer.from(hash, "hex");
+  const hashBuf = Buffer.from(String(hash).toLowerCase(), "hex");
   const hmacBuf = Buffer.from(hmac, "hex");
   if (hashBuf.length !== hmacBuf.length) return false;
   if (!crypto.timingSafeEqual(hashBuf, hmacBuf)) return false;

@@ -26,18 +26,15 @@ async function sendMessage(env, chatId, text, lang) {
 
 export async function onRequestPost(context) {
   const { request, env } = context;
-  const requireSecret = env.REQUIRE_WEBHOOK_SECRET !== "0";
   const expectedSecret = env.TELEGRAM_WEBHOOK_SECRET || "";
+  // Safer default: require secret only if it is configured
+  // (or explicitly forced via REQUIRE_WEBHOOK_SECRET=1).
+  const requireSecret =
+    env.REQUIRE_WEBHOOK_SECRET === "1" || Boolean(expectedSecret);
   if (requireSecret) {
-    if (!expectedSecret) {
-      return jsonResponse(
-        { ok: false, error: "webhook_secret_not_configured" },
-        500
-      );
-    }
     const actualSecret =
       request.headers.get("x-telegram-bot-api-secret-token") || "";
-    if (actualSecret !== expectedSecret) {
+    if (!expectedSecret || actualSecret !== expectedSecret) {
       return jsonResponse({ ok: false, error: "forbidden" }, 403);
     }
   }

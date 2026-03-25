@@ -30,8 +30,19 @@ export async function verifyInitData(initData, botToken, maxAgeSec = 300) {
   const { hash, dataCheckString, params } = buildDataCheckString(initData);
   if (!hash) return false;
   const encoder = new TextEncoder();
-  const secretKey = await crypto.subtle.digest(
-    "SHA-256",
+  // Telegram WebApp signature:
+  // secret_key = HMAC_SHA256("WebAppData", bot_token)
+  // hash = HMAC_SHA256(secret_key, data_check_string)
+  const phase1Key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode("WebAppData"),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const secretKey = await crypto.subtle.sign(
+    "HMAC",
+    phase1Key,
     encoder.encode(botToken)
   );
   const hmacKey = await crypto.subtle.importKey(
@@ -48,7 +59,7 @@ export async function verifyInitData(initData, botToken, maxAgeSec = 300) {
   );
   const bytes = new Uint8Array(sig);
   const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-  if (!safeEqualHex(hex, hash)) return false;
+  if (!safeEqualHex(hex, String(hash).toLowerCase())) return false;
 
   const ttlSec = parseMaxAgeSec(maxAgeSec);
   if (ttlSec === 0) return true;
