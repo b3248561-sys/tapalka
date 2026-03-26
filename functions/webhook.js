@@ -6,13 +6,14 @@ import {
   loadUser,
   saveUser,
   upsertLeaderboardEntry,
-  addSeasonPoints
+  addSeasonPoints,
+  grantGift
 } from "./_shared/utils.js";
 
-const DONATE_BONUS_BY_PACKAGE = {
-  support_s: 1800,
-  support_m: 6200,
-  support_l: 19000
+const DONATE_REWARD_BY_PACKAGE = {
+  support_s: { bonus: 2800, giftId: "gift_prism_orb" },
+  support_m: { bonus: 10000, giftId: "gift_cyber_crown" },
+  support_l: { bonus: 32000, giftId: "gift_solar_dragon" }
 };
 
 function resolveWebAppUrl(env, startPayload = "") {
@@ -98,7 +99,8 @@ async function handleSuccessfulPayment(env, message) {
   const payload = parseDonatePayload(payment.invoice_payload);
   if (!payload) return;
   if (String(from.id) !== String(payload.userId)) return;
-  const bonus = Number(DONATE_BONUS_BY_PACKAGE[payload.packageId] || 0);
+  const reward = DONATE_REWARD_BY_PACKAGE[payload.packageId] || null;
+  const bonus = Number(reward?.bonus || 0);
   if (!bonus || bonus <= 0) return;
 
   const chargeId =
@@ -120,6 +122,11 @@ async function handleSuccessfulPayment(env, message) {
   user.balance = Number(user.balance || 0) + bonus;
   user.totalEarned = Number(user.totalEarned || 0) + bonus;
   addSeasonPoints(user, bonus, Date.now());
+  const gifted = reward?.giftId
+    ? grantGift(user, reward.giftId, {
+        source: `donate:${payload.packageId}`
+      })
+    : null;
   await saveUser(env, user);
   await upsertLeaderboardEntry(env, user);
   if (dedupeKey && env.KV) {
@@ -128,7 +135,9 @@ async function handleSuccessfulPayment(env, message) {
 
   await botApi(env, "sendMessage", {
     chat_id: message.chat.id,
-    text: `Thanks for support! +${bonus} NF credited to your balance.`
+    text: gifted
+      ? `Thanks for support! +${bonus} NF and ${gifted.emoji} gift credited.`
+      : `Thanks for support! +${bonus} NF credited to your balance.`
   });
 }
 

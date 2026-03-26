@@ -2,7 +2,8 @@ import {
   jsonResponse,
   verifyInitData,
   extractUser,
-  resolveInitDataMaxAgeSec
+  resolveInitDataMaxAgeSec,
+  getGiftById
 } from "../_shared/utils.js";
 
 const DONATE_PACKAGES = [
@@ -10,31 +11,36 @@ const DONATE_PACKAGES = [
     id: "support_s",
     title: "Starter Support",
     stars: 50,
-    bonusNF: 1800,
+    bonusNF: 2800,
+    giftId: "gift_prism_orb",
     description: "Thanks for supporting Tapalka"
   },
   {
     id: "support_m",
     title: "Creator Support",
     stars: 150,
-    bonusNF: 6200,
+    bonusNF: 10000,
+    giftId: "gift_cyber_crown",
     description: "Bigger support pack with small NeoFlux bonus"
   },
   {
     id: "support_l",
     title: "Legend Support",
     stars: 400,
-    bonusNF: 19000,
+    bonusNF: 32000,
+    giftId: "gift_solar_dragon",
     description: "Legendary support for project growth"
   }
 ];
 
 function sanitizePackages() {
   return DONATE_PACKAGES.map((pkg) => ({
+    ...getGiftById(pkg.giftId),
     id: pkg.id,
     title: pkg.title,
     stars: pkg.stars,
-    bonusNF: pkg.bonusNF
+    bonusNF: pkg.bonusNF,
+    giftId: pkg.giftId
   }));
 }
 
@@ -119,4 +125,3 @@ export async function onRequest(context) {
   }
   return jsonResponse({ ok: false, error: "method_not_allowed" }, 405);
 }
-

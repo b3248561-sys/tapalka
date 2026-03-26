@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260326-6" />
+    <link rel="stylesheet" href="style.css?v=20260326-8" />
   </head>
   <body>
     <div class="bg">
@@ -138,21 +138,49 @@
             <div class="profile-status" id="profileStatus"></div>
           </section>
         </section>
+        <section class="screen" id="screenGifts">
+          <section class="gifts-page">
+            <div class="profile-gifts-card gifts-page-card">
+              <div class="profile-gifts-head">
+                <div>
+                  <div class="profile-gifts-title" id="profileGiftsTitle">Gifts</div>
+                  <div class="gifts-page-subtitle" id="giftsPageSubtitle">Your collection</div>
+                </div>
+                <div class="profile-gifts-count" id="profileGiftsCount">0</div>
+              </div>
+              <div class="gifts-filter">
+                <button class="gifts-filter-btn active" id="giftsFilterAll" type="button">All</button>
+                <button class="gifts-filter-btn" id="giftsFilterRare" type="button">Rare+</button>
+                <button class="gifts-filter-btn" id="giftsFilterEpic" type="button">Epic+</button>
+                <button class="gifts-filter-btn" id="giftsFilterMythic" type="button">Mythic</button>
+              </div>
+              <div class="profile-gifts-list gifts-grid" id="profileGiftsList"></div>
+            </div>
+          </section>
+        </section>
       </div>
       <nav class="tabs" id="tabs">
         <button class="tab active" data-tab="tap" id="tabTap">Tap</button>
         <button class="tab" data-tab="shop" id="tabShop">Shop</button>
         <button class="tab" data-tab="leaderboard" id="tabLeaderboard">Leaderboard</button>
         <button class="tab" data-tab="profile" id="tabProfile">Profile</button>
+        <button class="tab" data-tab="gifts" id="tabGifts">Gifts</button>
       </nav>
       <footer class="footer">@Nleo2bot</footer>
+    </div>
+    <div class="user-modal" id="userModal">
+      <div class="user-modal-card">
+        <button class="user-modal-close" id="userModalClose" type="button">×</button>
+        <div class="user-modal-title" id="userModalTitle">Player profile</div>
+        <div class="user-modal-body" id="userModalBody"></div>
+      </div>
     </div>
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260326-6";
+        script.src = "app.js?v=20260326-8";
         document.body.appendChild(script);
       })();
     </script>

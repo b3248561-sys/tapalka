@@ -142,6 +142,129 @@ export async function runUserAction(env, userId, action, payload = {}) {
   return userDoRequest(env, userId, action, payload, { allowError: true });
 }
 
+export const GIFT_CATALOG = [
+  { id: "gift_lucky_clover", emoji: "🍀", rarity: "common" },
+  { id: "gift_prism_orb", emoji: "🔮", rarity: "rare" },
+  { id: "gift_neon_phoenix", emoji: "🔥", rarity: "epic" },
+  { id: "gift_cyber_crown", emoji: "👑", rarity: "epic" },
+  { id: "gift_star_whale", emoji: "🐋", rarity: "mythic" },
+  { id: "gift_solar_dragon", emoji: "🐉", rarity: "mythic" }
+];
+
+const GIFT_BY_ID = Object.fromEntries(
+  GIFT_CATALOG.map((gift) => [gift.id, gift])
+);
+
+const GIFT_RARITY_WEIGHT = {
+  common: 1,
+  rare: 2,
+  epic: 3,
+  mythic: 4
+};
+
+const CASE_GIFT_POOLS = {
+  case_lucky: ["gift_lucky_clover", "gift_prism_orb", "gift_neon_phoenix"],
+  case_royal: [
+    "gift_prism_orb",
+    "gift_neon_phoenix",
+    "gift_cyber_crown",
+    "gift_star_whale",
+    "gift_solar_dragon"
+  ]
+};
+
+function normalizeGiftRarity(raw) {
+  const value = String(raw || "").toLowerCase();
+  return GIFT_RARITY_WEIGHT[value] ? value : "common";
+}
+
+export function getGiftById(giftId) {
+  const id = String(giftId || "").trim();
+  const known = GIFT_BY_ID[id];
+  if (known) return known;
+  return { id, emoji: "🎁", rarity: "common" };
+}
+
+export function listUserGifts(user, { limit = 30 } = {}) {
+  const gifts = user?.gifts && typeof user.gifts === "object" ? user.gifts : {};
+  const list = Object.entries(gifts)
+    .map(([id, entry]) => {
+      const count = Math.max(0, Math.floor(Number(entry?.count || 0)));
+      if (!count) return null;
+      const def = getGiftById(id);
+      return {
+        id,
+        emoji: entry?.emoji || def.emoji,
+        rarity: normalizeGiftRarity(entry?.rarity || def.rarity),
+        count,
+        firstReceivedAt: Math.max(0, Number(entry?.firstReceivedAt || 0)),
+        lastReceivedAt: Math.max(0, Number(entry?.lastReceivedAt || 0)),
+        source: String(entry?.source || "")
+      };
+    })
+    .filter(Boolean);
+  list.sort((a, b) => {
+    const rarityDiff =
+      Number(GIFT_RARITY_WEIGHT[b.rarity] || 0) -
+      Number(GIFT_RARITY_WEIGHT[a.rarity] || 0);
+    if (rarityDiff !== 0) return rarityDiff;
+    const dateDiff = Number(b.lastReceivedAt || 0) - Number(a.lastReceivedAt || 0);
+    if (dateDiff !== 0) return dateDiff;
+    const countDiff = Number(b.count || 0) - Number(a.count || 0);
+    if (countDiff !== 0) return countDiff;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  const safeLimit = Math.max(1, Math.min(100, Number(limit) || 30));
+  return list.slice(0, safeLimit);
+}
+
+export function getUserGiftStats(user) {
+  const gifts = user?.gifts && typeof user.gifts === "object" ? user.gifts : {};
+  let total = 0;
+  let types = 0;
+  Object.values(gifts).forEach((entry) => {
+    const count = Math.max(0, Math.floor(Number(entry?.count || 0)));
+    if (count > 0) {
+      total += count;
+      types += 1;
+    }
+  });
+  return { total, types };
+}
+
+export function grantGift(
+  user,
+  giftId,
+  { count = 1, now = Date.now(), source = "" } = {}
+) {
+  if (!user || !giftId) return null;
+  const id = String(giftId || "").trim();
+  if (!id) return null;
+  const increment = Math.max(1, Math.min(999, Math.floor(Number(count) || 1)));
+  if (!user.gifts || typeof user.gifts !== "object" || Array.isArray(user.gifts)) {
+    user.gifts = {};
+  }
+  const existing = user.gifts[id] || {};
+  const def = getGiftById(id);
+  const firstReceivedAt = Math.max(
+    0,
+    Number(existing.firstReceivedAt || existing.lastReceivedAt || now)
+  );
+  const merged = {
+    count: Math.max(
+      1,
+      Math.min(999999, Math.floor(Number(existing.count || 0)) + increment)
+    ),
+    rarity: normalizeGiftRarity(existing.rarity || def.rarity),
+    emoji: String(existing.emoji || def.emoji || "🎁"),
+    firstReceivedAt,
+    lastReceivedAt: Math.max(0, Math.floor(Number(now) || Date.now())),
+    source: String(source || existing.source || "").slice(0, 80)
+  };
+  user.gifts[id] = merged;
+  return { id, ...merged };
+}
+
 async function loadLegacyKvUser(env, userId) {
   if (!env?.KV) return null;
   return env.KV.get(userKey(userId), "json");
@@ -201,6 +324,7 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     balance: 0,
     tapValue: 1,
     items: {},
+    gifts: {},
     boostUntil: 0,
     lastDailyTs: 0,
     totalEarned: 0,
@@ -823,6 +947,35 @@ export function normalizeUser(user) {
     user.items = {};
     dirty = true;
   }
+  const rawGifts =
+    user.gifts && typeof user.gifts === "object" && !Array.isArray(user.gifts)
+      ? user.gifts
+      : {};
+  const beforeGifts = JSON.stringify(rawGifts);
+  const normalizedGifts = {};
+  Object.entries(rawGifts).forEach(([giftId, giftEntry]) => {
+    const id = String(giftId || "").trim();
+    if (!id) return;
+    const count = Math.max(0, Math.floor(Number(giftEntry?.count || 0)));
+    if (!count) return;
+    const def = getGiftById(id);
+    normalizedGifts[id] = {
+      count,
+      rarity: normalizeGiftRarity(giftEntry?.rarity || def.rarity),
+      emoji: String(giftEntry?.emoji || def.emoji || "🎁"),
+      firstReceivedAt: Math.max(
+        0,
+        Number(giftEntry?.firstReceivedAt || giftEntry?.lastReceivedAt || 0)
+      ),
+      lastReceivedAt: Math.max(0, Number(giftEntry?.lastReceivedAt || 0)),
+      source: String(giftEntry?.source || "").slice(0, 80)
+    };
+  });
+  const afterGifts = JSON.stringify(normalizedGifts);
+  if (beforeGifts !== afterGifts || !user.gifts || Array.isArray(user.gifts)) {
+    user.gifts = normalizedGifts;
+    dirty = true;
+  }
   if (typeof user.tapValue !== "number" || user.tapValue < 1) {
     user.tapValue = 1;
     dirty = true;
@@ -1012,9 +1165,9 @@ export function syncEnergy(user, now = Date.now()) {
 }
 
 export const DAILY_QUESTS = [
-  { id: "tap_50", type: "tap", target: 50, reward: 30 },
-  { id: "tap_200", type: "tap", target: 200, reward: 90 },
-  { id: "buy_1", type: "buy", target: 1, reward: 120 }
+  { id: "tap_50", type: "tap", target: 50, reward: 90 },
+  { id: "tap_200", type: "tap", target: 200, reward: 260 },
+  { id: "buy_1", type: "buy", target: 1, reward: 380 }
 ];
 
 export function ensureDaily(user) {
@@ -1059,6 +1212,7 @@ export function isDemoAllowed(env, request) {
 }
 
 export function summarizeUser(user) {
+  const giftStats = getUserGiftStats(user);
   return {
     id: user.id,
     name: user.name,
@@ -1084,6 +1238,8 @@ export function summarizeUser(user) {
     totalTaps: user.totalTaps || 0,
     equippedCosmetic: user.equippedCosmetic || "",
     equippedFrame: user.equippedFrame || "",
+    gifts: listUserGifts(user, { limit: 40 }),
+    giftStats,
     leaderboardHidden: Boolean(user.leaderboardHidden),
     seasonKey: user.seasonKey || getSeasonKey(),
     seasonPoints: Number(user.seasonPoints || 0),
@@ -1094,9 +1250,9 @@ export function summarizeUser(user) {
   };
 }
 
-export const WELCOME_BONUS = 1000;
-export const REFERRAL_NEW_USER_BONUS = 1000;
-export const REFERRAL_REFERRER_BONUS = 500;
+export const WELCOME_BONUS = 1800;
+export const REFERRAL_NEW_USER_BONUS = 2200;
+export const REFERRAL_REFERRER_BONUS = 1200;
 const COMBO_WINDOW_MS = 1400;
 const GOLDEN_WINDOW_MS = 1800;
 const GOLDEN_MULTIPLIER = 4;
@@ -1638,30 +1794,30 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
     if (item.id === "case_royal") {
       if (roll < 0.03) {
         rarity = "mythic";
-        multiplier = 5;
+        multiplier = 7;
       } else if (roll < 0.16) {
         rarity = "epic";
-        multiplier = 2.4;
+        multiplier = 3.3;
       } else if (roll < 0.45) {
         rarity = "rare";
-        multiplier = 1.45;
+        multiplier = 1.9;
       } else {
         rarity = "common";
-        multiplier = 1.05;
+        multiplier = 1.25;
       }
     } else {
       if (roll < 0.02) {
         rarity = "mythic";
-        multiplier = 4.2;
+        multiplier = 5.8;
       } else if (roll < 0.15) {
         rarity = "epic";
-        multiplier = 2;
+        multiplier = 2.7;
       } else if (roll < 0.5) {
         rarity = "rare";
-        multiplier = 1.35;
+        multiplier = 1.75;
       } else {
         rarity = "common";
-        multiplier = 1;
+        multiplier = 1.2;
       }
     }
 
@@ -1672,7 +1828,13 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
 
     let unlockedItem = null;
     const unlockChance =
-      rarity === "mythic" ? 0.95 : rarity === "epic" ? 0.42 : rarity === "rare" ? 0.18 : 0.06;
+      rarity === "mythic"
+        ? 0.98
+        : rarity === "epic"
+          ? 0.5
+          : rarity === "rare"
+            ? 0.25
+            : 0.1;
     if (Math.random() < unlockChance) {
       const pool = (CASE_REWARD_POOLS[item.id] || []).filter(
         (candidateId) => !Number(user.items?.[candidateId] || 0)
@@ -1692,12 +1854,38 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
         };
       }
     }
+    let droppedGift = null;
+    const giftDropChance =
+      rarity === "mythic"
+        ? 0.9
+        : rarity === "epic"
+          ? 0.45
+          : rarity === "rare"
+            ? 0.22
+            : 0.1;
+    if (Math.random() < giftDropChance) {
+      const giftPool = CASE_GIFT_POOLS[item.id] || [];
+      const giftId = pickRandomFromPool(giftPool);
+      if (giftId) {
+        droppedGift = grantGift(user, giftId, {
+          now,
+          source: `case:${item.id}:${rarity}`
+        });
+      }
+    }
 
     return {
       ok: true,
       log: {
         action: "open_case",
-        extra: { itemId: item.id, price, nfReward, rarity, unlockedItemId: unlockedItem?.id || "" }
+        extra: {
+          itemId: item.id,
+          price,
+          nfReward,
+          rarity,
+          unlockedItemId: unlockedItem?.id || "",
+          giftId: droppedGift?.id || ""
+        }
       },
       payload: {
         ok: true,
@@ -1713,7 +1901,8 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
           price,
           nfReward,
           rarity,
-          unlockedItem
+          unlockedItem,
+          gift: droppedGift
         }
       }
     };
@@ -1797,7 +1986,7 @@ export function applyDailyAction(user, now = Date.now()) {
   if (now < nextAt) {
     return { ok: false, status: 400, error: "daily_not_ready", nextAt };
   }
-  const reward = 120 + Math.floor((user.tapValue || 1) * 10);
+  const reward = 300 + Math.floor((user.tapValue || 1) * 25);
   user.balance += reward;
   user.totalEarned = (user.totalEarned || 0) + reward;
   addSeasonPoints(user, reward, now);

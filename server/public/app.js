@@ -24,10 +24,12 @@ const screenTapEl = document.getElementById("screenTap");
 const screenShopEl = document.getElementById("screenShop");
 const screenLeaderboardEl = document.getElementById("screenLeaderboard");
 const screenProfileEl = document.getElementById("screenProfile");
+const screenGiftsEl = document.getElementById("screenGifts");
 const tabTapEl = document.getElementById("tabTap");
 const tabShopEl = document.getElementById("tabShop");
 const tabLeaderboardEl = document.getElementById("tabLeaderboard");
 const tabProfileEl = document.getElementById("tabProfile");
+const tabGiftsEl = document.getElementById("tabGifts");
 const leaderboardTitleEl = document.getElementById("leaderboardTitle");
 const leaderboardSubtitleEl = document.getElementById("leaderboardSubtitle");
 const leaderboardSeasonInfoEl = document.getElementById("leaderboardSeasonInfo");
@@ -55,6 +57,18 @@ const donateStatusEl = document.getElementById("donateStatus");
 const profileAvatarPreviewEl = document.getElementById("profileAvatarPreview");
 const profileNamePreviewEl = document.getElementById("profileNamePreview");
 const profileIdPreviewEl = document.getElementById("profileIdPreview");
+const profileGiftsTitleEl = document.getElementById("profileGiftsTitle");
+const profileGiftsCountEl = document.getElementById("profileGiftsCount");
+const profileGiftsListEl = document.getElementById("profileGiftsList");
+const giftsPageSubtitleEl = document.getElementById("giftsPageSubtitle");
+const giftsFilterAllEl = document.getElementById("giftsFilterAll");
+const giftsFilterRareEl = document.getElementById("giftsFilterRare");
+const giftsFilterEpicEl = document.getElementById("giftsFilterEpic");
+const giftsFilterMythicEl = document.getElementById("giftsFilterMythic");
+const userModalEl = document.getElementById("userModal");
+const userModalCloseEl = document.getElementById("userModalClose");
+const userModalTitleEl = document.getElementById("userModalTitle");
+const userModalBodyEl = document.getElementById("userModalBody");
 const dailyTitleEl = document.getElementById("dailyTitle");
 const dailySubtitleEl = document.getElementById("dailySubtitle");
 const dailyBtnEl = document.getElementById("dailyBtn");
@@ -111,6 +125,11 @@ let profileAvatarFileData = "";
 let donatePackages = [];
 let launchReferralCode = "";
 const BOT_USERNAME = "Nleo2bot";
+const REFERRAL_BONUS_YOU = 1200;
+const REFERRAL_BONUS_FRIEND = 2200;
+let giftsFilter = ["all", "rare", "epic", "mythic"].includes(localStorage.getItem("giftsFilter"))
+  ? localStorage.getItem("giftsFilter")
+  : "all";
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura", "theme-void", "theme-aurora"];
@@ -136,6 +155,7 @@ const STRINGS = {
     tabShop: "Shop",
     tabLeaderboard: "Leaderboard",
     tabProfile: "Profile",
+    tabGifts: "Gifts",
     leaderboardTitle: "Leaderboard",
     leaderboardSubtitle: "Top players by balance",
     leaderboardModeSeason: "Season",
@@ -215,12 +235,22 @@ const STRINGS = {
     openCase: "Open",
     caseOpened: "{rarity} • +{reward} NF",
     caseOpenedWithItem: "{rarity} • +{reward} NF + {item}",
+    caseOpenedWithGift: "{rarity} • +{reward} NF + gift {gift}",
+    caseOpenedFull: "{rarity} • +{reward} NF + {item} + gift {gift}",
     rarity_common: "Common",
     rarity_rare: "Rare",
     rarity_epic: "Epic",
     rarity_mythic: "Mythic",
     profileTitle: "Profile",
     profileSubtitle: "Set your in-game nickname and avatar",
+    profileGiftsTitle: "Gifts",
+    profileGiftsEmpty: "No gifts yet",
+    profileGiftsCount: "{total} gifts • {types} types",
+    giftsPageSubtitle: "Telegram-style collection",
+    giftsFilterAll: "All",
+    giftsFilterRare: "Rare+",
+    giftsFilterEpic: "Epic+",
+    giftsFilterMythic: "Mythic",
     profileNicknameLabel: "Nickname",
     profileAvatarFileLabel: "Upload from device",
     profileNicknamePlaceholder: "Your nickname",
@@ -236,6 +266,7 @@ const STRINGS = {
     support_lName: "Legend Support",
     donateBuy: "Support for {stars} Stars",
     donateBonus: "Bonus +{bonus} NF",
+    donateGift: "Gift {emoji} {name}",
     donatePaid: "Thanks for support",
     donateCanceled: "Payment canceled",
     donateFailed: "Payment failed",
@@ -254,6 +285,24 @@ const STRINGS = {
     welcomeBonus: "Welcome bonus +{amount} NF",
     referralApplied: "Referral bonus +{amount} NF",
     profileSaveError: "Could not save profile",
+    playerProfileTitle: "Player profile",
+    playerProfileLoading: "Loading player profile...",
+    playerProfileFailed: "Could not load player profile",
+    playerProfileClose: "Close",
+    playerProfileYou: "You",
+    playerProfileRank: "League",
+    playerProfileBalance: "Balance",
+    playerProfileTapValue: "Tap power",
+    playerProfileSeason: "Season NF",
+    playerProfileGifts: "Gifts",
+    playerProfileGiftCount: "{total} gifts • {types} types",
+    giftCount: "x{count}",
+    gift_lucky_cloverName: "Lucky Clover",
+    gift_prism_orbName: "Prism Orb",
+    gift_neon_phoenixName: "Neon Phoenix",
+    gift_cyber_crownName: "Cyber Crown",
+    gift_star_whaleName: "Star Whale",
+    gift_solar_dragonName: "Solar Dragon",
     comboLabel: "Combo x{mult}",
     goldenNow: "Golden x4 {time}",
     goldenSoon: "Golden in {time}",
@@ -284,6 +333,7 @@ const STRINGS = {
     tabShop: "Магазин",
     tabLeaderboard: "Рейтинг",
     tabProfile: "Профиль",
+    tabGifts: "Подарки",
     leaderboardTitle: "Рейтинг",
     leaderboardSubtitle: "Лучшие игроки по балансу",
     leaderboardModeSeason: "Сезон",
@@ -363,12 +413,22 @@ const STRINGS = {
     openCase: "Открыть",
     caseOpened: "{rarity} • +{reward} NF",
     caseOpenedWithItem: "{rarity} • +{reward} NF + {item}",
+    caseOpenedWithGift: "{rarity} • +{reward} NF + подарок {gift}",
+    caseOpenedFull: "{rarity} • +{reward} NF + {item} + подарок {gift}",
     rarity_common: "Обычная",
     rarity_rare: "Редкая",
     rarity_epic: "Эпическая",
     rarity_mythic: "Мифическая",
     profileTitle: "Профиль",
     profileSubtitle: "Настрой ник и аватар в игре",
+    profileGiftsTitle: "Подарки",
+    profileGiftsEmpty: "Пока без подарков",
+    profileGiftsCount: "{total} подарков • {types} видов",
+    giftsPageSubtitle: "Коллекция в стиле Telegram",
+    giftsFilterAll: "Все",
+    giftsFilterRare: "Редкие+",
+    giftsFilterEpic: "Эпик+",
+    giftsFilterMythic: "Мифик",
     profileNicknameLabel: "Ник",
     profileAvatarFileLabel: "Загрузить с устройства",
     profileNicknamePlaceholder: "Твой ник",
@@ -384,6 +444,7 @@ const STRINGS = {
     support_lName: "Легендарная поддержка",
     donateBuy: "Поддержать за {stars} Stars",
     donateBonus: "Бонус +{bonus} NF",
+    donateGift: "Подарок {emoji} {name}",
     donatePaid: "Спасибо за поддержку",
     donateCanceled: "Оплата отменена",
     donateFailed: "Оплата не прошла",
@@ -402,6 +463,24 @@ const STRINGS = {
     welcomeBonus: "Стартовый бонус +{amount} NF",
     referralApplied: "Реферальный бонус +{amount} NF",
     profileSaveError: "Не удалось сохранить профиль",
+    playerProfileTitle: "Профиль игрока",
+    playerProfileLoading: "Загружаю профиль игрока...",
+    playerProfileFailed: "Не удалось загрузить профиль игрока",
+    playerProfileClose: "Закрыть",
+    playerProfileYou: "Ты",
+    playerProfileRank: "Лига",
+    playerProfileBalance: "Баланс",
+    playerProfileTapValue: "Сила тапа",
+    playerProfileSeason: "NF сезона",
+    playerProfileGifts: "Подарки",
+    playerProfileGiftCount: "{total} подарков • {types} видов",
+    giftCount: "x{count}",
+    gift_lucky_cloverName: "Клевер удачи",
+    gift_prism_orbName: "Призматическая сфера",
+    gift_neon_phoenixName: "Неоновый феникс",
+    gift_cyber_crownName: "Кибер-корона",
+    gift_star_whaleName: "Звездный кит",
+    gift_solar_dragonName: "Солнечный дракон",
     comboLabel: "Комбо x{mult}",
     goldenNow: "Золото x4 {time}",
     goldenSoon: "Золото через {time}",
@@ -462,6 +541,15 @@ function t(key, vars = {}) {
     text = text.replace(`{${k}}`, String(v));
   });
   return text;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function formatNumberDots(value) {
@@ -555,6 +643,206 @@ function avatarInitials(player) {
   return source.charAt(0).toUpperCase();
 }
 
+function giftRarityClass(rarity) {
+  const value = String(rarity || "").toLowerCase();
+  if (value === "mythic" || value === "epic" || value === "rare") {
+    return `rarity-${value}`;
+  }
+  return "rarity-common";
+}
+
+function renderGiftChips(container, gifts = [], emptyKey = "profileGiftsEmpty", limit = 10) {
+  if (!container) return;
+  container.innerHTML = "";
+  const safeGifts = Array.isArray(gifts) ? gifts.slice(0, limit) : [];
+  if (!safeGifts.length) {
+    const empty = document.createElement("div");
+    empty.className = "gift-chip empty";
+    empty.textContent = t(emptyKey);
+    container.appendChild(empty);
+    return;
+  }
+  safeGifts.forEach((gift) => {
+    const chip = document.createElement("div");
+    chip.className = `gift-chip ${giftRarityClass(gift.rarity)}`;
+    const titleKey = `${gift.id}Name`;
+    const giftName =
+      STRINGS[currentLang]?.[titleKey] || STRINGS.en?.[titleKey] || gift.id || "Gift";
+    const safeEmoji = escapeHtml(gift.emoji || "🎁");
+    const safeGiftName = escapeHtml(giftName);
+    chip.innerHTML = `${safeEmoji} ${safeGiftName} <span class="gift-count">${t("giftCount", {
+      count: formatNumberDots(gift.count || 0)
+    })}</span>`;
+    container.appendChild(chip);
+  });
+}
+
+function updateGiftsFilterButtons() {
+  if (giftsFilterAllEl) giftsFilterAllEl.classList.toggle("active", giftsFilter === "all");
+  if (giftsFilterRareEl) giftsFilterRareEl.classList.toggle("active", giftsFilter === "rare");
+  if (giftsFilterEpicEl) giftsFilterEpicEl.classList.toggle("active", giftsFilter === "epic");
+  if (giftsFilterMythicEl) giftsFilterMythicEl.classList.toggle("active", giftsFilter === "mythic");
+}
+
+function passesGiftsFilter(gift) {
+  const rarity = String(gift?.rarity || "common").toLowerCase();
+  if (giftsFilter === "all") return true;
+  if (giftsFilter === "rare") return ["rare", "epic", "mythic"].includes(rarity);
+  if (giftsFilter === "epic") return ["epic", "mythic"].includes(rarity);
+  if (giftsFilter === "mythic") return rarity === "mythic";
+  return true;
+}
+
+function renderGiftCollection(gifts = []) {
+  if (!profileGiftsListEl) return;
+  profileGiftsListEl.innerHTML = "";
+  const safeGifts = Array.isArray(gifts) ? gifts.filter(passesGiftsFilter) : [];
+  if (!safeGifts.length) {
+    const empty = document.createElement("div");
+    empty.className = "gift-tile-empty";
+    empty.textContent = t("profileGiftsEmpty");
+    profileGiftsListEl.appendChild(empty);
+    return;
+  }
+  safeGifts.forEach((gift) => {
+    const card = document.createElement("article");
+    card.className = `gift-tile ${giftRarityClass(gift.rarity)}`;
+
+    const icon = document.createElement("div");
+    icon.className = "gift-tile-icon";
+    icon.textContent = gift.emoji || "🎁";
+
+    const title = document.createElement("div");
+    title.className = "gift-tile-title";
+    const titleKey = `${gift.id}Name`;
+    title.textContent =
+      STRINGS[currentLang]?.[titleKey] || STRINGS.en?.[titleKey] || gift.id || "Gift";
+
+    const count = document.createElement("div");
+    count.className = "gift-tile-count";
+    count.textContent = t("giftCount", { count: formatNumberDots(gift.count || 0) });
+
+    card.append(icon, title, count);
+    profileGiftsListEl.appendChild(card);
+  });
+}
+
+function setGiftsFilter(nextFilter) {
+  const safe = ["all", "rare", "epic", "mythic"].includes(nextFilter) ? nextFilter : "all";
+  giftsFilter = safe;
+  localStorage.setItem("giftsFilter", giftsFilter);
+  updateGiftsFilterButtons();
+  renderGiftCollection(profileUser?.gifts || []);
+}
+
+function setUserModalOpen(open) {
+  if (!userModalEl) return;
+  userModalEl.classList.toggle("open", Boolean(open));
+}
+
+function renderUserModalBody(profile) {
+  if (!userModalBodyEl) return;
+  if (!profile) {
+    userModalBodyEl.textContent = t("playerProfileFailed");
+    return;
+  }
+  const frameClass = frameClassFromId(profile.equippedFrame || "");
+  const label = profile.name || (profile.username ? `@${profile.username}` : `ID ${profile.id}`);
+  const safeLabel = escapeHtml(label);
+  const safeId = escapeHtml(profile.id);
+  const safeUsername = profile.username ? ` • @${escapeHtml(profile.username)}` : "";
+  const tagYou = profile.isYou ? ` (${t("playerProfileYou")})` : "";
+  const rankLabel = profile.rank?.id ? t(`rank_${profile.rank.id}`) : "-";
+  userModalBodyEl.innerHTML = `
+    <div class="user-modal-user">
+      <div class="user-modal-avatar ${frameClass}"></div>
+      <div>
+        <div class="user-modal-name">${safeLabel}${escapeHtml(tagYou)}</div>
+        <div class="user-modal-sub">ID ${safeId}${safeUsername}</div>
+      </div>
+    </div>
+    <div class="user-modal-stats">
+      <div class="user-modal-stat">
+        <div class="user-modal-stat-label">${t("playerProfileRank")}</div>
+        <div class="user-modal-stat-value">${rankLabel}</div>
+      </div>
+      <div class="user-modal-stat">
+        <div class="user-modal-stat-label">${t("playerProfileBalance")}</div>
+        <div class="user-modal-stat-value">${formatNumberDots(profile.balance || 0)} NF</div>
+      </div>
+      <div class="user-modal-stat">
+        <div class="user-modal-stat-label">${t("playerProfileTapValue")}</div>
+        <div class="user-modal-stat-value">+${formatNumberDots(profile.tapValue || 1)}/tap</div>
+      </div>
+      <div class="user-modal-stat">
+        <div class="user-modal-stat-label">${t("playerProfileSeason")}</div>
+        <div class="user-modal-stat-value">${formatNumberDots(profile.seasonPoints || 0)}</div>
+      </div>
+    </div>
+    <div class="user-modal-gifts">
+      <div class="user-modal-gifts-head">
+        <div class="user-modal-gifts-title">${t("playerProfileGifts")}</div>
+        <div class="user-modal-gifts-count">${t("playerProfileGiftCount", {
+          total: formatNumberDots(profile.giftStats?.total || 0),
+          types: formatNumberDots(profile.giftStats?.types || 0)
+        })}</div>
+      </div>
+      <div class="user-modal-gifts-list" id="userModalGifts"></div>
+    </div>
+  `;
+  const avatarEl = userModalBodyEl.querySelector(".user-modal-avatar");
+  if (avatarEl) {
+    if (profile.avatarUrl) {
+      const img = document.createElement("img");
+      img.src = profile.avatarUrl;
+      img.alt = profile.name || profile.username || "avatar";
+      img.referrerPolicy = "no-referrer";
+      img.addEventListener("error", () => {
+        img.remove();
+        avatarEl.textContent = avatarInitials(profile);
+      });
+      avatarEl.appendChild(img);
+    } else {
+      avatarEl.textContent = avatarInitials(profile);
+    }
+  }
+  const giftsEl = userModalBodyEl.querySelector("#userModalGifts");
+  renderGiftChips(giftsEl, profile.gifts || [], "profileGiftsEmpty", 16);
+}
+
+async function openUserProfile(userId) {
+  if (!userModalBodyEl || !userModalTitleEl) return;
+  const safeUserId = String(userId || "").trim();
+  if (!/^\d{3,20}$/.test(safeUserId)) return;
+  userModalTitleEl.textContent = t("playerProfileTitle");
+  userModalBodyEl.textContent = t("playerProfileLoading");
+  setUserModalOpen(true);
+  const latestInit = tg?.initData || initData || "";
+  if (latestInit && latestInit !== initData) initData = latestInit;
+  const headers = {};
+  let url = `/api/public-user?userId=${encodeURIComponent(safeUserId)}`;
+  if (demoMode) {
+    url += `&demoUserId=${encodeURIComponent(demoUserId)}`;
+  } else {
+    if (!initData) {
+      userModalBodyEl.textContent = t("authError");
+      return;
+    }
+    headers["x-init-data"] = initData;
+  }
+  try {
+    const res = await fetch(url, { headers, cache: "no-store" });
+    const data = await res.json();
+    if (!data?.ok || !data.user) {
+      userModalBodyEl.textContent = data?.error || t("playerProfileFailed");
+      return;
+    }
+    renderUserModalBody({ ...data.user, isYou: Boolean(data.isYou) });
+  } catch {
+    userModalBodyEl.textContent = t("playerProfileFailed");
+  }
+}
+
 function applyTexts() {
   if (titleEl) titleEl.textContent = t("title");
   if (subtitleEl) subtitleEl.textContent = t("subtitle");
@@ -574,6 +862,8 @@ function applyTexts() {
   if (leaderboardModeAllTimeEl) leaderboardModeAllTimeEl.textContent = t("leaderboardModeAllTime");
   if (profileTitleEl) profileTitleEl.textContent = t("profileTitle");
   if (profileSubtitleEl) profileSubtitleEl.textContent = t("profileSubtitle");
+  if (profileGiftsTitleEl) profileGiftsTitleEl.textContent = t("profileGiftsTitle");
+  if (giftsPageSubtitleEl) giftsPageSubtitleEl.textContent = t("giftsPageSubtitle");
   if (profileNicknameLabelEl) profileNicknameLabelEl.textContent = t("profileNicknameLabel");
   if (profileAvatarFileLabelEl) profileAvatarFileLabelEl.textContent = t("profileAvatarFileLabel");
   if (profileRefTitleEl) profileRefTitleEl.textContent = t("profileRefTitle");
@@ -588,6 +878,13 @@ function applyTexts() {
   if (tabShopEl) tabShopEl.textContent = t("tabShop");
   if (tabLeaderboardEl) tabLeaderboardEl.textContent = t("tabLeaderboard");
   if (tabProfileEl) tabProfileEl.textContent = t("tabProfile");
+  if (tabGiftsEl) tabGiftsEl.textContent = t("tabGifts");
+  if (giftsFilterAllEl) giftsFilterAllEl.textContent = t("giftsFilterAll");
+  if (giftsFilterRareEl) giftsFilterRareEl.textContent = t("giftsFilterRare");
+  if (giftsFilterEpicEl) giftsFilterEpicEl.textContent = t("giftsFilterEpic");
+  if (giftsFilterMythicEl) giftsFilterMythicEl.textContent = t("giftsFilterMythic");
+  if (userModalTitleEl) userModalTitleEl.textContent = t("playerProfileTitle");
+  if (userModalCloseEl) userModalCloseEl.setAttribute("aria-label", t("playerProfileClose"));
   if (langToggle && LANG_META[currentLang]) {
     langToggle.textContent = `${LANG_META[currentLang].flag} ${LANG_LABELS[currentLang]}`;
   }
@@ -600,6 +897,7 @@ function applyTexts() {
   renderLeaderboardTools();
   renderLeaderboard();
   renderDonatePackages();
+  updateGiftsFilterButtons();
   renderProfilePanel(profileUser || { id: currentUserId || "-", name: "", username: "", avatarUrl: "" });
   updateTapBuffs();
   updateDailyStatus();
@@ -786,6 +1084,18 @@ function renderDonatePackages() {
     const bonus = document.createElement("div");
     bonus.className = "donate-item-bonus";
     bonus.textContent = t("donateBonus", { bonus: formatNumberDots(pkg.bonusNF || 0) });
+    let gift = null;
+    if (pkg.giftId) {
+      gift = document.createElement("div");
+      gift.className = "donate-item-bonus";
+      const giftKey = `${pkg.giftId}Name`;
+      const giftName =
+        STRINGS[currentLang]?.[giftKey] || STRINGS.en?.[giftKey] || pkg.giftId;
+      gift.textContent = t("donateGift", {
+        emoji: pkg.emoji || "🎁",
+        name: giftName
+      });
+    }
     const btn = document.createElement("button");
     btn.className = "donate-buy";
     btn.type = "button";
@@ -822,7 +1132,11 @@ function renderDonatePackages() {
         btn.disabled = false;
       }
     });
-    card.append(title, bonus, btn);
+    if (gift) {
+      card.append(title, bonus, gift, btn);
+    } else {
+      card.append(title, bonus, btn);
+    }
     donateListEl.appendChild(card);
   });
 }
@@ -931,11 +1245,18 @@ function renderProfilePanel(user, { refillInputs = false } = {}) {
   if (profileNamePreviewEl) profileNamePreviewEl.textContent = user.name || user.username || "Player";
   if (profileIdPreviewEl) profileIdPreviewEl.textContent = `ID: ${user.id}`;
   setProfilePreviewAvatar(user);
+  if (profileGiftsCountEl) {
+    profileGiftsCountEl.textContent = t("profileGiftsCount", {
+      total: formatNumberDots(user.giftStats?.total || 0),
+      types: formatNumberDots(user.giftStats?.types || 0)
+    });
+  }
+  renderGiftCollection(user.gifts || []);
   if (profileRefLinkEl) profileRefLinkEl.value = getReferralLink(user.id);
   if (profileRefStatsEl) {
     profileRefStatsEl.textContent = t("profileRefStats", {
-      you: formatNumberDots(500),
-      friend: formatNumberDots(1000),
+      you: formatNumberDots(REFERRAL_BONUS_YOU),
+      friend: formatNumberDots(REFERRAL_BONUS_FRIEND),
       count: formatNumberDots(user.referralsCount || 0)
     });
   }
@@ -975,16 +1296,20 @@ function updateDailyStatus() {
 
 function setActiveTab(tab) {
   activeTab = tab;
+  setUserModalOpen(false);
   if (screenTapEl) screenTapEl.classList.toggle("active", tab === "tap");
   if (screenShopEl) screenShopEl.classList.toggle("active", tab === "shop");
   if (screenLeaderboardEl) screenLeaderboardEl.classList.toggle("active", tab === "leaderboard");
   if (screenProfileEl) screenProfileEl.classList.toggle("active", tab === "profile");
+  if (screenGiftsEl) screenGiftsEl.classList.toggle("active", tab === "gifts");
   if (tabTapEl) tabTapEl.classList.toggle("active", tab === "tap");
   if (tabShopEl) tabShopEl.classList.toggle("active", tab === "shop");
   if (tabLeaderboardEl) tabLeaderboardEl.classList.toggle("active", tab === "leaderboard");
   if (tabProfileEl) tabProfileEl.classList.toggle("active", tab === "profile");
+  if (tabGiftsEl) tabGiftsEl.classList.toggle("active", tab === "gifts");
   if (tab === "leaderboard") loadLeaderboard({ force: true, silent: true });
   if (tab === "profile") renderProfilePanel(profileUser, { refillInputs: true });
+  if (tab === "gifts") renderProfilePanel(profileUser);
 }
 
 function renderSkeletons() {
@@ -1127,12 +1452,34 @@ function renderShop() {
           syncProfileSilently({ force: true });
           if (data.caseReward) {
             const rarityLabel = t(`rarity_${String(data.caseReward.rarity || "common").toLowerCase()}`);
+            const giftLabel = data.caseReward.gift?.id
+              ? `${data.caseReward.gift.emoji || "🎁"} ${
+                  STRINGS[currentLang]?.[`${data.caseReward.gift.id}Name`] ||
+                  STRINGS.en?.[`${data.caseReward.gift.id}Name`] ||
+                  data.caseReward.gift.id
+                }`
+              : "";
             if (data.caseReward.unlockedItem?.id) {
               const itemTitle = t(`${data.caseReward.unlockedItem.id}Name`);
-              setMeta("caseOpenedWithItem", {
+              if (giftLabel) {
+                setMeta("caseOpenedFull", {
+                  rarity: rarityLabel,
+                  reward: formatNumberDots(data.caseReward.nfReward || 0),
+                  item: itemTitle,
+                  gift: giftLabel
+                });
+              } else {
+                setMeta("caseOpenedWithItem", {
+                  rarity: rarityLabel,
+                  reward: formatNumberDots(data.caseReward.nfReward || 0),
+                  item: itemTitle
+                });
+              }
+            } else if (giftLabel) {
+              setMeta("caseOpenedWithGift", {
                 rarity: rarityLabel,
                 reward: formatNumberDots(data.caseReward.nfReward || 0),
-                item: itemTitle
+                gift: giftLabel
               });
             } else {
               setMeta("caseOpened", {
@@ -1255,6 +1602,9 @@ function renderLeaderboard() {
   leaderboardState.forEach((player) => {
     const row = document.createElement("div");
     row.className = "leader-row";
+    row.tabIndex = 0;
+    row.setAttribute("role", "button");
+    row.setAttribute("aria-label", `Open player ${player.id}`);
     if (String(player.id) === String(currentUserId)) row.classList.add("is-you");
     if (player.rank === 1) row.classList.add("top-1");
     if (player.rank === 2) row.classList.add("top-2");
@@ -1312,6 +1662,12 @@ function renderLeaderboard() {
     }
 
     row.append(rank, avatar, info, value);
+    row.addEventListener("click", () => openUserProfile(player.id));
+    row.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openUserProfile(player.id);
+    });
     leaderboardListEl.appendChild(row);
   });
 }
@@ -1625,8 +1981,13 @@ if (tabTapEl) tabTapEl.addEventListener("click", () => setActiveTab("tap"));
 if (tabShopEl) tabShopEl.addEventListener("click", () => setActiveTab("shop"));
 if (tabLeaderboardEl) tabLeaderboardEl.addEventListener("click", () => setActiveTab("leaderboard"));
 if (tabProfileEl) tabProfileEl.addEventListener("click", () => setActiveTab("profile"));
+if (tabGiftsEl) tabGiftsEl.addEventListener("click", () => setActiveTab("gifts"));
 if (leaderboardModeSeasonEl) leaderboardModeSeasonEl.addEventListener("click", () => setLeaderboardMode("season"));
 if (leaderboardModeAllTimeEl) leaderboardModeAllTimeEl.addEventListener("click", () => setLeaderboardMode("alltime"));
+if (giftsFilterAllEl) giftsFilterAllEl.addEventListener("click", () => setGiftsFilter("all"));
+if (giftsFilterRareEl) giftsFilterRareEl.addEventListener("click", () => setGiftsFilter("rare"));
+if (giftsFilterEpicEl) giftsFilterEpicEl.addEventListener("click", () => setGiftsFilter("epic"));
+if (giftsFilterMythicEl) giftsFilterMythicEl.addEventListener("click", () => setGiftsFilter("mythic"));
 setActiveTab("tap");
 
 if (profileSaveBtnEl) {
@@ -1660,12 +2021,25 @@ if (profileRefCopyBtnEl) {
     }
   });
 }
+if (userModalCloseEl) {
+  userModalCloseEl.addEventListener("click", () => setUserModalOpen(false));
+}
+if (userModalEl) {
+  userModalEl.addEventListener("click", (event) => {
+    if (event.target === userModalEl) {
+      setUserModalOpen(false);
+    }
+  });
+}
 
 document.addEventListener("click", (event) => {
   if (!langMenuEl) return;
   if (langMenuEl.contains(event.target)) return;
   langMenuEl.classList.remove("open");
   if (langToggle) langToggle.setAttribute("aria-expanded", "false");
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setUserModalOpen(false);
 });
 
 if (dailyBtnEl) {
