@@ -730,8 +730,9 @@ body {
 }
 
 .tab {
-  min-width: 90px;
-  padding: 8px 14px;
+  min-width: 74px;
+  padding: 8px 10px;
+  font-size: 14px;
 }
 
 .shop {
@@ -877,6 +878,131 @@ body {
   color: var(--muted);
   background: rgba(255, 255, 255, 0.75);
   border: 1px dashed rgba(28, 26, 23, 0.16);
+}
+
+.profile-card {
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 20px;
+  padding: 16px;
+  border: 1px solid rgba(28, 26, 23, 0.08);
+  box-shadow: 0 14px 32px rgba(28, 26, 23, 0.1);
+  display: grid;
+  gap: 12px;
+}
+
+.profile-head {
+  display: grid;
+  gap: 2px;
+}
+
+.profile-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.profile-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.profile-preview {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(28, 26, 23, 0.08);
+  background: #fffdf8;
+}
+
+.profile-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 2px solid rgba(43, 145, 255, 0.35);
+  display: grid;
+  place-items: center;
+  background: #eaf2ff;
+  color: #32538a;
+  font-weight: 700;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.profile-id {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.profile-form {
+  display: grid;
+  gap: 6px;
+}
+
+.profile-label {
+  font-size: 12px;
+  color: rgba(28, 26, 23, 0.8);
+}
+
+.profile-input {
+  border: 1px solid rgba(28, 26, 23, 0.14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text);
+  background: #fffdf8;
+}
+
+.profile-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.profile-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-btn.primary {
+  background: linear-gradient(135deg, #2b91ff, #1f6fd1);
+  color: #fff;
+}
+
+.profile-btn.ghost {
+  background: rgba(31, 39, 55, 0.08);
+  color: #1f2937;
+}
+
+.profile-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.profile-status {
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.profile-status.error {
+  color: #d94b4b;
 }
 
 .leader-row {
@@ -1060,8 +1186,9 @@ body {
 
 @media (max-width: 430px) {
   .tab {
-    min-width: 82px;
+    min-width: 64px;
     padding: 8px 10px;
+    font-size: 13px;
   }
 
   .shop-grid {

@@ -21,7 +21,7 @@ export class UserStore {
       user = createUser(userId, name, username, avatarUrl);
     } else {
       let changed = false;
-      if (name && user.name !== name) {
+      if (name && !user.nameCustomized && user.name !== name) {
         user.name = name;
         changed = true;
       }
@@ -29,7 +29,12 @@ export class UserStore {
         user.username = username;
         changed = true;
       }
-      if (typeof avatarUrl === "string" && avatarUrl && user.avatarUrl !== avatarUrl) {
+      if (
+        typeof avatarUrl === "string" &&
+        avatarUrl &&
+        !user.avatarCustomized &&
+        user.avatarUrl !== avatarUrl
+      ) {
         user.avatarUrl = avatarUrl;
         changed = true;
       }

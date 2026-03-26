@@ -143,13 +143,13 @@ async function loadLegacyKvUser(env, userId) {
 }
 
 function applyIdentity(user, name, username, avatarUrl = "") {
-  if (name && user.name !== name) {
+  if (name && !user.nameCustomized && user.name !== name) {
     user.name = name;
   }
   if (username && user.username !== username) {
     user.username = username;
   }
-  if (avatarUrl && user.avatarUrl !== avatarUrl) {
+  if (avatarUrl && !user.avatarCustomized && user.avatarUrl !== avatarUrl) {
     user.avatarUrl = avatarUrl;
   }
 }
@@ -170,6 +170,8 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     name: name || "Player",
     username: username || "",
     avatarUrl: avatarUrl || "",
+    nameCustomized: false,
+    avatarCustomized: false,
     balance: 0,
     tapValue: 1,
     items: {},
@@ -234,19 +236,18 @@ export async function loadUser(env, userId, name, username, avatarUrl = "") {
     user = createUser(userId, name, username, avatarUrl);
     await env.KV.put(key, JSON.stringify(user));
   } else {
-    let changed = false;
-    if (name && user.name !== name) {
-      user.name = name;
-      changed = true;
-    }
-    if (username && user.username !== username) {
-      user.username = username;
-      changed = true;
-    }
-    if (avatarUrl && user.avatarUrl !== avatarUrl) {
-      user.avatarUrl = avatarUrl;
-      changed = true;
-    }
+    const before = JSON.stringify({
+      name: user.name,
+      username: user.username,
+      avatarUrl: user.avatarUrl
+    });
+    applyIdentity(user, name, username, avatarUrl);
+    const after = JSON.stringify({
+      name: user.name,
+      username: user.username,
+      avatarUrl: user.avatarUrl
+    });
+    const changed = before !== after;
     if (changed) {
       await env.KV.put(key, JSON.stringify(user));
     }
@@ -481,10 +482,17 @@ export const SHOP_ITEMS = [
   }
 ];
 
+const ECONOMY_PRICE_MULT = 1.6;
+
 export function computePrice(item, level) {
-  if (item.type === "boost") return item.basePrice;
+  if (item.type === "boost") {
+    return Math.max(1, Math.round(item.basePrice * ECONOMY_PRICE_MULT));
+  }
   const mult = item.priceMult || 1.5;
-  return Math.round(item.basePrice * Math.pow(mult, level));
+  return Math.max(
+    1,
+    Math.round(item.basePrice * Math.pow(mult, level) * ECONOMY_PRICE_MULT)
+  );
 }
 
 export function getItemLevel(user, itemId) {
@@ -506,6 +514,14 @@ export function normalizeUser(user) {
   }
   if (typeof user.avatarUrl !== "string") {
     user.avatarUrl = "";
+    dirty = true;
+  }
+  if (typeof user.nameCustomized !== "boolean") {
+    user.nameCustomized = false;
+    dirty = true;
+  }
+  if (typeof user.avatarCustomized !== "boolean") {
+    user.avatarCustomized = false;
     dirty = true;
   }
   if (!user.items || typeof user.items !== "object") {
@@ -753,6 +769,8 @@ export function summarizeUser(user) {
     name: user.name,
     username: user.username || "",
     avatarUrl: user.avatarUrl || "",
+    nameCustomized: Boolean(user.nameCustomized),
+    avatarCustomized: Boolean(user.avatarCustomized),
     balance: user.balance,
     tapValue: user.tapValue || 1,
     lastTapTs: user.lastTapTs || 0,

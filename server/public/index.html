@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260325-7" />
+    <link rel="stylesheet" href="style.css?v=20260326-1" />
   </head>
   <body>
     <div class="bg">
@@ -86,11 +86,38 @@
             <div class="leaderboard-list" id="leaderboardList"></div>
           </section>
         </section>
+        <section class="screen" id="screenProfile">
+          <section class="profile-card">
+            <div class="profile-head">
+              <div class="profile-title" id="profileTitle">Profile</div>
+              <div class="profile-subtitle" id="profileSubtitle">Customize nickname and avatar</div>
+            </div>
+            <div class="profile-preview">
+              <div class="profile-avatar" id="profileAvatarPreview">P</div>
+              <div class="profile-meta">
+                <div class="profile-name" id="profileNamePreview">Player</div>
+                <div class="profile-id" id="profileIdPreview">ID: -</div>
+              </div>
+            </div>
+            <div class="profile-form">
+              <label class="profile-label" for="profileNickname" id="profileNicknameLabel">Nickname</label>
+              <input id="profileNickname" class="profile-input" type="text" maxlength="24" placeholder="Your nickname" />
+              <label class="profile-label" for="profileAvatarUrl" id="profileAvatarLabel">Avatar URL</label>
+              <input id="profileAvatarUrl" class="profile-input" type="url" placeholder="https://..." />
+            </div>
+            <div class="profile-actions">
+              <button id="profileSaveBtn" class="profile-btn primary">Save</button>
+              <button id="profileResetBtn" class="profile-btn ghost">Reset</button>
+            </div>
+            <div class="profile-status" id="profileStatus"></div>
+          </section>
+        </section>
       </div>
       <nav class="tabs" id="tabs">
         <button class="tab active" data-tab="tap" id="tabTap">Tap</button>
         <button class="tab" data-tab="shop" id="tabShop">Shop</button>
         <button class="tab" data-tab="leaderboard" id="tabLeaderboard">Leaderboard</button>
+        <button class="tab" data-tab="profile" id="tabProfile">Profile</button>
       </nav>
       <footer class="footer">@Nleo2bot</footer>
     </div>
@@ -99,7 +126,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260325-7";
+        script.src = "app.js?v=20260326-1";
         document.body.appendChild(script);
       })();
     </script>

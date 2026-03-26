@@ -21,12 +21,26 @@ const shopBalanceEl = document.getElementById("shopBalance");
 const screenTapEl = document.getElementById("screenTap");
 const screenShopEl = document.getElementById("screenShop");
 const screenLeaderboardEl = document.getElementById("screenLeaderboard");
+const screenProfileEl = document.getElementById("screenProfile");
 const tabTapEl = document.getElementById("tabTap");
 const tabShopEl = document.getElementById("tabShop");
 const tabLeaderboardEl = document.getElementById("tabLeaderboard");
+const tabProfileEl = document.getElementById("tabProfile");
 const leaderboardTitleEl = document.getElementById("leaderboardTitle");
 const leaderboardSubtitleEl = document.getElementById("leaderboardSubtitle");
 const leaderboardListEl = document.getElementById("leaderboardList");
+const profileTitleEl = document.getElementById("profileTitle");
+const profileSubtitleEl = document.getElementById("profileSubtitle");
+const profileNicknameLabelEl = document.getElementById("profileNicknameLabel");
+const profileAvatarLabelEl = document.getElementById("profileAvatarLabel");
+const profileNicknameEl = document.getElementById("profileNickname");
+const profileAvatarUrlEl = document.getElementById("profileAvatarUrl");
+const profileSaveBtnEl = document.getElementById("profileSaveBtn");
+const profileResetBtnEl = document.getElementById("profileResetBtn");
+const profileStatusEl = document.getElementById("profileStatus");
+const profileAvatarPreviewEl = document.getElementById("profileAvatarPreview");
+const profileNamePreviewEl = document.getElementById("profileNamePreview");
+const profileIdPreviewEl = document.getElementById("profileIdPreview");
 const dailyTitleEl = document.getElementById("dailyTitle");
 const dailySubtitleEl = document.getElementById("dailySubtitle");
 const dailyBtnEl = document.getElementById("dailyBtn");
@@ -72,6 +86,7 @@ let maxEnergy = 0;
 let energyRegen = 1;
 let energySyncedAt = Date.now();
 let lastTapPoint = null;
+let profileUser = null;
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura"];
@@ -91,8 +106,9 @@ const STRINGS = {
     tabTap: "Tap",
     tabShop: "Shop",
     tabLeaderboard: "Leaderboard",
+    tabProfile: "Profile",
     leaderboardTitle: "Leaderboard",
-    leaderboardSubtitle: "Top players by taps",
+    leaderboardSubtitle: "Top players by balance",
     leaderboardEmpty: "Leaderboard is empty",
     leaderboardYou: "You",
     dailyTitle: "Daily Bonus",
@@ -150,6 +166,20 @@ const STRINGS = {
     frame_neonDesc: "Bright cyber frame in rating",
     frame_fireName: "Fire Frame",
     frame_fireDesc: "Hot flame frame in rating",
+    profileTitle: "Profile",
+    profileSubtitle: "Set your in-game nickname and avatar",
+    profileNicknameLabel: "Nickname",
+    profileAvatarLabel: "Avatar URL",
+    profileNicknamePlaceholder: "Your nickname",
+    profileAvatarPlaceholder: "https://...",
+    profileSave: "Save",
+    profileReset: "Reset",
+    profileSaved: "Profile updated",
+    profileResetDone: "Profile reset to Telegram",
+    profileNoChanges: "No changes",
+    profileNickInvalid: "Nickname must be 2-24 chars",
+    profileAvatarInvalid: "Invalid avatar URL",
+    profileSaveError: "Could not save profile",
     player: "Player: {name}",
     niceTap: "Nice tap",
     energyLabel: "Energy",
@@ -173,8 +203,9 @@ const STRINGS = {
     tabTap: "Тап",
     tabShop: "Магазин",
     tabLeaderboard: "Рейтинг",
+    tabProfile: "Профиль",
     leaderboardTitle: "Рейтинг",
-    leaderboardSubtitle: "Лучшие игроки по тапам",
+    leaderboardSubtitle: "Лучшие игроки по балансу",
     leaderboardEmpty: "Рейтинг пока пуст",
     leaderboardYou: "Ты",
     dailyTitle: "Ежедневный бонус",
@@ -232,6 +263,20 @@ const STRINGS = {
     frame_neonDesc: "Яркая кибер-рамка в рейтинге",
     frame_fireName: "Огненная рамка",
     frame_fireDesc: "Пламенная рамка аватарки",
+    profileTitle: "Профиль",
+    profileSubtitle: "Настрой ник и аватар в игре",
+    profileNicknameLabel: "Ник",
+    profileAvatarLabel: "Ссылка на аватар",
+    profileNicknamePlaceholder: "Твой ник",
+    profileAvatarPlaceholder: "https://...",
+    profileSave: "Сохранить",
+    profileReset: "Сбросить",
+    profileSaved: "Профиль обновлен",
+    profileResetDone: "Профиль сброшен на Telegram",
+    profileNoChanges: "Изменений нет",
+    profileNickInvalid: "Ник должен быть 2-24 символа",
+    profileAvatarInvalid: "Неверная ссылка аватара",
+    profileSaveError: "Не удалось сохранить профиль",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
     energyLabel: "Энергия",
@@ -352,9 +397,18 @@ function applyTexts() {
   if (dailyBtnEl) dailyBtnEl.textContent = t("dailyClaim");
   if (leaderboardTitleEl) leaderboardTitleEl.textContent = t("leaderboardTitle");
   if (leaderboardSubtitleEl) leaderboardSubtitleEl.textContent = t("leaderboardSubtitle");
+  if (profileTitleEl) profileTitleEl.textContent = t("profileTitle");
+  if (profileSubtitleEl) profileSubtitleEl.textContent = t("profileSubtitle");
+  if (profileNicknameLabelEl) profileNicknameLabelEl.textContent = t("profileNicknameLabel");
+  if (profileAvatarLabelEl) profileAvatarLabelEl.textContent = t("profileAvatarLabel");
+  if (profileNicknameEl) profileNicknameEl.placeholder = t("profileNicknamePlaceholder");
+  if (profileAvatarUrlEl) profileAvatarUrlEl.placeholder = t("profileAvatarPlaceholder");
+  if (profileSaveBtnEl) profileSaveBtnEl.textContent = t("profileSave");
+  if (profileResetBtnEl) profileResetBtnEl.textContent = t("profileReset");
   if (tabTapEl) tabTapEl.textContent = t("tabTap");
   if (tabShopEl) tabShopEl.textContent = t("tabShop");
   if (tabLeaderboardEl) tabLeaderboardEl.textContent = t("tabLeaderboard");
+  if (tabProfileEl) tabProfileEl.textContent = t("tabProfile");
   if (langToggle && LANG_META[currentLang]) {
     langToggle.textContent = `${LANG_META[currentLang].flag} ${LANG_LABELS[currentLang]}`;
   }
@@ -365,6 +419,7 @@ function applyTexts() {
   renderShop();
   renderQuests();
   renderLeaderboard();
+  renderProfilePanel(profileUser || { id: currentUserId || "-", name: "", username: "", avatarUrl: "" });
   updateDailyStatus();
 }
 
@@ -468,12 +523,56 @@ function updateTapValue(value) {
 
 function updatePlayerIdentity(user) {
   if (!playerIdEl || !user) return;
-  const username = user.username ? `@${user.username}` : "";
-  const base = username ? `${username} · ID ${user.id}` : `ID ${user.id}`;
+  const baseName = user.name || user.username || "Player";
+  const base = `${baseName} · ID ${user.id}`;
   const badges = [];
   if (user.equippedCosmetic) badges.push(t(`${user.equippedCosmetic}Name`));
   if (user.equippedFrame) badges.push(t(`${user.equippedFrame}Name`));
   playerIdEl.textContent = badges.length ? `${base} · ${badges.join(" + ")}` : base;
+}
+
+function setProfileStatus(keyOrText, isError = false) {
+  if (!profileStatusEl) return;
+  const isLangKey =
+    typeof keyOrText === "string" &&
+    (STRINGS[currentLang]?.[keyOrText] || STRINGS.en?.[keyOrText]);
+  const text = isLangKey ? t(keyOrText) : String(keyOrText || "");
+  profileStatusEl.textContent = text;
+  profileStatusEl.classList.toggle("error", isError);
+}
+
+function setProfilePreviewAvatar(user) {
+  if (!profileAvatarPreviewEl) return;
+  const nameBase = user?.name || user?.username || "P";
+  const initial = String(nameBase).trim().charAt(0).toUpperCase() || "P";
+  profileAvatarPreviewEl.classList.remove("fallback");
+  profileAvatarPreviewEl.innerHTML = "";
+  if (user?.avatarUrl) {
+    const img = document.createElement("img");
+    img.src = user.avatarUrl;
+    img.alt = user.name || user.username || "avatar";
+    img.referrerPolicy = "no-referrer";
+    img.addEventListener("error", () => {
+      profileAvatarPreviewEl.classList.add("fallback");
+      profileAvatarPreviewEl.innerHTML = initial;
+    });
+    profileAvatarPreviewEl.appendChild(img);
+  } else {
+    profileAvatarPreviewEl.classList.add("fallback");
+    profileAvatarPreviewEl.innerHTML = initial;
+  }
+}
+
+function renderProfilePanel(user, { refillInputs = false } = {}) {
+  if (!user) return;
+  profileUser = user;
+  if (profileNamePreviewEl) profileNamePreviewEl.textContent = user.name || user.username || "Player";
+  if (profileIdPreviewEl) profileIdPreviewEl.textContent = `ID: ${user.id}`;
+  setProfilePreviewAvatar(user);
+  if (refillInputs) {
+    if (profileNicknameEl) profileNicknameEl.value = user.name || "";
+    if (profileAvatarUrlEl) profileAvatarUrlEl.value = user.avatarCustomized ? (user.avatarUrl || "") : "";
+  }
 }
 
 function updateRank() {
@@ -509,10 +608,13 @@ function setActiveTab(tab) {
   if (screenTapEl) screenTapEl.classList.toggle("active", tab === "tap");
   if (screenShopEl) screenShopEl.classList.toggle("active", tab === "shop");
   if (screenLeaderboardEl) screenLeaderboardEl.classList.toggle("active", tab === "leaderboard");
+  if (screenProfileEl) screenProfileEl.classList.toggle("active", tab === "profile");
   if (tabTapEl) tabTapEl.classList.toggle("active", tab === "tap");
   if (tabShopEl) tabShopEl.classList.toggle("active", tab === "shop");
   if (tabLeaderboardEl) tabLeaderboardEl.classList.toggle("active", tab === "leaderboard");
+  if (tabProfileEl) tabProfileEl.classList.toggle("active", tab === "profile");
   if (tab === "leaderboard") loadLeaderboard({ force: true, silent: true });
+  if (tab === "profile") renderProfilePanel(profileUser, { refillInputs: true });
 }
 
 function renderSkeletons() {
@@ -763,7 +865,7 @@ function renderLeaderboard() {
     info.className = "leader-info";
     const name = document.createElement("div");
     name.className = "leader-name";
-    const label = player.username ? `@${player.username}` : player.name || `ID ${player.id}`;
+    const label = player.name || (player.username ? `@${player.username}` : `ID ${player.id}`);
     name.textContent = String(player.id) === String(currentUserId) ? `${label} (${t("leaderboardYou")})` : label;
     const sub = document.createElement("div");
     sub.className = "leader-sub";
@@ -863,6 +965,55 @@ async function loadLeaderboard({ force = false, silent = false } = {}) {
   }
 }
 
+async function saveProfileChanges({ reset = false } = {}) {
+  if (!profileSaveBtnEl || !profileResetBtnEl) return;
+  const nickname = String(profileNicknameEl?.value || "").trim();
+  const avatarUrl = String(profileAvatarUrlEl?.value || "").trim();
+
+  if (!reset && (!nickname || nickname.length < 2 || nickname.length > 24)) {
+    setProfileStatus("profileNickInvalid", true);
+    return;
+  }
+
+  profileSaveBtnEl.disabled = true;
+  profileResetBtnEl.disabled = true;
+  setProfileStatus(reset ? t("profileReset") : t("profileSave"));
+  try {
+    const payload = reset
+      ? { resetNickname: true, resetAvatar: true }
+      : { nickname, avatarUrl };
+    const data = await apiRequest("/api/profile", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    if (!data?.ok || !data.user) {
+      if (data?.error === "no_changes") {
+        setProfileStatus("profileNoChanges", true);
+      } else if (data?.error && data.error.startsWith("nickname")) {
+        setProfileStatus("profileNickInvalid", true);
+      } else if (data?.error && data.error.startsWith("avatar")) {
+        setProfileStatus("profileAvatarInvalid", true);
+      } else {
+        setProfileStatus(data?.error || t("profileSaveError"), true);
+      }
+      return;
+    }
+
+    renderProfilePanel(data.user, { refillInputs: true });
+    updatePlayerIdentity(data.user);
+    setMeta("player", { name: data.user.name });
+    if (activeTab === "leaderboard") {
+      loadLeaderboard({ force: true, silent: true });
+    }
+    setProfileStatus(reset ? "profileResetDone" : "profileSaved");
+  } catch {
+    setProfileStatus("profileSaveError", true);
+  } finally {
+    profileSaveBtnEl.disabled = false;
+    profileResetBtnEl.disabled = false;
+  }
+}
+
 async function init() {
   setLoadingState(true);
   try {
@@ -879,9 +1030,11 @@ async function init() {
 
     setMeta("player", { name: profile.user.name });
     currentUserId = String(profile.user.id || "");
+    profileUser = profile.user;
     updateBalance(profile.user.balance);
     updateTapValue(profile.user.tapValue || 1);
     updatePlayerIdentity(profile.user);
+    renderProfilePanel(profile.user, { refillInputs: true });
     lastDailyTs = profile.user.lastDailyTs || 0;
     boostUntil = profile.user.boostUntil || 0;
     rankState = profile.user.rank || null;
@@ -913,9 +1066,11 @@ async function syncProfileSilently({ force = false } = {}) {
   try {
     const profile = await loadProfile();
     if (!profile?.ok || !profile.user) return;
+    profileUser = profile.user;
     updateBalance(profile.user.balance, { bump: false });
     updateTapValue(profile.user.tapValue || 1);
     updatePlayerIdentity(profile.user);
+    renderProfilePanel(profile.user);
     rankState = profile.user.rank || rankState;
     updateRank();
     if (typeof profile.user.energy === "number") {
@@ -990,7 +1145,15 @@ if (langToggle) {
 if (tabTapEl) tabTapEl.addEventListener("click", () => setActiveTab("tap"));
 if (tabShopEl) tabShopEl.addEventListener("click", () => setActiveTab("shop"));
 if (tabLeaderboardEl) tabLeaderboardEl.addEventListener("click", () => setActiveTab("leaderboard"));
+if (tabProfileEl) tabProfileEl.addEventListener("click", () => setActiveTab("profile"));
 setActiveTab("tap");
+
+if (profileSaveBtnEl) {
+  profileSaveBtnEl.addEventListener("click", () => saveProfileChanges({ reset: false }));
+}
+if (profileResetBtnEl) {
+  profileResetBtnEl.addEventListener("click", () => saveProfileChanges({ reset: true }));
+}
 
 document.addEventListener("click", (event) => {
   if (!langMenuEl) return;
