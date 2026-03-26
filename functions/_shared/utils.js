@@ -182,6 +182,11 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     referralClaimed: false,
     referralsCount: 0,
     referralsEarned: 0,
+    comboCount: 0,
+    comboMultiplier: 1,
+    lastComboTs: 0,
+    goldenUntil: 0,
+    nextGoldenAt: 0,
     balance: 0,
     tapValue: 1,
     items: {},
@@ -554,6 +559,26 @@ export function normalizeUser(user) {
     user.referralsEarned = 0;
     dirty = true;
   }
+  if (typeof user.comboCount !== "number" || user.comboCount < 0) {
+    user.comboCount = 0;
+    dirty = true;
+  }
+  if (typeof user.comboMultiplier !== "number" || user.comboMultiplier < 1) {
+    user.comboMultiplier = 1;
+    dirty = true;
+  }
+  if (typeof user.lastComboTs !== "number" || user.lastComboTs < 0) {
+    user.lastComboTs = 0;
+    dirty = true;
+  }
+  if (typeof user.goldenUntil !== "number" || user.goldenUntil < 0) {
+    user.goldenUntil = 0;
+    dirty = true;
+  }
+  if (typeof user.nextGoldenAt !== "number" || user.nextGoldenAt < 0) {
+    user.nextGoldenAt = 0;
+    dirty = true;
+  }
   if (!user.items || typeof user.items !== "object") {
     user.items = {};
     dirty = true;
@@ -806,6 +831,10 @@ export function summarizeUser(user) {
     referralClaimed: Boolean(user.referralClaimed),
     referralsCount: Number(user.referralsCount || 0),
     referralsEarned: Number(user.referralsEarned || 0),
+    comboCount: Number(user.comboCount || 0),
+    comboMultiplier: Number(user.comboMultiplier || 1),
+    goldenUntil: Number(user.goldenUntil || 0),
+    nextGoldenAt: Number(user.nextGoldenAt || 0),
     balance: user.balance,
     tapValue: user.tapValue || 1,
     lastTapTs: user.lastTapTs || 0,
@@ -826,6 +855,13 @@ export function summarizeUser(user) {
 export const WELCOME_BONUS = 1000;
 export const REFERRAL_NEW_USER_BONUS = 1000;
 export const REFERRAL_REFERRER_BONUS = 500;
+const COMBO_WINDOW_MS = 1400;
+const GOLDEN_WINDOW_MS = 1800;
+const GOLDEN_MULTIPLIER = 4;
+const GOLDEN_INTERVAL_MIN_MS = 30000;
+const GOLDEN_INTERVAL_MAX_MS = 65000;
+const CRIT_CHANCE = 0.08;
+const CRIT_MULTIPLIERS = [3, 4, 5];
 
 export function normalizeReferralCode(raw) {
   const text = String(raw || "").trim();
@@ -888,6 +924,24 @@ export async function applyReferralBonus(env, user, referralCode) {
   };
 }
 
+function randomBetween(min, max) {
+  return Math.floor(min + Math.random() * (max - min + 1));
+}
+
+function resolveComboMultiplier(comboCount) {
+  if (comboCount >= 80) return 2.2;
+  if (comboCount >= 50) return 2;
+  if (comboCount >= 30) return 1.7;
+  if (comboCount >= 15) return 1.4;
+  if (comboCount >= 8) return 1.25;
+  if (comboCount >= 4) return 1.12;
+  return 1;
+}
+
+function scheduleNextGolden(now) {
+  return now + randomBetween(GOLDEN_INTERVAL_MIN_MS, GOLDEN_INTERVAL_MAX_MS);
+}
+
 export function applyTapAction(user, { count = 1, now = Date.now() } = {}) {
   ensureDaily(user);
   syncEnergy(user, now);
@@ -914,11 +968,42 @@ export function applyTapAction(user, { count = 1, now = Date.now() } = {}) {
   safeCount = Math.max(1, Math.min(20, Math.floor(safeCount)));
   safeCount = Math.min(safeCount, user.energy);
 
+  if (!user.nextGoldenAt) {
+    user.nextGoldenAt = scheduleNextGolden(now);
+  }
+  if (user.goldenUntil && now >= user.goldenUntil) {
+    user.goldenUntil = 0;
+  }
+  if (!user.goldenUntil && now >= user.nextGoldenAt) {
+    user.goldenUntil = now + GOLDEN_WINDOW_MS;
+    user.nextGoldenAt = scheduleNextGolden(now);
+  }
+
+  const comboAlive =
+    user.lastComboTs && now - user.lastComboTs <= COMBO_WINDOW_MS;
+  user.comboCount = comboAlive
+    ? Math.min(120, (user.comboCount || 0) + safeCount)
+    : safeCount;
+  user.lastComboTs = now;
+  const comboMultiplier = resolveComboMultiplier(user.comboCount);
+  user.comboMultiplier = comboMultiplier;
+
+  const critHit = Math.random() < CRIT_CHANCE;
+  const critMultiplier = critHit
+    ? CRIT_MULTIPLIERS[randomBetween(0, CRIT_MULTIPLIERS.length - 1)]
+    : 1;
+  const goldenActive = Boolean(user.goldenUntil && now < user.goldenUntil);
+  const goldenMultiplier = goldenActive ? GOLDEN_MULTIPLIER : 1;
   const boostActive = user.boostUntil && now < user.boostUntil;
-  const multiplier = boostActive ? 2 : 1;
+  const boostMultiplier = boostActive ? 2 : 1;
+  const multiplier =
+    boostMultiplier * comboMultiplier * critMultiplier * goldenMultiplier;
   user.windowStartTs = now;
   user.windowCount = (user.windowCount || 0) + safeCount;
-  const earned = (user.tapValue || 1) * safeCount * multiplier;
+  const earned = Math.max(
+    1,
+    Math.round((user.tapValue || 1) * safeCount * multiplier)
+  );
   user.balance += earned;
   user.totalEarned = (user.totalEarned || 0) + earned;
   user.totalTaps = (user.totalTaps || 0) + safeCount;
@@ -934,12 +1019,30 @@ export function applyTapAction(user, { count = 1, now = Date.now() } = {}) {
 
   return {
     ok: true,
-    log: { action: "tap", extra: { count: safeCount, earned, multiplier }, shouldLog },
+    log: {
+      action: "tap",
+      extra: {
+        count: safeCount,
+        earned,
+        multiplier,
+        comboCount: user.comboCount || 0,
+        critHit,
+        goldenActive
+      },
+      shouldLog
+    },
     payload: {
       ok: true,
       balance: user.balance,
       tapValue: user.tapValue || 1,
       multiplier,
+      comboCount: user.comboCount || 0,
+      comboMultiplier: comboMultiplier,
+      critHit,
+      critMultiplier,
+      goldenActive,
+      goldenUntil: user.goldenUntil || 0,
+      nextGoldenAt: user.nextGoldenAt || 0,
       boostUntil: user.boostUntil || 0,
       energy: user.energy,
       maxEnergy: user.maxEnergy,

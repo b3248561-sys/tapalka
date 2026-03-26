@@ -248,6 +248,36 @@ body {
   transition: width 0.25s ease;
 }
 
+.tap-buffs {
+  margin-top: 6px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.buff-chip {
+  display: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(43, 145, 255, 0.12);
+  border: 1px solid rgba(43, 145, 255, 0.3);
+  color: #245ea5;
+}
+
+.buff-chip.show {
+  display: inline-flex;
+  align-items: center;
+}
+
+.buff-chip.gold {
+  background: rgba(255, 178, 26, 0.16);
+  border-color: rgba(255, 178, 26, 0.48);
+  color: #a46000;
+}
+
 .rank {
   font-size: 12px;
   color: rgba(28, 26, 23, 0.7);

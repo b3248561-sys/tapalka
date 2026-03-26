@@ -7,6 +7,8 @@ const rankBarEl = document.getElementById("rankBar");
 const energyLabelEl = document.getElementById("energyLabel");
 const energyTextEl = document.getElementById("energyText");
 const energyBarEl = document.getElementById("energyBar");
+const comboBadgeEl = document.getElementById("comboBadge");
+const goldenBadgeEl = document.getElementById("goldenBadge");
 const metaEl = document.getElementById("meta");
 const titleEl = document.getElementById("title");
 const subtitleEl = document.getElementById("subtitle");
@@ -91,6 +93,10 @@ let maxEnergy = 0;
 let energyRegen = 1;
 let energySyncedAt = Date.now();
 let lastTapPoint = null;
+let comboCount = 0;
+let comboMultiplier = 1;
+let goldenUntil = 0;
+let nextGoldenAt = 0;
 let profileUser = null;
 let profileAvatarFileData = "";
 let launchReferralCode = "";
@@ -203,6 +209,11 @@ const STRINGS = {
     welcomeBonus: "Welcome bonus +{amount} NF",
     referralApplied: "Referral bonus +{amount} NF",
     profileSaveError: "Could not save profile",
+    comboLabel: "Combo x{mult}",
+    goldenNow: "Golden x4 {time}",
+    goldenSoon: "Golden in {time}",
+    critTap: "CRIT x{mult}",
+    goldenTap: "Golden tap!",
     player: "Player: {name}",
     niceTap: "Nice tap",
     energyLabel: "Energy",
@@ -310,6 +321,11 @@ const STRINGS = {
     welcomeBonus: "Стартовый бонус +{amount} NF",
     referralApplied: "Реферальный бонус +{amount} NF",
     profileSaveError: "Не удалось сохранить профиль",
+    comboLabel: "Комбо x{mult}",
+    goldenNow: "Золото x4 {time}",
+    goldenSoon: "Золото через {time}",
+    critTap: "КРИТ x{mult}",
+    goldenTap: "Золотой тап!",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
     energyLabel: "Энергия",
@@ -374,6 +390,12 @@ function formatNumberDots(value) {
   return `${sign}${abs.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 }
 
+function formatMultiplier(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 1) return "1";
+  return num.toFixed(2).replace(/\.?0+$/, "");
+}
+
 function setMeta(key, vars = {}) {
   metaState = { key, vars };
   if (!metaEl) return;
@@ -386,6 +408,35 @@ function setMetaText(text) {
   if (!metaEl) return;
   metaEl.textContent = text;
   metaEl.classList.add("error");
+}
+
+function updateTapBuffs() {
+  const now = Date.now();
+  if (comboBadgeEl) {
+    if (comboMultiplier > 1.01 && comboCount > 1) {
+      comboBadgeEl.classList.add("show");
+      comboBadgeEl.textContent = t("comboLabel", { mult: formatMultiplier(comboMultiplier) });
+    } else {
+      comboBadgeEl.classList.remove("show");
+      comboBadgeEl.textContent = "";
+    }
+  }
+
+  if (goldenBadgeEl) {
+    if (goldenUntil && now < goldenUntil) {
+      goldenBadgeEl.classList.add("show", "gold");
+      goldenBadgeEl.textContent = t("goldenNow", { time: formatTime(goldenUntil - now) });
+      return;
+    }
+    if (nextGoldenAt && now < nextGoldenAt) {
+      goldenBadgeEl.classList.add("show");
+      goldenBadgeEl.classList.remove("gold");
+      goldenBadgeEl.textContent = t("goldenSoon", { time: formatTime(nextGoldenAt - now) });
+      return;
+    }
+    goldenBadgeEl.classList.remove("show", "gold");
+    goldenBadgeEl.textContent = "";
+  }
 }
 
 function applyCosmeticTheme() {
@@ -455,6 +506,7 @@ function applyTexts() {
   renderQuests();
   renderLeaderboard();
   renderProfilePanel(profileUser || { id: currentUserId || "-", name: "", username: "", avatarUrl: "" });
+  updateTapBuffs();
   updateDailyStatus();
 }
 
@@ -574,6 +626,14 @@ function updatePlayerIdentity(user) {
   if (user.equippedCosmetic) badges.push(t(`${user.equippedCosmetic}Name`));
   if (user.equippedFrame) badges.push(t(`${user.equippedFrame}Name`));
   playerIdEl.textContent = badges.length ? `${base} · ${badges.join(" + ")}` : base;
+}
+
+function applyTapEffectsState(data = {}) {
+  if (typeof data.comboCount === "number") comboCount = data.comboCount;
+  if (typeof data.comboMultiplier === "number") comboMultiplier = data.comboMultiplier;
+  if (typeof data.goldenUntil === "number") goldenUntil = data.goldenUntil;
+  if (typeof data.nextGoldenAt === "number") nextGoldenAt = data.nextGoldenAt;
+  updateTapBuffs();
 }
 
 function setProfileStatus(keyOrText, isError = false) {
@@ -1188,6 +1248,7 @@ async function init() {
     updateBalance(profile.user.balance);
     updateTapValue(profile.user.tapValue || 1);
     updatePlayerIdentity(profile.user);
+    applyTapEffectsState(profile.user);
     renderProfilePanel(profile.user, { refillInputs: true });
     lastDailyTs = profile.user.lastDailyTs || 0;
     boostUntil = profile.user.boostUntil || 0;
@@ -1224,6 +1285,7 @@ async function syncProfileSilently({ force = false } = {}) {
     updateBalance(profile.user.balance, { bump: false });
     updateTapValue(profile.user.tapValue || 1);
     updatePlayerIdentity(profile.user);
+    applyTapEffectsState(profile.user);
     renderProfilePanel(profile.user);
     rankState = profile.user.rank || rankState;
     updateRank();
@@ -1400,10 +1462,18 @@ async function sendTap(count = 1, point = null) {
     updateBalance(data.balance);
     if (data.tapValue) updateTapValue(data.tapValue);
     if (typeof data.energy === "number") updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+    applyTapEffectsState(data);
     if (typeof data.boostUntil === "number") boostUntil = data.boostUntil;
-    setMeta("niceTap");
+    if (data.critHit) {
+      setMeta("critTap", { mult: formatMultiplier(data.critMultiplier || 1) });
+    } else if (data.goldenActive) {
+      setMeta("goldenTap");
+    } else {
+      setMeta("niceTap");
+    }
     const mult = data.multiplier || 1;
-    showSpark(`+${formatNumberDots((data.tapValue || 1) * count * mult)}`, point);
+    const prefix = data.critHit ? "CRIT " : data.goldenActive ? "GOLD " : "";
+    showSpark(`${prefix}+${formatNumberDots((data.tapValue || 1) * count * mult)}`, point);
     if (tg?.HapticFeedback?.impactOccurred) {
       tg.HapticFeedback.impactOccurred("light");
     } else if (navigator.vibrate) {
@@ -1467,6 +1537,7 @@ init();
 setInterval(() => {
   updateDailyStatus();
   tickEnergy();
+  updateTapBuffs();
   if (boostUntil && Date.now() < boostUntil) renderShop();
   syncProfileSilently();
   if (activeTab === "leaderboard") loadLeaderboard({ silent: true });
