@@ -32,12 +32,14 @@ const leaderboardListEl = document.getElementById("leaderboardList");
 const profileTitleEl = document.getElementById("profileTitle");
 const profileSubtitleEl = document.getElementById("profileSubtitle");
 const profileNicknameLabelEl = document.getElementById("profileNicknameLabel");
-const profileAvatarLabelEl = document.getElementById("profileAvatarLabel");
 const profileAvatarFileLabelEl = document.getElementById("profileAvatarFileLabel");
 const profileNicknameEl = document.getElementById("profileNickname");
-const profileAvatarUrlEl = document.getElementById("profileAvatarUrl");
 const profileAvatarFileEl = document.getElementById("profileAvatarFile");
 const profileAvatarHintEl = document.getElementById("profileAvatarHint");
+const profileRefTitleEl = document.getElementById("profileRefTitle");
+const profileRefLinkEl = document.getElementById("profileRefLink");
+const profileRefCopyBtnEl = document.getElementById("profileRefCopyBtn");
+const profileRefStatsEl = document.getElementById("profileRefStats");
 const profileSaveBtnEl = document.getElementById("profileSaveBtn");
 const profileResetBtnEl = document.getElementById("profileResetBtn");
 const profileStatusEl = document.getElementById("profileStatus");
@@ -91,10 +93,17 @@ let energySyncedAt = Date.now();
 let lastTapPoint = null;
 let profileUser = null;
 let profileAvatarFileData = "";
+let launchReferralCode = "";
+const BOT_USERNAME = "Nleo2bot";
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura"];
 const TAP_THEMES = ["style-crown", "style-neon", "style-sakura"];
+
+function normalizeReferralCode(value) {
+  const text = String(value || "").trim();
+  return /^ref_\d{3,20}$/.test(text) ? text : "";
+}
 
 const STRINGS = {
   en: {
@@ -103,10 +112,10 @@ const STRINGS = {
     tap: "Tap",
     loading: "Loading...",
     demo: "Demo mode",
-    balanceLabel: "Balance",
+    balanceLabel: "NeoFlux",
     shopTitle: "Shop",
-    shopSubtitle: "Build your setup with taps",
-    tapValue: "+{value} / tap",
+    shopSubtitle: "Build your setup with NeoFlux",
+    tapValue: "+{value} NF / tap",
     tabTap: "Tap",
     tabShop: "Shop",
     tabLeaderboard: "Leaderboard",
@@ -127,7 +136,7 @@ const STRINGS = {
     questBuy: "Buy {count} item",
     questClaim: "Claim",
     questClaimed: "Claimed",
-    questReward: "+{reward} taps",
+    questReward: "+{reward} NF",
     rankLabel: "Rank: {name}",
     rank_bronze: "Bronze",
     rank_silver: "Silver",
@@ -140,7 +149,7 @@ const STRINGS = {
     equipped: "Equipped",
     owned: "Owned",
     level: "Level {level}/{max}",
-    priceTaps: "taps",
+    priceTaps: "NF",
     shopCategory_power: "Power",
     shopCategory_energy: "Energy",
     shopCategory_cosmetic: "Cosmetics",
@@ -173,11 +182,13 @@ const STRINGS = {
     profileTitle: "Profile",
     profileSubtitle: "Set your in-game nickname and avatar",
     profileNicknameLabel: "Nickname",
-    profileAvatarLabel: "Avatar URL",
     profileAvatarFileLabel: "Upload from device",
     profileNicknamePlaceholder: "Your nickname",
-    profileAvatarPlaceholder: "https://...",
-    profileAvatarHint: "You can upload from phone or use URL above.",
+    profileAvatarHint: "Upload your avatar directly from phone.",
+    profileRefTitle: "Invite friends and get bonuses",
+    profileRefCopy: "Copy",
+    profileRefCopied: "Referral link copied",
+    profileRefStats: "You: +{you} NF • Friend: +{friend} NF • Invited: {count}",
     profileSave: "Save",
     profileReset: "Reset",
     profileSaved: "Profile updated",
@@ -189,6 +200,8 @@ const STRINGS = {
     profileAvatarTooLarge: "Image is too large, try another one",
     profileAvatarReady: "Image selected from device",
     profileAvatarProcessing: "Processing image...",
+    welcomeBonus: "Welcome bonus +{amount} NF",
+    referralApplied: "Referral bonus +{amount} NF",
     profileSaveError: "Could not save profile",
     player: "Player: {name}",
     niceTap: "Nice tap",
@@ -206,10 +219,10 @@ const STRINGS = {
     tap: "Тап",
     loading: "Загрузка...",
     demo: "Демо режим",
-    balanceLabel: "Баланс",
+    balanceLabel: "NeoFlux",
     shopTitle: "Магазин",
-    shopSubtitle: "Собери лучший набор за тапы",
-    tapValue: "+{value} / тап",
+    shopSubtitle: "Собери лучший набор за NeoFlux",
+    tapValue: "+{value} NF / тап",
     tabTap: "Тап",
     tabShop: "Магазин",
     tabLeaderboard: "Рейтинг",
@@ -230,7 +243,7 @@ const STRINGS = {
     questBuy: "Купи {count} предмет",
     questClaim: "Забрать",
     questClaimed: "Забрано",
-    questReward: "+{reward} тапов",
+    questReward: "+{reward} NF",
     rankLabel: "Лига: {name}",
     rank_bronze: "Бронза",
     rank_silver: "Серебро",
@@ -243,7 +256,7 @@ const STRINGS = {
     equipped: "Надето",
     owned: "Куплено",
     level: "Уровень {level}/{max}",
-    priceTaps: "тапов",
+    priceTaps: "NF",
     shopCategory_power: "Сила тапа",
     shopCategory_energy: "Энергия",
     shopCategory_cosmetic: "Украшения",
@@ -276,11 +289,13 @@ const STRINGS = {
     profileTitle: "Профиль",
     profileSubtitle: "Настрой ник и аватар в игре",
     profileNicknameLabel: "Ник",
-    profileAvatarLabel: "Ссылка на аватар",
     profileAvatarFileLabel: "Загрузить с устройства",
     profileNicknamePlaceholder: "Твой ник",
-    profileAvatarPlaceholder: "https://...",
-    profileAvatarHint: "Можно загрузить фото с телефона или вставить ссылку выше.",
+    profileAvatarHint: "Загрузи аватар прямо с телефона.",
+    profileRefTitle: "Приглашай друзей и получай бонус",
+    profileRefCopy: "Копировать",
+    profileRefCopied: "Реферальная ссылка скопирована",
+    profileRefStats: "Тебе: +{you} NF • Другу: +{friend} NF • Приглашено: {count}",
     profileSave: "Сохранить",
     profileReset: "Сбросить",
     profileSaved: "Профиль обновлен",
@@ -292,6 +307,8 @@ const STRINGS = {
     profileAvatarTooLarge: "Картинка слишком большая, выбери другую",
     profileAvatarReady: "Фото выбрано с устройства",
     profileAvatarProcessing: "Обрабатываю изображение...",
+    welcomeBonus: "Стартовый бонус +{amount} NF",
+    referralApplied: "Реферальный бонус +{amount} NF",
     profileSaveError: "Не удалось сохранить профиль",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
@@ -416,11 +433,11 @@ function applyTexts() {
   if (profileTitleEl) profileTitleEl.textContent = t("profileTitle");
   if (profileSubtitleEl) profileSubtitleEl.textContent = t("profileSubtitle");
   if (profileNicknameLabelEl) profileNicknameLabelEl.textContent = t("profileNicknameLabel");
-  if (profileAvatarLabelEl) profileAvatarLabelEl.textContent = t("profileAvatarLabel");
   if (profileAvatarFileLabelEl) profileAvatarFileLabelEl.textContent = t("profileAvatarFileLabel");
+  if (profileRefTitleEl) profileRefTitleEl.textContent = t("profileRefTitle");
   if (profileNicknameEl) profileNicknameEl.placeholder = t("profileNicknamePlaceholder");
-  if (profileAvatarUrlEl) profileAvatarUrlEl.placeholder = t("profileAvatarPlaceholder");
   if (profileAvatarHintEl) profileAvatarHintEl.textContent = t("profileAvatarHint");
+  if (profileRefCopyBtnEl) profileRefCopyBtnEl.textContent = t("profileRefCopy");
   if (profileSaveBtnEl) profileSaveBtnEl.textContent = t("profileSave");
   if (profileResetBtnEl) profileResetBtnEl.textContent = t("profileReset");
   if (tabTapEl) tabTapEl.textContent = t("tabTap");
@@ -451,6 +468,13 @@ currentLang = normalizeLang(
   localStorage.getItem("lang") || tg?.initDataUnsafe?.user?.language_code || navigator.language
 );
 applyTexts();
+
+const storedReferralCode = normalizeReferralCode(localStorage.getItem("launchReferralCode") || "");
+const queryReferralCode = normalizeReferralCode(params.get("ref") || params.get("startapp"));
+launchReferralCode = queryReferralCode || storedReferralCode || "";
+if (queryReferralCode) {
+  localStorage.setItem("launchReferralCode", queryReferralCode);
+}
 
 if (demoMode) {
   demoUserId = localStorage.getItem("demoUserId");
@@ -496,6 +520,9 @@ async function loadProfile() {
   if (demoMode) {
     url += `?demoUserId=${encodeURIComponent(demoUserId)}`;
   } else {
+    if (launchReferralCode) {
+      url += `?ref=${encodeURIComponent(launchReferralCode)}`;
+    }
     headers["x-init-data"] = initData;
   }
   const res = await fetch(url, { headers, cache: "no-store" });
@@ -562,6 +589,13 @@ function setProfileStatus(keyOrText, isError = false) {
 function clearProfileAvatarFileSelection() {
   profileAvatarFileData = "";
   if (profileAvatarFileEl) profileAvatarFileEl.value = "";
+}
+
+function getReferralLink(userId) {
+  const id = String(userId || "").trim();
+  if (!/^\d{3,20}$/.test(id)) return "";
+  const code = `ref_${id}`;
+  return `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(code)}`;
 }
 
 function fileToDataUrl(file) {
@@ -668,12 +702,16 @@ function renderProfilePanel(user, { refillInputs = false } = {}) {
   if (profileNamePreviewEl) profileNamePreviewEl.textContent = user.name || user.username || "Player";
   if (profileIdPreviewEl) profileIdPreviewEl.textContent = `ID: ${user.id}`;
   setProfilePreviewAvatar(user);
+  if (profileRefLinkEl) profileRefLinkEl.value = getReferralLink(user.id);
+  if (profileRefStatsEl) {
+    profileRefStatsEl.textContent = t("profileRefStats", {
+      you: formatNumberDots(500),
+      friend: formatNumberDots(1000),
+      count: formatNumberDots(user.referralsCount || 0)
+    });
+  }
   if (refillInputs) {
     if (profileNicknameEl) profileNicknameEl.value = user.name || "";
-    if (profileAvatarUrlEl) {
-      const value = user.avatarCustomized ? String(user.avatarUrl || "") : "";
-      profileAvatarUrlEl.value = value.startsWith("data:image/") ? "" : value;
-    }
     clearProfileAvatarFileSelection();
   }
 }
@@ -1071,8 +1109,6 @@ async function loadLeaderboard({ force = false, silent = false } = {}) {
 async function saveProfileChanges({ reset = false } = {}) {
   if (!profileSaveBtnEl || !profileResetBtnEl) return;
   const nickname = String(profileNicknameEl?.value || "").trim();
-  const avatarUrlInput = String(profileAvatarUrlEl?.value || "").trim();
-  const avatarUrl = profileAvatarFileData || avatarUrlInput;
 
   if (!reset && (!nickname || nickname.length < 2 || nickname.length > 24)) {
     setProfileStatus("profileNickInvalid", true);
@@ -1085,7 +1121,10 @@ async function saveProfileChanges({ reset = false } = {}) {
   try {
     const payload = reset
       ? { resetNickname: true, resetAvatar: true }
-      : { nickname, avatarUrl };
+      : { nickname };
+    if (!reset && profileAvatarFileData) {
+      payload.avatarUrl = profileAvatarFileData;
+    }
     const data = await apiRequest("/api/profile", {
       method: "POST",
       body: JSON.stringify(payload)
@@ -1133,7 +1172,17 @@ async function init() {
       return;
     }
 
-    setMeta("player", { name: profile.user.name });
+    if (profile.welcomeBonus) {
+      setMeta("welcomeBonus", { amount: formatNumberDots(profile.welcomeBonus) });
+    } else if (profile.referral?.newUserBonus) {
+      setMeta("referralApplied", { amount: formatNumberDots(profile.referral.newUserBonus) });
+    } else {
+      setMeta("player", { name: profile.user.name });
+    }
+    if (profile.referral?.newUserBonus) {
+      launchReferralCode = "";
+      localStorage.removeItem("launchReferralCode");
+    }
     currentUserId = String(profile.user.id || "");
     profileUser = profile.user;
     updateBalance(profile.user.balance);
@@ -1269,6 +1318,18 @@ if (profileNicknameEl) {
     if (profileAvatarPreviewEl && profileAvatarPreviewEl.classList.contains("fallback")) {
       const initial = candidateName.charAt(0).toUpperCase() || "P";
       profileAvatarPreviewEl.textContent = initial;
+    }
+  });
+}
+if (profileRefCopyBtnEl) {
+  profileRefCopyBtnEl.addEventListener("click", async () => {
+    const value = String(profileRefLinkEl?.value || "").trim();
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setProfileStatus("profileRefCopied");
+    } catch {
+      setProfileStatus(value);
     }
   });
 }

@@ -1,23 +1,30 @@
-import { bt, pickLang, jsonResponse } from "./_shared/utils.js";
+import { bt, pickLang, jsonResponse, normalizeReferralCode } from "./_shared/utils.js";
 
-function resolveWebAppUrl(env) {
+function resolveWebAppUrl(env, startPayload = "") {
   const raw = String(env.WEBAPP_URL || "").trim();
   if (!raw) return "";
   const build =
     String(env.WEBAPP_CACHE_BUSTER || env.CF_PAGES_COMMIT_SHA || "20260325-7").trim() ||
     "20260325-7";
+  const referralCode = normalizeReferralCode(startPayload);
   try {
     const url = new URL(raw);
     url.searchParams.set("v", build);
+    if (referralCode) {
+      url.searchParams.set("ref", referralCode);
+    }
     return url.toString();
   } catch {
     const separator = raw.includes("?") ? "&" : "?";
-    return `${raw}${separator}v=${encodeURIComponent(build)}`;
+    const referralPart = referralCode
+      ? `&ref=${encodeURIComponent(referralCode)}`
+      : "";
+    return `${raw}${separator}v=${encodeURIComponent(build)}${referralPart}`;
   }
 }
 
-async function sendMessage(env, chatId, text, lang) {
-  const webAppUrl = resolveWebAppUrl(env);
+async function sendMessage(env, chatId, text, lang, startPayload = "") {
+  const webAppUrl = resolveWebAppUrl(env, startPayload);
   const payload = {
     chat_id: chatId,
     text,
@@ -70,9 +77,12 @@ export async function onRequestPost(context) {
 
   const text = message.text || "";
   const lang = pickLang(message.from?.language_code);
+  const startPayload = String(
+    text.match(/^\/start(?:@\w+)?\s+([^\s]+)$/i)?.[1] || ""
+  ).trim();
 
   if (text.startsWith("/start")) {
-    await sendMessage(env, message.chat.id, bt(lang, "start"), lang);
+    await sendMessage(env, message.chat.id, bt(lang, "start"), lang, startPayload);
   } else if (text.startsWith("/play")) {
     await sendMessage(env, message.chat.id, bt(lang, "playHint"), lang);
   }

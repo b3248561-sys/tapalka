@@ -2,14 +2,19 @@ import {
   jsonResponse,
   verifyInitData,
   extractUser,
+  extractStartParam,
   loadUser,
+  getUserById,
   syncEnergy,
   saveUser,
   summarizeUser,
   resolveInitDataMaxAgeSec,
   hasDurableUserStore,
   isDemoAllowed,
-  upsertLeaderboardEntry
+  upsertLeaderboardEntry,
+  applyWelcomeBonus,
+  applyReferralBonus,
+  normalizeReferralCode
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -44,21 +49,66 @@ export async function onRequest(context) {
     return jsonResponse({ ok: false, error: "user missing" }, 400);
   }
 
-  const profile = await loadUser(
+  const referralCode =
+    normalizeReferralCode(url.searchParams.get("ref")) ||
+    normalizeReferralCode(extractStartParam(initData));
+
+  let profile = await loadUser(
     env,
     String(tgUser.id),
     tgUser.first_name,
     tgUser.username,
     tgUser.photo_url || ""
   );
+  let welcomeBonus = 0;
+  let referral = null;
+
+  welcomeBonus = applyWelcomeBonus(profile);
+  if (referralCode) {
+    const referralResult = await applyReferralBonus(env, profile, referralCode);
+    if (referralResult.ok) {
+      referral = {
+        referrerId: referralResult.referrerId,
+        referrerName: referralResult.referrerName || "",
+        newUserBonus: referralResult.newUserBonus,
+        referrerBonus: referralResult.referrerBonus
+      };
+      const fresh = await getUserById(env, String(profile.id));
+      if (fresh) {
+        profile = fresh;
+      }
+      context.waitUntil(
+        logEvent(
+          env,
+          request,
+          profile,
+          "referral_claim",
+          {
+            referralCode,
+            referrerId: referralResult.referrerId,
+            newUserBonus: referralResult.newUserBonus
+          },
+          { throttleMs: 0 }
+        )
+      );
+    }
+  }
   const now = Date.now();
   const changed = syncEnergy(profile, now);
   context.waitUntil(upsertLeaderboardEntry(env, profile));
   if (useDurableStore) {
+    if (welcomeBonus > 0) {
+      await saveUser(env, profile);
+    }
     context.waitUntil(
       logEvent(env, request, profile, "open", { screen: "webapp" })
     );
-    return jsonResponse({ ok: true, user: summarizeUser(profile) });
+    return jsonResponse({
+      ok: true,
+      user: summarizeUser(profile),
+      welcomeBonus,
+      referral
+    });
   }
 
   let openLogged = false;
@@ -69,6 +119,11 @@ export async function onRequest(context) {
       logEvent(env, request, profile, "open", { screen: "webapp" })
     );
   }
-  if (changed || openLogged) await saveUser(env, profile);
-  return jsonResponse({ ok: true, user: summarizeUser(profile) });
+  if (changed || openLogged || welcomeBonus > 0) await saveUser(env, profile);
+  return jsonResponse({
+    ok: true,
+    user: summarizeUser(profile),
+    welcomeBonus,
+    referral
+  });
 }

@@ -82,6 +82,11 @@ export function extractUser(initData) {
   }
 }
 
+export function extractStartParam(initData) {
+  const { params } = buildDataCheckString(initData);
+  return String(params.get("start_param") || "").trim();
+}
+
 export function jsonResponse(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -172,6 +177,11 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     avatarUrl: avatarUrl || "",
     nameCustomized: false,
     avatarCustomized: false,
+    welcomeBonusClaimed: false,
+    referredBy: "",
+    referralClaimed: false,
+    referralsCount: 0,
+    referralsEarned: 0,
     balance: 0,
     tapValue: 1,
     items: {},
@@ -524,6 +534,26 @@ export function normalizeUser(user) {
     user.avatarCustomized = false;
     dirty = true;
   }
+  if (typeof user.welcomeBonusClaimed !== "boolean") {
+    user.welcomeBonusClaimed = false;
+    dirty = true;
+  }
+  if (typeof user.referredBy !== "string") {
+    user.referredBy = "";
+    dirty = true;
+  }
+  if (typeof user.referralClaimed !== "boolean") {
+    user.referralClaimed = false;
+    dirty = true;
+  }
+  if (typeof user.referralsCount !== "number" || user.referralsCount < 0) {
+    user.referralsCount = 0;
+    dirty = true;
+  }
+  if (typeof user.referralsEarned !== "number" || user.referralsEarned < 0) {
+    user.referralsEarned = 0;
+    dirty = true;
+  }
   if (!user.items || typeof user.items !== "object") {
     user.items = {};
     dirty = true;
@@ -771,6 +801,11 @@ export function summarizeUser(user) {
     avatarUrl: user.avatarUrl || "",
     nameCustomized: Boolean(user.nameCustomized),
     avatarCustomized: Boolean(user.avatarCustomized),
+    welcomeBonusClaimed: Boolean(user.welcomeBonusClaimed),
+    referredBy: user.referredBy || "",
+    referralClaimed: Boolean(user.referralClaimed),
+    referralsCount: Number(user.referralsCount || 0),
+    referralsEarned: Number(user.referralsEarned || 0),
     balance: user.balance,
     tapValue: user.tapValue || 1,
     lastTapTs: user.lastTapTs || 0,
@@ -785,6 +820,71 @@ export function summarizeUser(user) {
     maxEnergy: user.maxEnergy,
     energyRegen: user.energyRegen || 1,
     rank: getRank(getRankPoints(user))
+  };
+}
+
+export const WELCOME_BONUS = 1000;
+export const REFERRAL_NEW_USER_BONUS = 1000;
+export const REFERRAL_REFERRER_BONUS = 500;
+
+export function normalizeReferralCode(raw) {
+  const text = String(raw || "").trim();
+  return /^ref_\d{3,20}$/.test(text) ? text : "";
+}
+
+export function applyWelcomeBonus(user) {
+  if (!user || user.welcomeBonusClaimed) return 0;
+  user.welcomeBonusClaimed = true;
+  user.balance = (user.balance || 0) + WELCOME_BONUS;
+  user.totalEarned = (user.totalEarned || 0) + WELCOME_BONUS;
+  return WELCOME_BONUS;
+}
+
+export async function applyReferralBonus(env, user, referralCode) {
+  const code = normalizeReferralCode(referralCode);
+  if (!code || !user?.id) return { ok: false, reason: "invalid_ref_code" };
+
+  const referrerId = code.slice(4);
+  if (String(user.id) === referrerId) {
+    return { ok: false, reason: "self_ref" };
+  }
+
+  const candidate = normalizeUser(user);
+  if (candidate.referralClaimed || candidate.referredBy) {
+    return { ok: false, reason: "already_claimed" };
+  }
+
+  const referrerRaw = await getUserById(env, referrerId);
+  if (!referrerRaw) {
+    return { ok: false, reason: "referrer_not_found" };
+  }
+  const referrer = normalizeUser(referrerRaw);
+
+  candidate.referredBy = referrerId;
+  candidate.referralClaimed = true;
+  candidate.balance = (candidate.balance || 0) + REFERRAL_NEW_USER_BONUS;
+  candidate.totalEarned =
+    (candidate.totalEarned || 0) + REFERRAL_NEW_USER_BONUS;
+
+  referrer.referralsCount = (referrer.referralsCount || 0) + 1;
+  referrer.referralsEarned =
+    (referrer.referralsEarned || 0) + REFERRAL_REFERRER_BONUS;
+  referrer.balance = (referrer.balance || 0) + REFERRAL_REFERRER_BONUS;
+  referrer.totalEarned =
+    (referrer.totalEarned || 0) + REFERRAL_REFERRER_BONUS;
+
+  await Promise.all([saveUser(env, candidate), saveUser(env, referrer)]);
+  await Promise.all([
+    upsertLeaderboardEntry(env, candidate),
+    upsertLeaderboardEntry(env, referrer)
+  ]);
+
+  return {
+    ok: true,
+    referrerId,
+    referrerName: referrer.name || "",
+    newUserBonus: REFERRAL_NEW_USER_BONUS,
+    referrerBonus: REFERRAL_REFERRER_BONUS
   };
 }
 

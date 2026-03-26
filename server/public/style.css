@@ -991,6 +991,22 @@ body {
   color: var(--muted);
 }
 
+.profile-ref {
+  display: grid;
+  gap: 6px;
+}
+
+.profile-ref-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.profile-ref-row .profile-input {
+  min-width: 0;
+}
+
 .profile-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
