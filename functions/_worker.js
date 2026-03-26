@@ -3,6 +3,7 @@ import {
   createUser,
   normalizeUser,
   ensureDaily,
+  syncSeason,
   applyTapAction,
   applyBuyAction,
   applyDailyAction,
@@ -48,6 +49,7 @@ export class UserStore {
   async saveMutableUser(user) {
     const normalized = normalizeUser(user);
     ensureDaily(normalized);
+    syncSeason(normalized);
     if (normalized._dirty) delete normalized._dirty;
     await this.state.storage.put("user", normalized);
     return normalized;
@@ -63,6 +65,7 @@ export class UserStore {
     if (!user) return null;
     const normalized = normalizeUser(user);
     ensureDaily(normalized);
+    syncSeason(normalized);
     if (normalized._dirty) {
       delete normalized._dirty;
       await this.state.storage.put("user", normalized);

@@ -1,4 +1,19 @@
-import { bt, pickLang, jsonResponse, normalizeReferralCode } from "./_shared/utils.js";
+import {
+  bt,
+  pickLang,
+  jsonResponse,
+  normalizeReferralCode,
+  loadUser,
+  saveUser,
+  upsertLeaderboardEntry,
+  addSeasonPoints
+} from "./_shared/utils.js";
+
+const DONATE_BONUS_BY_PACKAGE = {
+  support_s: 1800,
+  support_m: 6200,
+  support_l: 19000
+};
 
 function resolveWebAppUrl(env, startPayload = "") {
   const raw = String(env.WEBAPP_URL || "").trim();
@@ -48,6 +63,75 @@ async function sendMessage(env, chatId, text, lang, startPayload = "") {
   });
 }
 
+async function botApi(env, method, payload) {
+  const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
+async function answerPreCheckout(env, preCheckoutQuery) {
+  if (!preCheckoutQuery?.id) return;
+  await botApi(env, "answerPreCheckoutQuery", {
+    pre_checkout_query_id: preCheckoutQuery.id,
+    ok: true
+  });
+}
+
+function parseDonatePayload(payloadRaw = "") {
+  const text = String(payloadRaw || "").trim();
+  const match = /^donate:([a-z0-9_]+):(\d{3,20}):(\d{10,16})$/i.exec(text);
+  if (!match) return null;
+  return {
+    packageId: match[1],
+    userId: match[2]
+  };
+}
+
+async function handleSuccessfulPayment(env, message) {
+  const payment = message?.successful_payment;
+  const from = message?.from;
+  if (!payment || !from?.id) return;
+  const payload = parseDonatePayload(payment.invoice_payload);
+  if (!payload) return;
+  if (String(from.id) !== String(payload.userId)) return;
+  const bonus = Number(DONATE_BONUS_BY_PACKAGE[payload.packageId] || 0);
+  if (!bonus || bonus <= 0) return;
+
+  const chargeId =
+    String(payment.telegram_payment_charge_id || "").trim() ||
+    String(payment.provider_payment_charge_id || "").trim();
+  const dedupeKey = chargeId ? `donate:paid:${chargeId}` : "";
+  if (dedupeKey && env.KV) {
+    const done = await env.KV.get(dedupeKey);
+    if (done) return;
+  }
+
+  const user = await loadUser(
+    env,
+    String(from.id),
+    from.first_name || "Player",
+    from.username || "",
+    ""
+  );
+  user.balance = Number(user.balance || 0) + bonus;
+  user.totalEarned = Number(user.totalEarned || 0) + bonus;
+  addSeasonPoints(user, bonus, Date.now());
+  await saveUser(env, user);
+  await upsertLeaderboardEntry(env, user);
+  if (dedupeKey && env.KV) {
+    await env.KV.put(dedupeKey, String(Date.now()), { expirationTtl: 86400 * 365 });
+  }
+
+  await botApi(env, "sendMessage", {
+    chat_id: message.chat.id,
+    text: `Thanks for support! +${bonus} NF credited to your balance.`
+  });
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
   const expectedSecret = env.TELEGRAM_WEBHOOK_SECRET || "";
@@ -70,8 +154,18 @@ export async function onRequestPost(context) {
     return jsonResponse({ ok: true });
   }
 
+  if (update?.pre_checkout_query) {
+    await answerPreCheckout(env, update.pre_checkout_query);
+    return jsonResponse({ ok: true });
+  }
+
   const message = update?.message;
   if (!message?.chat?.id) {
+    return jsonResponse({ ok: true });
+  }
+
+  if (message.successful_payment) {
+    await handleSuccessfulPayment(env, message);
     return jsonResponse({ ok: true });
   }
 

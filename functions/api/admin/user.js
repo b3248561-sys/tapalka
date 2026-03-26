@@ -38,6 +38,8 @@ function summarize(user) {
     lastDailyTs: user.lastDailyTs || 0,
     dailyTapCount: user.dailyTapCount || 0,
     dailyPurchaseCount: user.dailyPurchaseCount || 0,
+    seasonKey: user.seasonKey || "",
+    seasonPoints: Number(user.seasonPoints || 0),
     rank: getRank(getRankPoints(user))
   };
 }

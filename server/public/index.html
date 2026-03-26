@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260326-5" />
+    <link rel="stylesheet" href="style.css?v=20260326-6" />
   </head>
   <body>
     <div class="bg">
@@ -86,6 +86,13 @@
             <div class="leaderboard-head">
               <div class="leaderboard-title" id="leaderboardTitle">Leaderboard</div>
               <div class="leaderboard-subtitle" id="leaderboardSubtitle">Top players by taps</div>
+              <div class="leaderboard-tools">
+                <div class="leaderboard-season-info" id="leaderboardSeasonInfo"></div>
+                <div class="leaderboard-modes">
+                  <button class="leaderboard-mode active" id="leaderboardModeSeason" type="button">Season</button>
+                  <button class="leaderboard-mode" id="leaderboardModeAllTime" type="button">All time</button>
+                </div>
+              </div>
             </div>
             <div class="leaderboard-list" id="leaderboardList"></div>
           </section>
@@ -122,6 +129,12 @@
               <button id="profileSaveBtn" class="profile-btn primary">Save</button>
               <button id="profileResetBtn" class="profile-btn ghost">Reset</button>
             </div>
+            <div class="donate-card">
+              <div class="donate-title" id="donateTitle">Support Tapalka</div>
+              <div class="donate-subtitle" id="donateSubtitle">Stars shop with tiny NeoFlux bonus</div>
+              <div class="donate-list" id="donateList"></div>
+              <div class="donate-status" id="donateStatus"></div>
+            </div>
             <div class="profile-status" id="profileStatus"></div>
           </section>
         </section>
@@ -139,7 +152,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260326-5";
+        script.src = "app.js?v=20260326-6";
         document.body.appendChild(script);
       })();
     </script>

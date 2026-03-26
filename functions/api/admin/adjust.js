@@ -38,6 +38,8 @@ function summarize(user) {
     boostUntil: user.boostUntil || 0,
     bannedUntil: user.bannedUntil || 0,
     leaderboardHidden: Boolean(user.leaderboardHidden),
+    seasonKey: user.seasonKey || "",
+    seasonPoints: Number(user.seasonPoints || 0),
     rank: getRank(getRankPoints(user))
   };
 }

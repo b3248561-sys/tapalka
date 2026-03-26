@@ -5,6 +5,7 @@ import {
   loadUser,
   getLeaderboard,
   upsertLeaderboardEntry,
+  getSeasonInfo,
   resolveInitDataMaxAgeSec,
   isDemoAllowed
 } from "../_shared/utils.js";
@@ -20,6 +21,7 @@ export async function onRequest(context) {
     5,
     Math.min(100, Number(url.searchParams.get("limit")) || 50)
   );
+  const mode = url.searchParams.get("mode") === "alltime" ? "alltime" : "season";
 
   let tgUser = null;
   if (isDemoAllowed(env, request) && demoUserId) {
@@ -46,12 +48,19 @@ export async function onRequest(context) {
     tgUser.photo_url || ""
   );
   await upsertLeaderboardEntry(env, currentUser);
-  const players = await getLeaderboard(env, { limit });
+  const season = getSeasonInfo();
+  const players = await getLeaderboard(env, {
+    limit,
+    mode,
+    seasonKey: season.key
+  });
   const currentUserId = String(currentUser.id);
 
   return jsonResponse({
     ok: true,
     players,
-    currentUserId
+    currentUserId,
+    mode,
+    season
   });
 }

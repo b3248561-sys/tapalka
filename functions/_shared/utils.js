@@ -170,6 +170,7 @@ async function migrateKvUserToDo(env, userId, name, username, avatarUrl = "") {
 }
 
 export function createUser(userId, name, username = "", avatarUrl = "") {
+  const now = Date.now();
   return {
     id: String(userId),
     name: name || "Player",
@@ -195,6 +196,8 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     antiCheatBurstStartTs: 0,
     antiCheatBurstCount: 0,
     antiCheatLastReportTs: 0,
+    seasonKey: getSeasonKey(now),
+    seasonPoints: 0,
     balance: 0,
     tapValue: 1,
     items: {},
@@ -218,7 +221,7 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     maxEnergy: 50,
     energy: 50,
     energyRegen: 1,
-    lastEnergyTs: Date.now()
+    lastEnergyTs: now
   };
 }
 
@@ -231,7 +234,15 @@ export async function loadUser(env, userId, name, username, avatarUrl = "") {
         username,
         avatarUrl
       });
-      return data.user;
+      const normalized = normalizeUser(data.user);
+      const dailyChanged = ensureDaily(normalized);
+      const seasonChanged = syncSeason(normalized);
+      if (normalized._dirty || dailyChanged || seasonChanged) {
+        if (normalized._dirty) delete normalized._dirty;
+        const putData = await userDoRequest(env, userId, "put", { user: normalized });
+        return putData.user || normalized;
+      }
+      return normalized;
     }
     if (peek.error === "not_found") {
       const migrated = await migrateKvUserToDo(
@@ -247,7 +258,15 @@ export async function loadUser(env, userId, name, username, avatarUrl = "") {
         username,
         avatarUrl
       });
-      return data.user;
+      const normalized = normalizeUser(data.user);
+      const dailyChanged = ensureDaily(normalized);
+      const seasonChanged = syncSeason(normalized);
+      if (normalized._dirty || dailyChanged || seasonChanged) {
+        if (normalized._dirty) delete normalized._dirty;
+        const putData = await userDoRequest(env, userId, "put", { user: normalized });
+        return putData.user || normalized;
+      }
+      return normalized;
     }
     const err = new Error(peek.error || "user_store_error");
     err.code = peek.error || "user_store_error";
@@ -277,7 +296,8 @@ export async function loadUser(env, userId, name, username, avatarUrl = "") {
   }
   const normalized = normalizeUser(user);
   const dailyChanged = ensureDaily(normalized);
-  if (normalized._dirty || dailyChanged) {
+  const seasonChanged = syncSeason(normalized);
+  if (normalized._dirty || dailyChanged || seasonChanged) {
     delete normalized._dirty;
     await env.KV.put(key, JSON.stringify(normalized));
     user = normalized;
@@ -286,6 +306,7 @@ export async function loadUser(env, userId, name, username, avatarUrl = "") {
 }
 
 export async function saveUser(env, user) {
+  syncSeason(user);
   if (hasUserDo(env)) {
     const data = await userDoRequest(env, user.id, "put", { user });
     return data.user;
@@ -298,7 +319,7 @@ export async function getUserById(env, userId) {
   if (hasUserDo(env)) {
     const data = await userDoRequest(env, userId, "peek", {}, { allowError: true });
     if (data.ok) {
-      return data.user;
+      return normalizeUser(data.user);
     }
     if (data.error === "not_found") {
       const migrated = await migrateKvUserToDo(env, userId);
@@ -320,6 +341,7 @@ function leaderboardKey(userId) {
 
 export async function upsertLeaderboardEntry(env, user) {
   if (!env?.KV || !user?.id) return;
+  syncSeason(user);
   const key = leaderboardKey(user.id);
   if (user.leaderboardHidden) {
     await env.KV.delete(key);
@@ -334,15 +356,21 @@ export async function upsertLeaderboardEntry(env, user) {
     totalEarned: Number(user.totalEarned || 0),
     totalTaps: Number(user.totalTaps || 0),
     tapValue: Number(user.tapValue || 1),
+    seasonKey: String(user.seasonKey || getSeasonKey()),
+    seasonPoints: Number(user.seasonPoints || 0),
     equippedFrame: user.equippedFrame || "",
     updatedAt: Date.now()
   };
   await env.KV.put(key, JSON.stringify(record));
 }
 
-export async function getLeaderboard(env, { limit = 50 } = {}) {
+export async function getLeaderboard(
+  env,
+  { limit = 50, mode = "season", seasonKey = getSeasonKey() } = {}
+) {
   if (!env?.KV) return [];
   const safeLimit = Math.max(1, Math.min(100, Number(limit) || 50));
+  const safeMode = mode === "alltime" ? "alltime" : "season";
   let cursor = undefined;
   let scanned = 0;
   const rows = [];
@@ -363,6 +391,14 @@ export async function getLeaderboard(env, { limit = 50 } = {}) {
   } while (cursor && scanned < 2000);
 
   rows.sort((a, b) => {
+    const aSeason =
+      String(a.seasonKey || "") === seasonKey ? Number(a.seasonPoints || 0) : 0;
+    const bSeason =
+      String(b.seasonKey || "") === seasonKey ? Number(b.seasonPoints || 0) : 0;
+    if (safeMode === "season") {
+      const seasonDiff = bSeason - aSeason;
+      if (seasonDiff !== 0) return seasonDiff;
+    }
     const balanceDiff = Number(b.balance || 0) - Number(a.balance || 0);
     if (balanceDiff !== 0) return balanceDiff;
     const earnedDiff =
@@ -381,8 +417,64 @@ export async function getLeaderboard(env, { limit = 50 } = {}) {
     totalEarned: Number(entry.totalEarned || 0),
     totalTaps: Number(entry.totalTaps || 0),
     tapValue: Number(entry.tapValue || 1),
+    seasonKey: String(entry.seasonKey || seasonKey),
+    seasonPoints:
+      String(entry.seasonKey || "") === seasonKey
+        ? Number(entry.seasonPoints || 0)
+        : 0,
     equippedFrame: entry.equippedFrame || ""
   }));
+}
+
+export function getSeasonKey(now = Date.now()) {
+  const date = new Date(now);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+export function getSeasonInfo(now = Date.now()) {
+  const date = new Date(now);
+  const year = date.getUTCFullYear();
+  const monthIndex = date.getUTCMonth();
+  const startTs = Date.UTC(year, monthIndex, 1, 0, 0, 0, 0);
+  const endTs = Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0);
+  const key = getSeasonKey(now);
+  return {
+    key,
+    startsAt: startTs,
+    endsAt: endTs,
+    remainingMs: Math.max(0, endTs - now),
+    label: key
+  };
+}
+
+export function syncSeason(user, now = Date.now()) {
+  const key = getSeasonKey(now);
+  if (!user.seasonKey) {
+    user.seasonKey = key;
+    user.seasonPoints = Math.max(0, Number(user.seasonPoints || 0));
+    return true;
+  }
+  if (String(user.seasonKey) !== key) {
+    user.seasonKey = key;
+    user.seasonPoints = 0;
+    return true;
+  }
+  if (!Number.isFinite(Number(user.seasonPoints)) || Number(user.seasonPoints) < 0) {
+    user.seasonPoints = 0;
+    return true;
+  }
+  return false;
+}
+
+export function addSeasonPoints(user, amount, now = Date.now()) {
+  syncSeason(user, now);
+  const value = Number(amount || 0);
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  const points = Math.max(0, Math.round(value));
+  user.seasonPoints = Number(user.seasonPoints || 0) + points;
+  return points;
 }
 
 export const SHOP_ITEMS = [
@@ -502,8 +594,84 @@ export const SHOP_ITEMS = [
     priceMult: 1,
     type: "frame",
     frameStyle: "fire"
+  },
+  {
+    id: "void",
+    category: "cosmetic",
+    basePrice: 6400,
+    tapBonus: 0,
+    maxLevel: 1,
+    priceMult: 1,
+    type: "cosmetic",
+    cosmeticStyle: "void"
+  },
+  {
+    id: "aurora",
+    category: "cosmetic",
+    basePrice: 9200,
+    tapBonus: 0,
+    maxLevel: 1,
+    priceMult: 1,
+    type: "cosmetic",
+    cosmeticStyle: "aurora"
+  },
+  {
+    id: "frame_prism",
+    category: "frame",
+    basePrice: 9800,
+    tapBonus: 0,
+    maxLevel: 1,
+    priceMult: 1,
+    type: "frame",
+    frameStyle: "prism"
+  },
+  {
+    id: "frame_obsidian",
+    category: "frame",
+    basePrice: 13200,
+    tapBonus: 0,
+    maxLevel: 1,
+    priceMult: 1,
+    type: "frame",
+    frameStyle: "obsidian"
+  },
+  {
+    id: "case_lucky",
+    category: "special",
+    basePrice: 3200,
+    tapBonus: 0,
+    maxLevel: 0,
+    priceMult: 1,
+    type: "case"
+  },
+  {
+    id: "case_royal",
+    category: "special",
+    basePrice: 9200,
+    tapBonus: 0,
+    maxLevel: 0,
+    priceMult: 1,
+    type: "case"
   }
 ];
+
+const CASE_REWARD_POOLS = {
+  case_lucky: ["crown", "neon", "frame_gold", "frame_neon"],
+  case_royal: [
+    "sakura",
+    "void",
+    "aurora",
+    "frame_fire",
+    "frame_prism",
+    "frame_obsidian"
+  ]
+};
+
+function pickRandomFromPool(pool = []) {
+  if (!pool.length) return "";
+  const index = Math.floor(Math.random() * pool.length);
+  return pool[index] || "";
+}
 
 const ECONOMY_PRICE_MULT = 1.6;
 
@@ -635,6 +803,20 @@ export function normalizeUser(user) {
     user.antiCheatLastReportTs < 0
   ) {
     user.antiCheatLastReportTs = 0;
+    dirty = true;
+  }
+  if (typeof user.seasonKey !== "string" || !/^\d{4}-\d{2}$/.test(user.seasonKey)) {
+    user.seasonKey = getSeasonKey();
+    dirty = true;
+  }
+  if (typeof user.seasonPoints !== "number" || user.seasonPoints < 0) {
+    user.seasonPoints = 0;
+    dirty = true;
+  }
+  const currentSeasonKey = getSeasonKey();
+  if (user.seasonKey !== currentSeasonKey) {
+    user.seasonKey = currentSeasonKey;
+    user.seasonPoints = 0;
     dirty = true;
   }
   if (!user.items || typeof user.items !== "object") {
@@ -903,6 +1085,8 @@ export function summarizeUser(user) {
     equippedCosmetic: user.equippedCosmetic || "",
     equippedFrame: user.equippedFrame || "",
     leaderboardHidden: Boolean(user.leaderboardHidden),
+    seasonKey: user.seasonKey || getSeasonKey(),
+    seasonPoints: Number(user.seasonPoints || 0),
     energy: user.energy,
     maxEnergy: user.maxEnergy,
     energyRegen: user.energyRegen || 1,
@@ -940,9 +1124,12 @@ export function normalizeReferralCode(raw) {
 
 export function applyWelcomeBonus(user) {
   if (!user || user.welcomeBonusClaimed) return 0;
+  const now = Date.now();
+  syncSeason(user, now);
   user.welcomeBonusClaimed = true;
   user.balance = (user.balance || 0) + WELCOME_BONUS;
   user.totalEarned = (user.totalEarned || 0) + WELCOME_BONUS;
+  addSeasonPoints(user, WELCOME_BONUS, now);
   return WELCOME_BONUS;
 }
 
@@ -956,6 +1143,8 @@ export async function applyReferralBonus(env, user, referralCode) {
   }
 
   const candidate = normalizeUser(user);
+  const now = Date.now();
+  syncSeason(candidate, now);
   if (candidate.referralClaimed || candidate.referredBy) {
     return { ok: false, reason: "already_claimed" };
   }
@@ -965,12 +1154,14 @@ export async function applyReferralBonus(env, user, referralCode) {
     return { ok: false, reason: "referrer_not_found" };
   }
   const referrer = normalizeUser(referrerRaw);
+  syncSeason(referrer, now);
 
   candidate.referredBy = referrerId;
   candidate.referralClaimed = true;
   candidate.balance = (candidate.balance || 0) + REFERRAL_NEW_USER_BONUS;
   candidate.totalEarned =
     (candidate.totalEarned || 0) + REFERRAL_NEW_USER_BONUS;
+  addSeasonPoints(candidate, REFERRAL_NEW_USER_BONUS, now);
 
   referrer.referralsCount = (referrer.referralsCount || 0) + 1;
   referrer.referralsEarned =
@@ -978,6 +1169,7 @@ export async function applyReferralBonus(env, user, referralCode) {
   referrer.balance = (referrer.balance || 0) + REFERRAL_REFERRER_BONUS;
   referrer.totalEarned =
     (referrer.totalEarned || 0) + REFERRAL_REFERRER_BONUS;
+  addSeasonPoints(referrer, REFERRAL_REFERRER_BONUS, now);
 
   await Promise.all([saveUser(env, candidate), saveUser(env, referrer)]);
   await Promise.all([
@@ -1145,6 +1337,7 @@ function evaluateAntiCheat(user, now, safeCount) {
 export function applyTapAction(user, { count = 1, now = Date.now() } = {}) {
   ensureDaily(user);
   syncEnergy(user, now);
+  syncSeason(user, now);
   if (isBanned(user)) {
     return {
       ok: false,
@@ -1244,6 +1437,7 @@ export function applyTapAction(user, { count = 1, now = Date.now() } = {}) {
   );
   user.balance += earned;
   user.totalEarned = (user.totalEarned || 0) + earned;
+  addSeasonPoints(user, earned, now);
   user.totalTaps = (user.totalTaps || 0) + safeCount;
   user.dailyTapCount = (user.dailyTapCount || 0) + safeCount;
   user.lastTapTs = now;
@@ -1295,6 +1489,7 @@ export function applyTapAction(user, { count = 1, now = Date.now() } = {}) {
 export function applyBuyAction(user, itemId, now = Date.now()) {
   ensureDaily(user);
   syncEnergy(user, now);
+  syncSeason(user, now);
   if (isBanned(user)) {
     return {
       ok: false,
@@ -1429,6 +1624,101 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
     };
   }
 
+  if (item.type === "case") {
+    const price = computePrice(item, 0);
+    if (user.balance < price) {
+      return { ok: false, status: 400, error: "not_enough" };
+    }
+    user.balance -= price;
+    user.dailyPurchaseCount = (user.dailyPurchaseCount || 0) + 1;
+
+    const roll = Math.random();
+    let rarity = "common";
+    let multiplier = 1;
+    if (item.id === "case_royal") {
+      if (roll < 0.03) {
+        rarity = "mythic";
+        multiplier = 5;
+      } else if (roll < 0.16) {
+        rarity = "epic";
+        multiplier = 2.4;
+      } else if (roll < 0.45) {
+        rarity = "rare";
+        multiplier = 1.45;
+      } else {
+        rarity = "common";
+        multiplier = 1.05;
+      }
+    } else {
+      if (roll < 0.02) {
+        rarity = "mythic";
+        multiplier = 4.2;
+      } else if (roll < 0.15) {
+        rarity = "epic";
+        multiplier = 2;
+      } else if (roll < 0.5) {
+        rarity = "rare";
+        multiplier = 1.35;
+      } else {
+        rarity = "common";
+        multiplier = 1;
+      }
+    }
+
+    const nfReward = Math.max(price, Math.round(price * multiplier));
+    user.balance += nfReward;
+    user.totalEarned = (user.totalEarned || 0) + nfReward;
+    addSeasonPoints(user, nfReward, now);
+
+    let unlockedItem = null;
+    const unlockChance =
+      rarity === "mythic" ? 0.95 : rarity === "epic" ? 0.42 : rarity === "rare" ? 0.18 : 0.06;
+    if (Math.random() < unlockChance) {
+      const pool = (CASE_REWARD_POOLS[item.id] || []).filter(
+        (candidateId) => !Number(user.items?.[candidateId] || 0)
+      );
+      const itemIdFromPool = pickRandomFromPool(pool);
+      const rewardItem = SHOP_ITEMS.find((candidate) => candidate.id === itemIdFromPool);
+      if (rewardItem) {
+        user.items[itemIdFromPool] = 1;
+        if (rewardItem.type === "cosmetic") user.equippedCosmetic = itemIdFromPool;
+        if (rewardItem.type === "frame") user.equippedFrame = itemIdFromPool;
+        unlockedItem = {
+          id: rewardItem.id,
+          type: rewardItem.type,
+          category: rewardItem.category || "",
+          cosmeticStyle: rewardItem.cosmeticStyle || "",
+          frameStyle: rewardItem.frameStyle || ""
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      log: {
+        action: "open_case",
+        extra: { itemId: item.id, price, nfReward, rarity, unlockedItemId: unlockedItem?.id || "" }
+      },
+      payload: {
+        ok: true,
+        balance: user.balance,
+        tapValue: user.tapValue || 1,
+        equippedCosmetic: user.equippedCosmetic || "",
+        equippedFrame: user.equippedFrame || "",
+        energy: user.energy,
+        maxEnergy: user.maxEnergy,
+        energyRegen: user.energyRegen || 1,
+        caseReward: {
+          caseId: item.id,
+          price,
+          nfReward,
+          rarity,
+          unlockedItem
+        }
+      }
+    };
+  }
+
   const level = getItemLevel(user, item.id);
   if (level >= item.maxLevel) {
     return { ok: false, status: 400, error: "item_maxed" };
@@ -1494,6 +1784,7 @@ export function applyDailyAction(user, now = Date.now()) {
   const DAY_MS = 24 * 60 * 60 * 1000;
   ensureDaily(user);
   syncEnergy(user, now);
+  syncSeason(user, now);
   if (isBanned(user)) {
     return {
       ok: false,
@@ -1509,6 +1800,7 @@ export function applyDailyAction(user, now = Date.now()) {
   const reward = 120 + Math.floor((user.tapValue || 1) * 10);
   user.balance += reward;
   user.totalEarned = (user.totalEarned || 0) + reward;
+  addSeasonPoints(user, reward, now);
   user.lastDailyTs = now;
   return {
     ok: true,
@@ -1528,6 +1820,7 @@ export function applyDailyAction(user, now = Date.now()) {
 export function applyQuestClaimAction(user, questId, now = Date.now()) {
   ensureDaily(user);
   syncEnergy(user, now);
+  syncSeason(user, now);
   if (isBanned(user)) {
     return {
       ok: false,
@@ -1552,6 +1845,7 @@ export function applyQuestClaimAction(user, questId, now = Date.now()) {
   }
   user.balance += quest.reward;
   user.totalEarned = (user.totalEarned || 0) + quest.reward;
+  addSeasonPoints(user, quest.reward, now);
   user.dailyQuestClaims[quest.id] = true;
   return {
     ok: true,

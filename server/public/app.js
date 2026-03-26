@@ -30,6 +30,9 @@ const tabLeaderboardEl = document.getElementById("tabLeaderboard");
 const tabProfileEl = document.getElementById("tabProfile");
 const leaderboardTitleEl = document.getElementById("leaderboardTitle");
 const leaderboardSubtitleEl = document.getElementById("leaderboardSubtitle");
+const leaderboardSeasonInfoEl = document.getElementById("leaderboardSeasonInfo");
+const leaderboardModeSeasonEl = document.getElementById("leaderboardModeSeason");
+const leaderboardModeAllTimeEl = document.getElementById("leaderboardModeAllTime");
 const leaderboardListEl = document.getElementById("leaderboardList");
 const profileTitleEl = document.getElementById("profileTitle");
 const profileSubtitleEl = document.getElementById("profileSubtitle");
@@ -45,6 +48,10 @@ const profileRefStatsEl = document.getElementById("profileRefStats");
 const profileSaveBtnEl = document.getElementById("profileSaveBtn");
 const profileResetBtnEl = document.getElementById("profileResetBtn");
 const profileStatusEl = document.getElementById("profileStatus");
+const donateTitleEl = document.getElementById("donateTitle");
+const donateSubtitleEl = document.getElementById("donateSubtitle");
+const donateListEl = document.getElementById("donateList");
+const donateStatusEl = document.getElementById("donateStatus");
 const profileAvatarPreviewEl = document.getElementById("profileAvatarPreview");
 const profileNamePreviewEl = document.getElementById("profileNamePreview");
 const profileIdPreviewEl = document.getElementById("profileIdPreview");
@@ -73,6 +80,8 @@ let metaState = { key: "loading", vars: {} };
 let shopState = [];
 let questsState = [];
 let leaderboardState = [];
+let leaderboardMode = localStorage.getItem("leaderboardMode") === "alltime" ? "alltime" : "season";
+let leaderboardSeason = null;
 let activeTab = "tap";
 let currentUserId = "";
 let equippedCosmetic = "";
@@ -99,12 +108,13 @@ let goldenUntil = 0;
 let nextGoldenAt = 0;
 let profileUser = null;
 let profileAvatarFileData = "";
+let donatePackages = [];
 let launchReferralCode = "";
 const BOT_USERNAME = "Nleo2bot";
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
-const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura"];
-const TAP_THEMES = ["style-crown", "style-neon", "style-sakura"];
+const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura", "theme-void", "theme-aurora"];
+const TAP_THEMES = ["style-crown", "style-neon", "style-sakura", "style-void", "style-aurora"];
 
 function normalizeReferralCode(value) {
   const text = String(value || "").trim();
@@ -128,6 +138,11 @@ const STRINGS = {
     tabProfile: "Profile",
     leaderboardTitle: "Leaderboard",
     leaderboardSubtitle: "Top players by balance",
+    leaderboardModeSeason: "Season",
+    leaderboardModeAllTime: "All time",
+    leaderboardSeasonInfo: "Season {key} • ends in {time}",
+    leaderboardSeasonValue: "{value} NF",
+    leaderboardAllTimeValue: "{value}",
     leaderboardEmpty: "Leaderboard is empty",
     leaderboardYou: "You",
     dailyTitle: "Daily Bonus",
@@ -179,12 +194,31 @@ const STRINGS = {
     neonDesc: "Neon glow for tap panel",
     sakuraName: "Sakura Bloom",
     sakuraDesc: "Soft pink petal vibe",
+    voidName: "Void Surge",
+    voidDesc: "Dark cosmic tap style",
+    auroraName: "Aurora Wave",
+    auroraDesc: "Polar glow button style",
     frame_goldName: "Golden Frame",
     frame_goldDesc: "Luxury avatar frame in rating",
     frame_neonName: "Neon Frame",
     frame_neonDesc: "Bright cyber frame in rating",
     frame_fireName: "Fire Frame",
     frame_fireDesc: "Hot flame frame in rating",
+    frame_prismName: "Prism Frame",
+    frame_prismDesc: "Rainbow refraction frame",
+    frame_obsidianName: "Obsidian Frame",
+    frame_obsidianDesc: "Dark premium crystal frame",
+    case_luckyName: "Lucky Case",
+    case_luckyDesc: "No-loss case with random reward",
+    case_royalName: "Royal Case",
+    case_royalDesc: "High-tier case with rare drops",
+    openCase: "Open",
+    caseOpened: "{rarity} • +{reward} NF",
+    caseOpenedWithItem: "{rarity} • +{reward} NF + {item}",
+    rarity_common: "Common",
+    rarity_rare: "Rare",
+    rarity_epic: "Epic",
+    rarity_mythic: "Mythic",
     profileTitle: "Profile",
     profileSubtitle: "Set your in-game nickname and avatar",
     profileNicknameLabel: "Nickname",
@@ -195,6 +229,17 @@ const STRINGS = {
     profileRefCopy: "Copy",
     profileRefCopied: "Referral link copied",
     profileRefStats: "You: +{you} NF • Friend: +{friend} NF • Invited: {count}",
+    donateTitle: "Support project",
+    donateSubtitle: "Telegram Stars packs (non pay-to-win)",
+    support_sName: "Starter Support",
+    support_mName: "Creator Support",
+    support_lName: "Legend Support",
+    donateBuy: "Support for {stars} Stars",
+    donateBonus: "Bonus +{bonus} NF",
+    donatePaid: "Thanks for support",
+    donateCanceled: "Payment canceled",
+    donateFailed: "Payment failed",
+    donateNotReady: "Stars unavailable",
     profileSave: "Save",
     profileReset: "Reset",
     profileSaved: "Profile updated",
@@ -241,6 +286,11 @@ const STRINGS = {
     tabProfile: "Профиль",
     leaderboardTitle: "Рейтинг",
     leaderboardSubtitle: "Лучшие игроки по балансу",
+    leaderboardModeSeason: "Сезон",
+    leaderboardModeAllTime: "Все время",
+    leaderboardSeasonInfo: "Сезон {key} • до конца {time}",
+    leaderboardSeasonValue: "{value} NF",
+    leaderboardAllTimeValue: "{value}",
     leaderboardEmpty: "Рейтинг пока пуст",
     leaderboardYou: "Ты",
     dailyTitle: "Ежедневный бонус",
@@ -292,12 +342,31 @@ const STRINGS = {
     neonDesc: "Яркое неоновое свечение",
     sakuraName: "Цветение сакуры",
     sakuraDesc: "Мягкий розовый стиль",
+    voidName: "Пульс Бездны",
+    voidDesc: "Темный космический стиль",
+    auroraName: "Северное сияние",
+    auroraDesc: "Полярное свечение кнопки",
     frame_goldName: "Золотая рамка",
     frame_goldDesc: "Премиум-рамка аватарки в рейтинге",
     frame_neonName: "Неоновая рамка",
     frame_neonDesc: "Яркая кибер-рамка в рейтинге",
     frame_fireName: "Огненная рамка",
     frame_fireDesc: "Пламенная рамка аватарки",
+    frame_prismName: "Призматическая рамка",
+    frame_prismDesc: "Радужное преломление в рейтинге",
+    frame_obsidianName: "Обсидиановая рамка",
+    frame_obsidianDesc: "Темная кристальная рамка",
+    case_luckyName: "Кейс удачи",
+    case_luckyDesc: "Кейс без проигрыша с рандомной наградой",
+    case_royalName: "Королевский кейс",
+    case_royalDesc: "Кейс с редкими дропами",
+    openCase: "Открыть",
+    caseOpened: "{rarity} • +{reward} NF",
+    caseOpenedWithItem: "{rarity} • +{reward} NF + {item}",
+    rarity_common: "Обычная",
+    rarity_rare: "Редкая",
+    rarity_epic: "Эпическая",
+    rarity_mythic: "Мифическая",
     profileTitle: "Профиль",
     profileSubtitle: "Настрой ник и аватар в игре",
     profileNicknameLabel: "Ник",
@@ -308,6 +377,17 @@ const STRINGS = {
     profileRefCopy: "Копировать",
     profileRefCopied: "Реферальная ссылка скопирована",
     profileRefStats: "Тебе: +{you} NF • Другу: +{friend} NF • Приглашено: {count}",
+    donateTitle: "Поддержка проекта",
+    donateSubtitle: "Пакеты Telegram Stars (без pay-to-win)",
+    support_sName: "Стартовая поддержка",
+    support_mName: "Поддержка создателя",
+    support_lName: "Легендарная поддержка",
+    donateBuy: "Поддержать за {stars} Stars",
+    donateBonus: "Бонус +{bonus} NF",
+    donatePaid: "Спасибо за поддержку",
+    donateCanceled: "Оплата отменена",
+    donateFailed: "Оплата не прошла",
+    donateNotReady: "Stars пока недоступны",
     profileSave: "Сохранить",
     profileReset: "Сбросить",
     profileSaved: "Профиль обновлен",
@@ -451,9 +531,13 @@ function applyCosmeticTheme() {
   if (equippedCosmetic === "crown") panelEl.classList.add("theme-crown");
   if (equippedCosmetic === "neon") panelEl.classList.add("theme-neon");
   if (equippedCosmetic === "sakura") panelEl.classList.add("theme-sakura");
+  if (equippedCosmetic === "void") panelEl.classList.add("theme-void");
+  if (equippedCosmetic === "aurora") panelEl.classList.add("theme-aurora");
   if (tapBtn && equippedCosmetic === "crown") tapBtn.classList.add("style-crown");
   if (tapBtn && equippedCosmetic === "neon") tapBtn.classList.add("style-neon");
   if (tapBtn && equippedCosmetic === "sakura") tapBtn.classList.add("style-sakura");
+  if (tapBtn && equippedCosmetic === "void") tapBtn.classList.add("style-void");
+  if (tapBtn && equippedCosmetic === "aurora") tapBtn.classList.add("style-aurora");
 }
 
 function frameClassFromId(frameId) {
@@ -486,6 +570,8 @@ function applyTexts() {
   if (dailyBtnEl) dailyBtnEl.textContent = t("dailyClaim");
   if (leaderboardTitleEl) leaderboardTitleEl.textContent = t("leaderboardTitle");
   if (leaderboardSubtitleEl) leaderboardSubtitleEl.textContent = t("leaderboardSubtitle");
+  if (leaderboardModeSeasonEl) leaderboardModeSeasonEl.textContent = t("leaderboardModeSeason");
+  if (leaderboardModeAllTimeEl) leaderboardModeAllTimeEl.textContent = t("leaderboardModeAllTime");
   if (profileTitleEl) profileTitleEl.textContent = t("profileTitle");
   if (profileSubtitleEl) profileSubtitleEl.textContent = t("profileSubtitle");
   if (profileNicknameLabelEl) profileNicknameLabelEl.textContent = t("profileNicknameLabel");
@@ -494,6 +580,8 @@ function applyTexts() {
   if (profileNicknameEl) profileNicknameEl.placeholder = t("profileNicknamePlaceholder");
   if (profileAvatarHintEl) profileAvatarHintEl.textContent = t("profileAvatarHint");
   if (profileRefCopyBtnEl) profileRefCopyBtnEl.textContent = t("profileRefCopy");
+  if (donateTitleEl) donateTitleEl.textContent = t("donateTitle");
+  if (donateSubtitleEl) donateSubtitleEl.textContent = t("donateSubtitle");
   if (profileSaveBtnEl) profileSaveBtnEl.textContent = t("profileSave");
   if (profileResetBtnEl) profileResetBtnEl.textContent = t("profileReset");
   if (tabTapEl) tabTapEl.textContent = t("tabTap");
@@ -509,7 +597,9 @@ function applyTexts() {
   renderLangMenu();
   renderShop();
   renderQuests();
+  renderLeaderboardTools();
   renderLeaderboard();
+  renderDonatePackages();
   renderProfilePanel(profileUser || { id: currentUserId || "-", name: "", username: "", avatarUrl: "" });
   updateTapBuffs();
   updateDailyStatus();
@@ -651,6 +741,16 @@ function setProfileStatus(keyOrText, isError = false) {
   profileStatusEl.classList.toggle("error", isError);
 }
 
+function setDonateStatus(keyOrText = "", isError = false) {
+  if (!donateStatusEl) return;
+  const isLangKey =
+    typeof keyOrText === "string" &&
+    (STRINGS[currentLang]?.[keyOrText] || STRINGS.en?.[keyOrText]);
+  const text = isLangKey ? t(keyOrText) : String(keyOrText || "");
+  donateStatusEl.textContent = text;
+  donateStatusEl.classList.toggle("error", isError);
+}
+
 function clearProfileAvatarFileSelection() {
   profileAvatarFileData = "";
   if (profileAvatarFileEl) profileAvatarFileEl.value = "";
@@ -661,6 +761,70 @@ function getReferralLink(userId) {
   if (!/^\d{3,20}$/.test(id)) return "";
   const code = `ref_${id}`;
   return `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(code)}`;
+}
+
+function renderDonatePackages() {
+  if (!donateListEl) return;
+  donateListEl.innerHTML = "";
+  if (!donatePackages.length) {
+    const empty = document.createElement("div");
+    empty.className = "donate-empty";
+    empty.textContent = t("donateNotReady");
+    donateListEl.appendChild(empty);
+    return;
+  }
+
+  donatePackages.forEach((pkg) => {
+    const card = document.createElement("div");
+    card.className = "donate-item";
+    const title = document.createElement("div");
+    title.className = "donate-item-title";
+    const titleKey = `${pkg.id}Name`;
+    const localizedTitle = t(titleKey);
+    title.textContent =
+      localizedTitle === titleKey ? pkg.title || pkg.id : localizedTitle;
+    const bonus = document.createElement("div");
+    bonus.className = "donate-item-bonus";
+    bonus.textContent = t("donateBonus", { bonus: formatNumberDots(pkg.bonusNF || 0) });
+    const btn = document.createElement("button");
+    btn.className = "donate-buy";
+    btn.type = "button";
+    btn.textContent = t("donateBuy", { stars: formatNumberDots(pkg.stars || 0) });
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        const data = await apiRequest("/api/donate", {
+          method: "POST",
+          body: JSON.stringify({ packageId: pkg.id })
+        });
+        if (!data?.ok || !data.invoiceLink) {
+          setDonateStatus(data?.error || "donateNotReady", true);
+          return;
+        }
+        if (tg?.openInvoice) {
+          tg.openInvoice(data.invoiceLink, (status) => {
+            if (status === "paid") {
+              setDonateStatus("donatePaid");
+              syncProfileSilently({ force: true });
+              loadLeaderboard({ force: true, silent: true });
+            } else if (status === "cancelled") {
+              setDonateStatus("donateCanceled", true);
+            } else if (status === "failed") {
+              setDonateStatus("donateFailed", true);
+            }
+          });
+        } else {
+          window.open(data.invoiceLink, "_blank", "noopener");
+        }
+      } catch {
+        setDonateStatus("network", true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    card.append(title, bonus, btn);
+    donateListEl.appendChild(card);
+  });
 }
 
 function fileToDataUrl(file) {
@@ -873,6 +1037,8 @@ function renderShop() {
       const desc = document.createElement("p");
       if (item.type === "boost") {
         desc.textContent = t("boostDesc", { seconds: Math.floor((item.durationMs || 10000) / 1000) });
+      } else if (item.type === "case") {
+        desc.textContent = t(`${item.id}Desc`);
       } else if (item.type === "cosmetic" || item.type === "frame") {
         desc.textContent = t(`${item.id}Desc`);
       } else {
@@ -902,6 +1068,11 @@ function renderShop() {
           : `${formatNumberDots(item.price)} ${t("priceTaps")}`;
         btn.textContent = active ? t("boostActive", { time: formatTime(boostUntil - Date.now()) }) : t("buy");
         btn.disabled = active;
+      } else if (item.type === "case") {
+        leftMeta.textContent = t("openCase");
+        rightMeta.textContent = `${formatNumberDots(item.price)} ${t("priceTaps")}`;
+        btn.textContent = t("openCase");
+        btn.disabled = false;
       } else if (item.type === "cosmetic" || item.type === "frame") {
         const equippedId = item.type === "frame" ? equippedFrame : equippedCosmetic;
         const owned = Number(item.level || 0) >= 1;
@@ -954,6 +1125,22 @@ function renderShop() {
           }
           await loadShop();
           syncProfileSilently({ force: true });
+          if (data.caseReward) {
+            const rarityLabel = t(`rarity_${String(data.caseReward.rarity || "common").toLowerCase()}`);
+            if (data.caseReward.unlockedItem?.id) {
+              const itemTitle = t(`${data.caseReward.unlockedItem.id}Name`);
+              setMeta("caseOpenedWithItem", {
+                rarity: rarityLabel,
+                reward: formatNumberDots(data.caseReward.nfReward || 0),
+                item: itemTitle
+              });
+            } else {
+              setMeta("caseOpened", {
+                rarity: rarityLabel,
+                reward: formatNumberDots(data.caseReward.nfReward || 0)
+              });
+            }
+          }
           if (activeTab === "leaderboard") loadLeaderboard({ force: true, silent: true });
         } catch {
           setMeta("network");
@@ -1027,6 +1214,37 @@ function renderQuests() {
   });
 }
 
+function renderLeaderboardTools() {
+  if (leaderboardModeSeasonEl) {
+    leaderboardModeSeasonEl.classList.toggle("active", leaderboardMode === "season");
+  }
+  if (leaderboardModeAllTimeEl) {
+    leaderboardModeAllTimeEl.classList.toggle("active", leaderboardMode === "alltime");
+  }
+  if (!leaderboardSeasonInfoEl) return;
+  if (!leaderboardSeason || !leaderboardSeason.key) {
+    leaderboardSeasonInfoEl.textContent = "";
+    return;
+  }
+  const remainingMs = Math.max(
+    0,
+    Number(leaderboardSeason.endsAt || 0) - Date.now()
+  );
+  leaderboardSeasonInfoEl.textContent = t("leaderboardSeasonInfo", {
+    key: leaderboardSeason.key,
+    time: formatTime(remainingMs)
+  });
+}
+
+function setLeaderboardMode(mode) {
+  const nextMode = mode === "alltime" ? "alltime" : "season";
+  if (nextMode === leaderboardMode) return;
+  leaderboardMode = nextMode;
+  localStorage.setItem("leaderboardMode", leaderboardMode);
+  renderLeaderboardTools();
+  loadLeaderboard({ force: true, silent: true });
+}
+
 function renderLeaderboard() {
   if (!leaderboardListEl) return;
   if (!leaderboardState.length) {
@@ -1075,12 +1293,23 @@ function renderLeaderboard() {
     name.textContent = String(player.id) === String(currentUserId) ? `${label} (${t("leaderboardYou")})` : label;
     const sub = document.createElement("div");
     sub.className = "leader-sub";
-    sub.textContent = `ID ${player.id} • +${formatNumberDots(player.tapValue || 1)}/tap`;
+    const seasonPart = leaderboardMode === "season"
+      ? ` • ${formatNumberDots(player.balance || 0)} NF`
+      : "";
+    sub.textContent = `ID ${player.id} • +${formatNumberDots(player.tapValue || 1)}/tap${seasonPart}`;
     info.append(name, sub);
 
     const value = document.createElement("div");
     value.className = "leader-value";
-    value.textContent = formatNumberDots(player.balance || 0);
+    if (leaderboardMode === "season") {
+      value.textContent = t("leaderboardSeasonValue", {
+        value: formatNumberDots(player.seasonPoints || 0)
+      });
+    } else {
+      value.textContent = t("leaderboardAllTimeValue", {
+        value: formatNumberDots(player.balance || 0)
+      });
+    }
 
     row.append(rank, avatar, info, value);
     leaderboardListEl.appendChild(row);
@@ -1150,7 +1379,7 @@ async function loadLeaderboard({ force = false, silent = false } = {}) {
 
   isLeaderboardSyncing = true;
   const headers = {};
-  let url = "/api/leaderboard?limit=50";
+  let url = `/api/leaderboard?limit=50&mode=${encodeURIComponent(leaderboardMode)}`;
   if (demoMode) {
     url += `&demoUserId=${encodeURIComponent(demoUserId)}`;
   } else {
@@ -1162,12 +1391,38 @@ async function loadLeaderboard({ force = false, silent = false } = {}) {
     if (!data.ok) return;
     leaderboardState = data.players || [];
     if (data.currentUserId) currentUserId = String(data.currentUserId);
+    leaderboardSeason = data.season || leaderboardSeason;
+    if (data.mode) {
+      leaderboardMode = data.mode === "alltime" ? "alltime" : "season";
+      localStorage.setItem("leaderboardMode", leaderboardMode);
+    }
+    renderLeaderboardTools();
     renderLeaderboard();
     lastLeaderboardSyncAt = Date.now();
   } catch {
     if (!silent) setMeta("network");
   } finally {
     isLeaderboardSyncing = false;
+  }
+}
+
+async function loadDonatePackages({ silent = false } = {}) {
+  if (!donateListEl) return;
+  try {
+    const data = await apiRequest("/api/donate", { method: "POST", body: "{}" });
+    if (!data?.ok) {
+      donatePackages = [];
+      renderDonatePackages();
+      if (!silent) setDonateStatus(data?.error || "donateNotReady", true);
+      return;
+    }
+    donatePackages = Array.isArray(data.packages) ? data.packages : [];
+    renderDonatePackages();
+    if (!silent) setDonateStatus("");
+  } catch {
+    donatePackages = [];
+    renderDonatePackages();
+    if (!silent) setDonateStatus("network", true);
   }
 }
 
@@ -1270,6 +1525,7 @@ async function init() {
     await loadShop();
     await loadQuests();
     await loadLeaderboard({ force: true, silent: true });
+    await loadDonatePackages({ silent: true });
   } catch {
     setMeta("failedLoad");
   } finally {
@@ -1319,12 +1575,14 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     syncProfileSilently({ force: true });
     loadLeaderboard({ force: true, silent: true });
+    loadDonatePackages({ silent: true });
   }
 });
 
 window.addEventListener("focus", () => {
   syncProfileSilently({ force: true });
   loadLeaderboard({ force: true, silent: true });
+  loadDonatePackages({ silent: true });
 });
 
 if (tapBtn) {
@@ -1367,6 +1625,8 @@ if (tabTapEl) tabTapEl.addEventListener("click", () => setActiveTab("tap"));
 if (tabShopEl) tabShopEl.addEventListener("click", () => setActiveTab("shop"));
 if (tabLeaderboardEl) tabLeaderboardEl.addEventListener("click", () => setActiveTab("leaderboard"));
 if (tabProfileEl) tabProfileEl.addEventListener("click", () => setActiveTab("profile"));
+if (leaderboardModeSeasonEl) leaderboardModeSeasonEl.addEventListener("click", () => setLeaderboardMode("season"));
+if (leaderboardModeAllTimeEl) leaderboardModeAllTimeEl.addEventListener("click", () => setLeaderboardMode("alltime"));
 setActiveTab("tap");
 
 if (profileSaveBtnEl) {
@@ -1549,6 +1809,7 @@ setInterval(() => {
   updateDailyStatus();
   tickEnergy();
   updateTapBuffs();
+  renderLeaderboardTools();
   if (boostUntil && Date.now() < boostUntil) renderShop();
   syncProfileSilently();
   if (activeTab === "leaderboard") loadLeaderboard({ silent: true });
