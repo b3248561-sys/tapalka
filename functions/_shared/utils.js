@@ -1792,36 +1792,36 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
     let rarity = "common";
     let multiplier = 1;
     if (item.id === "case_royal") {
-      if (roll < 0.03) {
-        rarity = "mythic";
-        multiplier = 7;
-      } else if (roll < 0.16) {
-        rarity = "epic";
-        multiplier = 3.3;
-      } else if (roll < 0.45) {
-        rarity = "rare";
-        multiplier = 1.9;
-      } else {
-        rarity = "common";
-        multiplier = 1.25;
-      }
-    } else {
       if (roll < 0.02) {
         rarity = "mythic";
-        multiplier = 5.8;
-      } else if (roll < 0.15) {
+        multiplier = 2.6;
+      } else if (roll < 0.14) {
         rarity = "epic";
-        multiplier = 2.7;
+        multiplier = 1.35;
       } else if (roll < 0.5) {
         rarity = "rare";
-        multiplier = 1.75;
+        multiplier = 0.95;
       } else {
         rarity = "common";
-        multiplier = 1.2;
+        multiplier = 0.65;
+      }
+    } else {
+      if (roll < 0.01) {
+        rarity = "mythic";
+        multiplier = 2.2;
+      } else if (roll < 0.11) {
+        rarity = "epic";
+        multiplier = 1.25;
+      } else if (roll < 0.46) {
+        rarity = "rare";
+        multiplier = 0.85;
+      } else {
+        rarity = "common";
+        multiplier = 0.55;
       }
     }
 
-    const nfReward = Math.max(price, Math.round(price * multiplier));
+    const nfReward = Math.max(1, Math.round(price * multiplier));
     user.balance += nfReward;
     user.totalEarned = (user.totalEarned || 0) + nfReward;
     addSeasonPoints(user, nfReward, now);

@@ -75,6 +75,8 @@ const caseAnimStatusEl = document.getElementById("caseAnimStatus");
 const caseSlot1El = document.getElementById("caseSlot1");
 const caseSlot2El = document.getElementById("caseSlot2");
 const caseSlot3El = document.getElementById("caseSlot3");
+const caseAnimConfirmEl = document.getElementById("caseAnimConfirm");
+const caseAnimCloseEl = document.getElementById("caseAnimClose");
 const dailyTitleEl = document.getElementById("dailyTitle");
 const dailySubtitleEl = document.getElementById("dailySubtitle");
 const dailyBtnEl = document.getElementById("dailyBtn");
@@ -138,6 +140,7 @@ let giftsFilter = ["all", "rare", "epic", "mythic"].includes(localStorage.getIte
   : "all";
 let caseAnimationActive = false;
 const CASE_SLOT_POOL = ["🎁", "💎", "👑", "🔥", "⚡", "🍀", "🔮", "🌟", "🧸", "💖", "🐉", "🐋"];
+let caseSpinSession = null;
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura", "theme-void", "theme-aurora"];
@@ -237,17 +240,19 @@ const STRINGS = {
     frame_obsidianName: "Obsidian Frame",
     frame_obsidianDesc: "Dark premium crystal frame",
     case_luckyName: "Lucky Case",
-    case_luckyDesc: "No-loss case with random reward",
+    case_luckyDesc: "Risky case with random reward",
     case_royalName: "Royal Case",
-    case_royalDesc: "High-tier case with rare drops",
+    case_royalDesc: "Premium risky case with rare drops",
     openCase: "Open",
     caseOpened: "{rarity} • +{reward} NF",
     caseOpenedWithItem: "{rarity} • +{reward} NF + {item}",
     caseOpenedWithGift: "{rarity} • +{reward} NF + gift {gift}",
     caseOpenedFull: "{rarity} • +{reward} NF + {item} + gift {gift}",
     caseAnimOpening: "Opening {name}",
+    caseAnimReady: "Press Open to spin",
     caseAnimSpinning: "Slots spinning...",
     caseAnimFailed: "Could not open case",
+    caseAnimClose: "Close",
     rarity_common: "Common",
     rarity_rare: "Rare",
     rarity_epic: "Epic",
@@ -418,17 +423,19 @@ const STRINGS = {
     frame_obsidianName: "Обсидиановая рамка",
     frame_obsidianDesc: "Темная кристальная рамка",
     case_luckyName: "Кейс удачи",
-    case_luckyDesc: "Кейс без проигрыша с рандомной наградой",
+    case_luckyDesc: "Рисковый кейс со случайной наградой",
     case_royalName: "Королевский кейс",
-    case_royalDesc: "Кейс с редкими дропами",
+    case_royalDesc: "Премиум рисковый кейс с редкими дропами",
     openCase: "Открыть",
     caseOpened: "{rarity} • +{reward} NF",
     caseOpenedWithItem: "{rarity} • +{reward} NF + {item}",
     caseOpenedWithGift: "{rarity} • +{reward} NF + подарок {gift}",
     caseOpenedFull: "{rarity} • +{reward} NF + {item} + подарок {gift}",
     caseAnimOpening: "Открываем {name}",
+    caseAnimReady: "Нажми «Открыть», чтобы крутить",
     caseAnimSpinning: "Слоты крутятся...",
     caseAnimFailed: "Не удалось открыть кейс",
+    caseAnimClose: "Закрыть",
     rarity_common: "Обычная",
     rarity_rare: "Редкая",
     rarity_epic: "Эпическая",
@@ -768,6 +775,22 @@ function resolveCaseFinalSymbol(caseReward = {}) {
   return "⭐";
 }
 
+function resolveCaseFinalSymbols(caseReward = {}) {
+  const main = resolveCaseFinalSymbol(caseReward);
+  const pickOther = () => {
+    let value = randomSlotSymbol();
+    if (value === main) {
+      value = CASE_SLOT_POOL.find((candidate) => candidate !== main) || "🎁";
+    }
+    return value;
+  };
+  const rarity = String(caseReward?.rarity || "common").toLowerCase();
+  if (rarity === "mythic") return [main, main, main];
+  if (rarity === "epic") return [main, main, pickOther()];
+  if (rarity === "rare") return [pickOther(), main, main];
+  return [pickOther(), main, pickOther()];
+}
+
 function buildCaseResultMeta(caseReward = {}) {
   const rarityLabel = t(`rarity_${String(caseReward.rarity || "common").toLowerCase()}`);
   const giftLabel = caseReward.gift?.id
@@ -818,40 +841,98 @@ function buildCaseResultMeta(caseReward = {}) {
   };
 }
 
-function startCaseAnimation(caseId) {
-  if (!caseAnimEl || !caseAnimTitleEl || !caseAnimStatusEl) return null;
-  if (!caseSlot1El || !caseSlot2El || !caseSlot3El) return null;
-  if (caseAnimationActive) return null;
+function closeCaseAnimation() {
+  if (caseSpinSession?.intervals?.length) {
+    caseSpinSession.intervals.forEach((id) => clearInterval(id));
+  }
+  caseSpinSession = null;
+  if (caseAnimEl) caseAnimEl.classList.remove("open");
+  if (caseAnimStatusEl) caseAnimStatusEl.classList.remove("error");
+  caseAnimationActive = false;
+}
+
+async function askCaseOpenConfirmation(caseId) {
+  if (!caseAnimEl || !caseAnimTitleEl || !caseAnimStatusEl) return false;
+  if (!caseSlot1El || !caseSlot2El || !caseSlot3El) return false;
+  if (!caseAnimConfirmEl || !caseAnimCloseEl) return false;
+  if (caseAnimationActive) return false;
   caseAnimationActive = true;
   const caseName = t(`${caseId}Name`);
   caseAnimTitleEl.textContent = t("caseAnimOpening", {
     name: caseName === `${caseId}Name` ? caseId : caseName
   });
-  caseAnimStatusEl.textContent = t("caseAnimSpinning");
+  caseAnimStatusEl.textContent = t("caseAnimReady");
+  caseAnimStatusEl.classList.remove("error");
   const slots = [caseSlot1El, caseSlot2El, caseSlot3El];
   slots.forEach((slot) => {
-    slot.classList.add("spinning");
+    slot.classList.remove("spinning", "hit");
     slot.textContent = randomSlotSymbol();
   });
+  caseAnimConfirmEl.textContent = t("openCase");
+  caseAnimCloseEl.textContent = t("caseAnimClose");
+  caseAnimConfirmEl.disabled = false;
+  caseAnimCloseEl.disabled = false;
+  caseAnimConfirmEl.style.display = "";
+  caseAnimCloseEl.style.display = "";
   caseAnimEl.classList.add("open");
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      caseAnimConfirmEl.removeEventListener("click", onConfirm);
+      caseAnimCloseEl.removeEventListener("click", onClose);
+      caseAnimEl.removeEventListener("click", onBackdrop);
+    };
+    const onConfirm = () => {
+      cleanup();
+      resolve(true);
+    };
+    const onClose = () => {
+      cleanup();
+      closeCaseAnimation();
+      resolve(false);
+    };
+    const onBackdrop = (event) => {
+      if (event.target === caseAnimEl) {
+        onClose();
+      }
+    };
+    caseAnimConfirmEl.addEventListener("click", onConfirm);
+    caseAnimCloseEl.addEventListener("click", onClose);
+    caseAnimEl.addEventListener("click", onBackdrop);
+  });
+}
+
+function startCaseSpin() {
+  if (!caseSlot1El || !caseSlot2El || !caseSlot3El) return null;
+  const slots = [caseSlot1El, caseSlot2El, caseSlot3El];
+  if (caseAnimStatusEl) {
+    caseAnimStatusEl.textContent = t("caseAnimSpinning");
+    caseAnimStatusEl.classList.remove("error");
+  }
+  if (caseAnimConfirmEl) caseAnimConfirmEl.style.display = "none";
+  if (caseAnimCloseEl) caseAnimCloseEl.style.display = "none";
+  slots.forEach((slot) => {
+    slot.classList.remove("hit");
+    slot.classList.add("spinning");
+  });
   const intervals = slots.map((slot, index) =>
     setInterval(() => {
       slot.textContent = randomSlotSymbol();
     }, 70 + index * 24)
   );
-  return {
+  caseSpinSession = {
     startedAt: Date.now(),
     slots,
     intervals
   };
+  return caseSpinSession;
 }
 
 async function finishCaseAnimation(
   session,
-  { finalSymbol = "🎁", statusText = "", failed = false } = {}
+  { finalSymbols = ["🎁", "🎁", "🎁"], statusText = "", failed = false } = {}
 ) {
   if (!session) return;
-  const minSpinMs = 1200;
+  const minSpinMs = 1500;
   const elapsed = Date.now() - Number(session.startedAt || Date.now());
   if (elapsed < minSpinMs) {
     await sleep(minSpinMs - elapsed);
@@ -873,22 +954,52 @@ async function finishCaseAnimation(
   if (intervals[2]) clearInterval(intervals[2]);
   if (slot3) {
     slot3.classList.remove("spinning");
-    slot3.textContent = finalSymbol;
+    slot3.textContent = finalSymbols[2] || "🎁";
     slot3.classList.add("hit");
     setTimeout(() => slot3.classList.remove("hit"), 520);
   }
+  if (slot1) slot1.textContent = finalSymbols[0] || slot1.textContent;
+  if (slot2) slot2.textContent = finalSymbols[1] || slot2.textContent;
   if (caseAnimStatusEl) {
     caseAnimStatusEl.textContent = statusText;
     caseAnimStatusEl.classList.toggle("error", Boolean(failed));
   }
-  await sleep(950);
-  if (caseAnimEl) {
-    caseAnimEl.classList.remove("open");
+  if (caseAnimCloseEl) {
+    caseAnimCloseEl.textContent = t("caseAnimClose");
+    caseAnimCloseEl.disabled = false;
+    caseAnimCloseEl.style.display = "";
   }
-  if (caseAnimStatusEl) {
-    caseAnimStatusEl.classList.remove("error");
+  await Promise.race([
+    new Promise((resolve) => {
+      if (!caseAnimCloseEl) {
+        resolve();
+        return;
+      }
+      const onClose = () => {
+        caseAnimCloseEl.removeEventListener("click", onClose);
+        resolve();
+      };
+      caseAnimCloseEl.addEventListener("click", onClose);
+    }),
+    sleep(3200)
+  ]);
+  closeCaseAnimation();
+}
+
+function failCaseAnimationPreview(text = "") {
+  if (!caseAnimStatusEl) return;
+  caseAnimStatusEl.textContent = text || t("caseAnimFailed");
+  caseAnimStatusEl.classList.add("error");
+  if (caseAnimCloseEl) {
+    caseAnimCloseEl.textContent = t("caseAnimClose");
+    caseAnimCloseEl.style.display = "";
+    caseAnimCloseEl.disabled = false;
+    const onClose = () => {
+      caseAnimCloseEl.removeEventListener("click", onClose);
+      closeCaseAnimation();
+    };
+    caseAnimCloseEl.addEventListener("click", onClose);
   }
-  caseAnimationActive = false;
 }
 
 function setUserModalOpen(open) {
@@ -1035,6 +1146,8 @@ function applyTexts() {
   if (tabLeaderboardEl) tabLeaderboardEl.textContent = t("tabLeaderboard");
   if (tabProfileEl) tabProfileEl.textContent = t("tabProfile");
   if (tabGiftsEl) tabGiftsEl.textContent = t("tabGifts");
+  if (caseAnimConfirmEl) caseAnimConfirmEl.textContent = t("openCase");
+  if (caseAnimCloseEl) caseAnimCloseEl.textContent = t("caseAnimClose");
   if (giftsFilterAllEl) giftsFilterAllEl.textContent = t("giftsFilterAll");
   if (giftsFilterRareEl) giftsFilterRareEl.textContent = t("giftsFilterRare");
   if (giftsFilterEpicEl) giftsFilterEpicEl.textContent = t("giftsFilterEpic");
@@ -1453,6 +1566,7 @@ function updateDailyStatus() {
 function setActiveTab(tab) {
   activeTab = tab;
   setUserModalOpen(false);
+  if (caseAnimationActive) closeCaseAnimation();
   if (screenTapEl) screenTapEl.classList.toggle("active", tab === "tap");
   if (screenShopEl) screenShopEl.classList.toggle("active", tab === "shop");
   if (screenLeaderboardEl) screenLeaderboardEl.classList.toggle("active", tab === "leaderboard");
@@ -1580,8 +1694,13 @@ function renderShop() {
       btn.addEventListener("click", async () => {
         btn.disabled = true;
         const isCasePurchase = item.type === "case";
-        const caseSession = isCasePurchase ? startCaseAnimation(item.id) : null;
+        let caseSession = null;
         try {
+          if (isCasePurchase) {
+            const confirmed = await askCaseOpenConfirmation(item.id);
+            if (!confirmed) return;
+            caseSession = startCaseSpin();
+          }
           const data = await apiRequest("/api/buy", {
             method: "POST",
             body: JSON.stringify({ itemId: item.id })
@@ -1589,10 +1708,12 @@ function renderShop() {
           if (!data.ok) {
             if (caseSession) {
               await finishCaseAnimation(caseSession, {
-                finalSymbol: "❌",
+                finalSymbols: ["❌", "❌", "❌"],
                 statusText: t("caseAnimFailed"),
                 failed: true
               });
+            } else if (isCasePurchase) {
+              failCaseAnimationPreview(t("caseAnimFailed"));
             }
             if (["auth_required", "initData missing", "initData invalid", "user missing"].includes(data.error)) {
               setMeta("authError");
@@ -1606,7 +1727,7 @@ function renderShop() {
           const caseMeta = data.caseReward ? buildCaseResultMeta(data.caseReward) : null;
           if (caseSession) {
             await finishCaseAnimation(caseSession, {
-              finalSymbol: resolveCaseFinalSymbol(data.caseReward),
+              finalSymbols: resolveCaseFinalSymbols(data.caseReward),
               statusText: caseMeta ? t(caseMeta.key, caseMeta.vars) : t("caseAnimFailed"),
               failed: !caseMeta
             });
@@ -1630,10 +1751,12 @@ function renderShop() {
         } catch {
           if (caseSession) {
             await finishCaseAnimation(caseSession, {
-              finalSymbol: "❌",
+              finalSymbols: ["❌", "❌", "❌"],
               statusText: t("caseAnimFailed"),
               failed: true
             });
+          } else if (isCasePurchase) {
+            failCaseAnimationPreview(t("caseAnimFailed"));
           }
           setMeta("network");
         } finally {
@@ -2184,7 +2307,9 @@ document.addEventListener("click", (event) => {
   if (langToggle) langToggle.setAttribute("aria-expanded", "false");
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") setUserModalOpen(false);
+  if (event.key !== "Escape") return;
+  setUserModalOpen(false);
+  if (caseAnimationActive) closeCaseAnimation();
 });
 
 if (dailyBtnEl) {

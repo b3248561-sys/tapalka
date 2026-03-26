@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260326-9" />
+    <link rel="stylesheet" href="style.css?v=20260326-10" />
   </head>
   <body>
     <div class="bg">
@@ -184,6 +184,10 @@
           <div class="case-slot" id="caseSlot3">🎁</div>
         </div>
         <div class="case-anim-status" id="caseAnimStatus"></div>
+        <div class="case-anim-actions">
+          <button class="case-anim-btn primary" id="caseAnimConfirm" type="button">Open</button>
+          <button class="case-anim-btn ghost" id="caseAnimClose" type="button">Close</button>
+        </div>
       </div>
     </div>
 
@@ -191,7 +195,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260326-9";
+        script.src = "app.js?v=20260326-10";
         document.body.appendChild(script);
       })();
     </script>
