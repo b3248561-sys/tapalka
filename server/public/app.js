@@ -69,6 +69,12 @@ const userModalEl = document.getElementById("userModal");
 const userModalCloseEl = document.getElementById("userModalClose");
 const userModalTitleEl = document.getElementById("userModalTitle");
 const userModalBodyEl = document.getElementById("userModalBody");
+const caseAnimEl = document.getElementById("caseAnim");
+const caseAnimTitleEl = document.getElementById("caseAnimTitle");
+const caseAnimStatusEl = document.getElementById("caseAnimStatus");
+const caseSlot1El = document.getElementById("caseSlot1");
+const caseSlot2El = document.getElementById("caseSlot2");
+const caseSlot3El = document.getElementById("caseSlot3");
 const dailyTitleEl = document.getElementById("dailyTitle");
 const dailySubtitleEl = document.getElementById("dailySubtitle");
 const dailyBtnEl = document.getElementById("dailyBtn");
@@ -130,6 +136,8 @@ const REFERRAL_BONUS_FRIEND = 2200;
 let giftsFilter = ["all", "rare", "epic", "mythic"].includes(localStorage.getItem("giftsFilter"))
   ? localStorage.getItem("giftsFilter")
   : "all";
+let caseAnimationActive = false;
+const CASE_SLOT_POOL = ["🎁", "💎", "👑", "🔥", "⚡", "🍀", "🔮", "🌟", "🧸", "💖", "🐉", "🐋"];
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura", "theme-void", "theme-aurora"];
@@ -237,6 +245,9 @@ const STRINGS = {
     caseOpenedWithItem: "{rarity} • +{reward} NF + {item}",
     caseOpenedWithGift: "{rarity} • +{reward} NF + gift {gift}",
     caseOpenedFull: "{rarity} • +{reward} NF + {item} + gift {gift}",
+    caseAnimOpening: "Opening {name}",
+    caseAnimSpinning: "Slots spinning...",
+    caseAnimFailed: "Could not open case",
     rarity_common: "Common",
     rarity_rare: "Rare",
     rarity_epic: "Epic",
@@ -415,6 +426,9 @@ const STRINGS = {
     caseOpenedWithItem: "{rarity} • +{reward} NF + {item}",
     caseOpenedWithGift: "{rarity} • +{reward} NF + подарок {gift}",
     caseOpenedFull: "{rarity} • +{reward} NF + {item} + подарок {gift}",
+    caseAnimOpening: "Открываем {name}",
+    caseAnimSpinning: "Слоты крутятся...",
+    caseAnimFailed: "Не удалось открыть кейс",
     rarity_common: "Обычная",
     rarity_rare: "Редкая",
     rarity_epic: "Эпическая",
@@ -733,6 +747,148 @@ function setGiftsFilter(nextFilter) {
   localStorage.setItem("giftsFilter", giftsFilter);
   updateGiftsFilterButtons();
   renderGiftCollection(profileUser?.gifts || []);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function randomSlotSymbol() {
+  return CASE_SLOT_POOL[Math.floor(Math.random() * CASE_SLOT_POOL.length)] || "🎁";
+}
+
+function resolveCaseFinalSymbol(caseReward = {}) {
+  if (caseReward?.gift?.emoji) return caseReward.gift.emoji;
+  if (caseReward?.unlockedItem?.type === "frame") return "🖼️";
+  if (caseReward?.unlockedItem?.type === "cosmetic") return "✨";
+  const rarity = String(caseReward?.rarity || "common").toLowerCase();
+  if (rarity === "mythic") return "🌈";
+  if (rarity === "epic") return "💜";
+  if (rarity === "rare") return "💙";
+  return "⭐";
+}
+
+function buildCaseResultMeta(caseReward = {}) {
+  const rarityLabel = t(`rarity_${String(caseReward.rarity || "common").toLowerCase()}`);
+  const giftLabel = caseReward.gift?.id
+    ? `${caseReward.gift.emoji || "🎁"} ${
+        STRINGS[currentLang]?.[`${caseReward.gift.id}Name`] ||
+        STRINGS.en?.[`${caseReward.gift.id}Name`] ||
+        caseReward.gift.id
+      }`
+    : "";
+  if (caseReward.unlockedItem?.id) {
+    const itemTitle = t(`${caseReward.unlockedItem.id}Name`);
+    if (giftLabel) {
+      return {
+        key: "caseOpenedFull",
+        vars: {
+          rarity: rarityLabel,
+          reward: formatNumberDots(caseReward.nfReward || 0),
+          item: itemTitle,
+          gift: giftLabel
+        }
+      };
+    }
+    return {
+      key: "caseOpenedWithItem",
+      vars: {
+        rarity: rarityLabel,
+        reward: formatNumberDots(caseReward.nfReward || 0),
+        item: itemTitle
+      }
+    };
+  }
+  if (giftLabel) {
+    return {
+      key: "caseOpenedWithGift",
+      vars: {
+        rarity: rarityLabel,
+        reward: formatNumberDots(caseReward.nfReward || 0),
+        gift: giftLabel
+      }
+    };
+  }
+  return {
+    key: "caseOpened",
+    vars: {
+      rarity: rarityLabel,
+      reward: formatNumberDots(caseReward.nfReward || 0)
+    }
+  };
+}
+
+function startCaseAnimation(caseId) {
+  if (!caseAnimEl || !caseAnimTitleEl || !caseAnimStatusEl) return null;
+  if (!caseSlot1El || !caseSlot2El || !caseSlot3El) return null;
+  if (caseAnimationActive) return null;
+  caseAnimationActive = true;
+  const caseName = t(`${caseId}Name`);
+  caseAnimTitleEl.textContent = t("caseAnimOpening", {
+    name: caseName === `${caseId}Name` ? caseId : caseName
+  });
+  caseAnimStatusEl.textContent = t("caseAnimSpinning");
+  const slots = [caseSlot1El, caseSlot2El, caseSlot3El];
+  slots.forEach((slot) => {
+    slot.classList.add("spinning");
+    slot.textContent = randomSlotSymbol();
+  });
+  caseAnimEl.classList.add("open");
+  const intervals = slots.map((slot, index) =>
+    setInterval(() => {
+      slot.textContent = randomSlotSymbol();
+    }, 70 + index * 24)
+  );
+  return {
+    startedAt: Date.now(),
+    slots,
+    intervals
+  };
+}
+
+async function finishCaseAnimation(
+  session,
+  { finalSymbol = "🎁", statusText = "", failed = false } = {}
+) {
+  if (!session) return;
+  const minSpinMs = 1200;
+  const elapsed = Date.now() - Number(session.startedAt || Date.now());
+  if (elapsed < minSpinMs) {
+    await sleep(minSpinMs - elapsed);
+  }
+  const [slot1, slot2, slot3] = session.slots || [];
+  const intervals = session.intervals || [];
+  if (intervals[0]) clearInterval(intervals[0]);
+  if (slot1) {
+    slot1.classList.remove("spinning");
+    slot1.textContent = randomSlotSymbol();
+  }
+  await sleep(150);
+  if (intervals[1]) clearInterval(intervals[1]);
+  if (slot2) {
+    slot2.classList.remove("spinning");
+    slot2.textContent = randomSlotSymbol();
+  }
+  await sleep(180);
+  if (intervals[2]) clearInterval(intervals[2]);
+  if (slot3) {
+    slot3.classList.remove("spinning");
+    slot3.textContent = finalSymbol;
+    slot3.classList.add("hit");
+    setTimeout(() => slot3.classList.remove("hit"), 520);
+  }
+  if (caseAnimStatusEl) {
+    caseAnimStatusEl.textContent = statusText;
+    caseAnimStatusEl.classList.toggle("error", Boolean(failed));
+  }
+  await sleep(950);
+  if (caseAnimEl) {
+    caseAnimEl.classList.remove("open");
+  }
+  if (caseAnimStatusEl) {
+    caseAnimStatusEl.classList.remove("error");
+  }
+  caseAnimationActive = false;
 }
 
 function setUserModalOpen(open) {
@@ -1423,12 +1579,21 @@ function renderShop() {
 
       btn.addEventListener("click", async () => {
         btn.disabled = true;
+        const isCasePurchase = item.type === "case";
+        const caseSession = isCasePurchase ? startCaseAnimation(item.id) : null;
         try {
           const data = await apiRequest("/api/buy", {
             method: "POST",
             body: JSON.stringify({ itemId: item.id })
           });
           if (!data.ok) {
+            if (caseSession) {
+              await finishCaseAnimation(caseSession, {
+                finalSymbol: "❌",
+                statusText: t("caseAnimFailed"),
+                failed: true
+              });
+            }
             if (["auth_required", "initData missing", "initData invalid", "user missing"].includes(data.error)) {
               setMeta("authError");
             } else if (data.error === "cosmetic_already_equipped" || data.error === "frame_already_equipped") {
@@ -1437,6 +1602,14 @@ function renderShop() {
               setMetaText(data.error || t("tryAgain"));
             }
             return;
+          }
+          const caseMeta = data.caseReward ? buildCaseResultMeta(data.caseReward) : null;
+          if (caseSession) {
+            await finishCaseAnimation(caseSession, {
+              finalSymbol: resolveCaseFinalSymbol(data.caseReward),
+              statusText: caseMeta ? t(caseMeta.key, caseMeta.vars) : t("caseAnimFailed"),
+              failed: !caseMeta
+            });
           }
           updateBalance(data.balance);
           updateTapValue(data.tapValue);
@@ -1450,46 +1623,18 @@ function renderShop() {
           }
           await loadShop();
           syncProfileSilently({ force: true });
-          if (data.caseReward) {
-            const rarityLabel = t(`rarity_${String(data.caseReward.rarity || "common").toLowerCase()}`);
-            const giftLabel = data.caseReward.gift?.id
-              ? `${data.caseReward.gift.emoji || "🎁"} ${
-                  STRINGS[currentLang]?.[`${data.caseReward.gift.id}Name`] ||
-                  STRINGS.en?.[`${data.caseReward.gift.id}Name`] ||
-                  data.caseReward.gift.id
-                }`
-              : "";
-            if (data.caseReward.unlockedItem?.id) {
-              const itemTitle = t(`${data.caseReward.unlockedItem.id}Name`);
-              if (giftLabel) {
-                setMeta("caseOpenedFull", {
-                  rarity: rarityLabel,
-                  reward: formatNumberDots(data.caseReward.nfReward || 0),
-                  item: itemTitle,
-                  gift: giftLabel
-                });
-              } else {
-                setMeta("caseOpenedWithItem", {
-                  rarity: rarityLabel,
-                  reward: formatNumberDots(data.caseReward.nfReward || 0),
-                  item: itemTitle
-                });
-              }
-            } else if (giftLabel) {
-              setMeta("caseOpenedWithGift", {
-                rarity: rarityLabel,
-                reward: formatNumberDots(data.caseReward.nfReward || 0),
-                gift: giftLabel
-              });
-            } else {
-              setMeta("caseOpened", {
-                rarity: rarityLabel,
-                reward: formatNumberDots(data.caseReward.nfReward || 0)
-              });
-            }
+          if (caseMeta) {
+            setMeta(caseMeta.key, caseMeta.vars);
           }
           if (activeTab === "leaderboard") loadLeaderboard({ force: true, silent: true });
         } catch {
+          if (caseSession) {
+            await finishCaseAnimation(caseSession, {
+              finalSymbol: "❌",
+              statusText: t("caseAnimFailed"),
+              failed: true
+            });
+          }
           setMeta("network");
         } finally {
           btn.disabled = false;
