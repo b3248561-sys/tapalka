@@ -33,8 +33,11 @@ const profileTitleEl = document.getElementById("profileTitle");
 const profileSubtitleEl = document.getElementById("profileSubtitle");
 const profileNicknameLabelEl = document.getElementById("profileNicknameLabel");
 const profileAvatarLabelEl = document.getElementById("profileAvatarLabel");
+const profileAvatarFileLabelEl = document.getElementById("profileAvatarFileLabel");
 const profileNicknameEl = document.getElementById("profileNickname");
 const profileAvatarUrlEl = document.getElementById("profileAvatarUrl");
+const profileAvatarFileEl = document.getElementById("profileAvatarFile");
+const profileAvatarHintEl = document.getElementById("profileAvatarHint");
 const profileSaveBtnEl = document.getElementById("profileSaveBtn");
 const profileResetBtnEl = document.getElementById("profileResetBtn");
 const profileStatusEl = document.getElementById("profileStatus");
@@ -87,6 +90,7 @@ let energyRegen = 1;
 let energySyncedAt = Date.now();
 let lastTapPoint = null;
 let profileUser = null;
+let profileAvatarFileData = "";
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura"];
@@ -170,8 +174,10 @@ const STRINGS = {
     profileSubtitle: "Set your in-game nickname and avatar",
     profileNicknameLabel: "Nickname",
     profileAvatarLabel: "Avatar URL",
+    profileAvatarFileLabel: "Upload from device",
     profileNicknamePlaceholder: "Your nickname",
     profileAvatarPlaceholder: "https://...",
+    profileAvatarHint: "You can upload from phone or use URL above.",
     profileSave: "Save",
     profileReset: "Reset",
     profileSaved: "Profile updated",
@@ -179,6 +185,10 @@ const STRINGS = {
     profileNoChanges: "No changes",
     profileNickInvalid: "Nickname must be 2-24 chars",
     profileAvatarInvalid: "Invalid avatar URL",
+    profileAvatarFileError: "Could not process image",
+    profileAvatarTooLarge: "Image is too large, try another one",
+    profileAvatarReady: "Image selected from device",
+    profileAvatarProcessing: "Processing image...",
     profileSaveError: "Could not save profile",
     player: "Player: {name}",
     niceTap: "Nice tap",
@@ -267,8 +277,10 @@ const STRINGS = {
     profileSubtitle: "Настрой ник и аватар в игре",
     profileNicknameLabel: "Ник",
     profileAvatarLabel: "Ссылка на аватар",
+    profileAvatarFileLabel: "Загрузить с устройства",
     profileNicknamePlaceholder: "Твой ник",
     profileAvatarPlaceholder: "https://...",
+    profileAvatarHint: "Можно загрузить фото с телефона или вставить ссылку выше.",
     profileSave: "Сохранить",
     profileReset: "Сбросить",
     profileSaved: "Профиль обновлен",
@@ -276,6 +288,10 @@ const STRINGS = {
     profileNoChanges: "Изменений нет",
     profileNickInvalid: "Ник должен быть 2-24 символа",
     profileAvatarInvalid: "Неверная ссылка аватара",
+    profileAvatarFileError: "Не удалось обработать изображение",
+    profileAvatarTooLarge: "Картинка слишком большая, выбери другую",
+    profileAvatarReady: "Фото выбрано с устройства",
+    profileAvatarProcessing: "Обрабатываю изображение...",
     profileSaveError: "Не удалось сохранить профиль",
     player: "Игрок: {name}",
     niceTap: "Хороший тап",
@@ -401,8 +417,10 @@ function applyTexts() {
   if (profileSubtitleEl) profileSubtitleEl.textContent = t("profileSubtitle");
   if (profileNicknameLabelEl) profileNicknameLabelEl.textContent = t("profileNicknameLabel");
   if (profileAvatarLabelEl) profileAvatarLabelEl.textContent = t("profileAvatarLabel");
+  if (profileAvatarFileLabelEl) profileAvatarFileLabelEl.textContent = t("profileAvatarFileLabel");
   if (profileNicknameEl) profileNicknameEl.placeholder = t("profileNicknamePlaceholder");
   if (profileAvatarUrlEl) profileAvatarUrlEl.placeholder = t("profileAvatarPlaceholder");
+  if (profileAvatarHintEl) profileAvatarHintEl.textContent = t("profileAvatarHint");
   if (profileSaveBtnEl) profileSaveBtnEl.textContent = t("profileSave");
   if (profileResetBtnEl) profileResetBtnEl.textContent = t("profileReset");
   if (tabTapEl) tabTapEl.textContent = t("tabTap");
@@ -541,6 +559,87 @@ function setProfileStatus(keyOrText, isError = false) {
   profileStatusEl.classList.toggle("error", isError);
 }
 
+function clearProfileAvatarFileSelection() {
+  profileAvatarFileData = "";
+  if (profileAvatarFileEl) profileAvatarFileEl.value = "";
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageFromDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("decode_failed"));
+    img.src = dataUrl;
+  });
+}
+
+async function compressAvatarFile(file) {
+  if (!file || !String(file.type || "").startsWith("image/")) {
+    throw new Error("avatar_invalid");
+  }
+  const originalData = await fileToDataUrl(file);
+  if (originalData.length <= 160000) return originalData;
+
+  const image = await loadImageFromDataUrl(originalData);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { alpha: false });
+  if (!ctx) throw new Error("avatar_invalid");
+
+  const maxSides = [320, 280, 240, 200, 160];
+  const qualities = [0.9, 0.82, 0.75, 0.68, 0.6, 0.52];
+  for (const maxSide of maxSides) {
+    const ratio = Math.min(1, maxSide / Math.max(image.width, image.height));
+    const width = Math.max(1, Math.round(image.width * ratio));
+    const height = Math.max(1, Math.round(image.height * ratio));
+    canvas.width = width;
+    canvas.height = height;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(image, 0, 0, width, height);
+    for (const quality of qualities) {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      if (dataUrl.length <= 160000) return dataUrl;
+    }
+  }
+  throw new Error("avatar_too_large");
+}
+
+async function handleProfileAvatarFileChange(event) {
+  const file = event?.target?.files?.[0];
+  if (!file) {
+    clearProfileAvatarFileSelection();
+    return;
+  }
+  setProfileStatus("profileAvatarProcessing");
+  try {
+    const compressed = await compressAvatarFile(file);
+    profileAvatarFileData = compressed;
+    const preview = {
+      ...(profileUser || {}),
+      name: String(profileNicknameEl?.value || "").trim() || profileUser?.name || "Player",
+      avatarUrl: compressed
+    };
+    setProfilePreviewAvatar(preview);
+    setProfileStatus("profileAvatarReady");
+  } catch (error) {
+    clearProfileAvatarFileSelection();
+    if (String(error?.message || "").includes("too_large")) {
+      setProfileStatus("profileAvatarTooLarge", true);
+    } else {
+      setProfileStatus("profileAvatarFileError", true);
+    }
+  }
+}
+
 function setProfilePreviewAvatar(user) {
   if (!profileAvatarPreviewEl) return;
   const nameBase = user?.name || user?.username || "P";
@@ -571,7 +670,11 @@ function renderProfilePanel(user, { refillInputs = false } = {}) {
   setProfilePreviewAvatar(user);
   if (refillInputs) {
     if (profileNicknameEl) profileNicknameEl.value = user.name || "";
-    if (profileAvatarUrlEl) profileAvatarUrlEl.value = user.avatarCustomized ? (user.avatarUrl || "") : "";
+    if (profileAvatarUrlEl) {
+      const value = user.avatarCustomized ? String(user.avatarUrl || "") : "";
+      profileAvatarUrlEl.value = value.startsWith("data:image/") ? "" : value;
+    }
+    clearProfileAvatarFileSelection();
   }
 }
 
@@ -968,7 +1071,8 @@ async function loadLeaderboard({ force = false, silent = false } = {}) {
 async function saveProfileChanges({ reset = false } = {}) {
   if (!profileSaveBtnEl || !profileResetBtnEl) return;
   const nickname = String(profileNicknameEl?.value || "").trim();
-  const avatarUrl = String(profileAvatarUrlEl?.value || "").trim();
+  const avatarUrlInput = String(profileAvatarUrlEl?.value || "").trim();
+  const avatarUrl = profileAvatarFileData || avatarUrlInput;
 
   if (!reset && (!nickname || nickname.length < 2 || nickname.length > 24)) {
     setProfileStatus("profileNickInvalid", true);
@@ -1005,6 +1109,7 @@ async function saveProfileChanges({ reset = false } = {}) {
     if (activeTab === "leaderboard") {
       loadLeaderboard({ force: true, silent: true });
     }
+    clearProfileAvatarFileSelection();
     setProfileStatus(reset ? "profileResetDone" : "profileSaved");
   } catch {
     setProfileStatus("profileSaveError", true);
@@ -1153,6 +1258,19 @@ if (profileSaveBtnEl) {
 }
 if (profileResetBtnEl) {
   profileResetBtnEl.addEventListener("click", () => saveProfileChanges({ reset: true }));
+}
+if (profileAvatarFileEl) {
+  profileAvatarFileEl.addEventListener("change", handleProfileAvatarFileChange);
+}
+if (profileNicknameEl) {
+  profileNicknameEl.addEventListener("input", () => {
+    const candidateName = String(profileNicknameEl.value || "").trim();
+    if (profileNamePreviewEl && candidateName) profileNamePreviewEl.textContent = candidateName;
+    if (profileAvatarPreviewEl && profileAvatarPreviewEl.classList.contains("fallback")) {
+      const initial = candidateName.charAt(0).toUpperCase() || "P";
+      profileAvatarPreviewEl.textContent = initial;
+    }
+  });
 }
 
 document.addEventListener("click", (event) => {

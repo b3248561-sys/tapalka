@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260326-1" />
+    <link rel="stylesheet" href="style.css?v=20260326-2" />
   </head>
   <body>
     <div class="bg">
@@ -104,6 +104,9 @@
               <input id="profileNickname" class="profile-input" type="text" maxlength="24" placeholder="Your nickname" />
               <label class="profile-label" for="profileAvatarUrl" id="profileAvatarLabel">Avatar URL</label>
               <input id="profileAvatarUrl" class="profile-input" type="url" placeholder="https://..." />
+              <label class="profile-label" for="profileAvatarFile" id="profileAvatarFileLabel">Upload from device</label>
+              <input id="profileAvatarFile" class="profile-file-input" type="file" accept="image/*" />
+              <div class="profile-hint" id="profileAvatarHint">You can upload from phone or use URL above.</div>
             </div>
             <div class="profile-actions">
               <button id="profileSaveBtn" class="profile-btn primary">Save</button>
@@ -126,7 +129,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260326-1";
+        script.src = "app.js?v=20260326-2";
         document.body.appendChild(script);
       })();
     </script>

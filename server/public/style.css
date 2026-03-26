@@ -966,6 +966,31 @@ body {
   background: #fffdf8;
 }
 
+.profile-file-input {
+  border: 1px dashed rgba(43, 145, 255, 0.45);
+  border-radius: 12px;
+  padding: 9px 10px;
+  font-size: 13px;
+  color: #1f3f73;
+  background: rgba(43, 145, 255, 0.08);
+}
+
+.profile-file-input::file-selector-button {
+  margin-right: 10px;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2b91ff, #1f6fd1);
+  color: #fff;
+  cursor: pointer;
+}
+
+.profile-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .profile-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
