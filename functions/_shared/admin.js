@@ -2,6 +2,7 @@ const textEncoder = new TextEncoder();
 
 const DEVICES_KEY = "admin:devices";
 const DEVICE_KEY_PREFIX = "admin:device:";
+const ANTICHEAT_KEY_PREFIX = "anticheat:";
 
 function bytesToBase64(bytes) {
   let binary = "";
@@ -265,6 +266,43 @@ function getCountry(request) {
     getHeader(request, "cf-ipcountry") ||
     ""
   );
+}
+
+export async function reportAntiCheat(env, request, user, report = {}) {
+  if (!env?.KV || !report || typeof report !== "object") return;
+  const ts = new Date().toISOString();
+  const ip = getClientIp(request);
+  const ua = request.headers.get("User-Agent") || "";
+  const country = getCountry(request);
+  const ipHash = ip ? await sha256Hex(ip) : "";
+  const uaHash = ua ? await sha256Hex(ua) : "";
+  const path = new URL(request.url).pathname;
+
+  const entry = {
+    id: `ac_${randomHex(6)}`,
+    ts,
+    level: String(report.level || "warn"),
+    reason: String(report.reason || "suspicious_pattern"),
+    score: Number(report.score || 0),
+    intervalMs: Number(report.intervalMs || 0),
+    stableCount: Number(report.stableCount || 0),
+    burstCount: Number(report.burstCount || 0),
+    count: Number(report.count || 1),
+    blockedUntil: Number(report.blockedUntil || 0),
+    userId: user?.id ? String(user.id) : "",
+    userName: user?.name || "",
+    userUsername: user?.username || "",
+    path,
+    country,
+    ipHash,
+    uaHash
+  };
+
+  const ttlDays = Number(env.ANTICHEAT_TTL_DAYS || 30);
+  const key = `${ANTICHEAT_KEY_PREFIX}${ts}:${randomHex(4)}`;
+  await env.KV.put(key, JSON.stringify(entry), {
+    expirationTtl: ttlDays * 86400
+  });
 }
 
 export async function logEvent(env, request, user, action, extra = {}, opts = {}) {

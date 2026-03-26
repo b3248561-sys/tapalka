@@ -108,9 +108,31 @@
         <button id="adminShowInLeaderboard" class="ghost">Вернуть в рейтинг</button>
         <button id="adminResetDaily" class="ghost">Сбросить день</button>
         <button id="adminClearBoost" class="ghost">Сбросить буст</button>
+        <button id="adminLoadAnticheat" class="ghost">Жалобы античита</button>
       </div>
       <div id="adminStatus" class="muted"></div>
       <div id="adminUserCard" class="admin-card muted">Пользователь не загружен.</div>
+      <div class="admin-complaints">
+        <h3>Жалобы античита</h3>
+        <div id="anticheatStatus" class="muted">Нажми кнопку «Жалобы античита» для загрузки.</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Время</th>
+                <th>User ID</th>
+                <th>Ник</th>
+                <th>Причина</th>
+                <th>Уровень</th>
+                <th>Счёт</th>
+                <th>Серия</th>
+                <th>Интервал</th>
+              </tr>
+            </thead>
+            <tbody id="anticheatBody"></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <script src="./build-meta.js"></script>

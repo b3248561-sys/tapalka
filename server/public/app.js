@@ -222,7 +222,8 @@ const STRINGS = {
     failedLoad: "Failed to load",
     tryAgain: "Try again",
     network: "Network error",
-    rateLimited: "Too fast. Slow down."
+    rateLimited: "Too fast. Slow down.",
+    antiCheatBlocked: "Autoclick blocked. Wait {time}"
   },
   ru: {
     title: "Tapalka",
@@ -334,7 +335,8 @@ const STRINGS = {
     failedLoad: "Не удалось загрузить",
     tryAgain: "Попробуй еще",
     network: "Ошибка сети",
-    rateLimited: "Слишком быстро. Помедленнее."
+    rateLimited: "Слишком быстро. Помедленнее.",
+    antiCheatBlocked: "Античит: автоклик. Подожди {time}"
   }
 };
 
@@ -400,7 +402,10 @@ function setMeta(key, vars = {}) {
   metaState = { key, vars };
   if (!metaEl) return;
   metaEl.textContent = t(key, vars);
-  metaEl.classList.toggle("error", key === "energyEmpty" || key === "authError");
+  metaEl.classList.toggle(
+    "error",
+    key === "energyEmpty" || key === "authError" || key === "antiCheatBlocked"
+  );
 }
 
 function setMetaText(text) {
@@ -1448,6 +1453,12 @@ async function sendTap(count = 1, point = null) {
     if (!data.ok) {
       if (data.error === "rate_limited") {
         setMeta("rateLimited");
+      } else if (data.error === "anticheat_blocked") {
+        const remainMs = Math.max(
+          1000,
+          Number(data.blockedUntil || 0) - Date.now()
+        );
+        setMeta("antiCheatBlocked", { time: formatTime(remainMs) });
       } else if (data.error === "no_energy") {
         setMeta("energyEmpty");
       } else if (["auth_required", "initData missing", "initData invalid", "user missing"].includes(data.error)) {

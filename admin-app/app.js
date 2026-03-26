@@ -32,8 +32,11 @@ const elements = {
   adminShowInLeaderboard: document.getElementById("adminShowInLeaderboard"),
   adminResetDaily: document.getElementById("adminResetDaily"),
   adminClearBoost: document.getElementById("adminClearBoost"),
+  adminLoadAnticheat: document.getElementById("adminLoadAnticheat"),
   adminStatus: document.getElementById("adminStatus"),
   adminUserCard: document.getElementById("adminUserCard"),
+  anticheatStatus: document.getElementById("anticheatStatus"),
+  anticheatBody: document.getElementById("anticheatBody"),
   buildVersion: document.getElementById("buildVersion")
 };
 
@@ -924,6 +927,87 @@ async function mergeDemoUsers() {
   );
 }
 
+function normalizeReason(reason) {
+  const text = String(reason || "").trim();
+  if (!text) return "-";
+  return text.replaceAll("_", " ");
+}
+
+function renderAnticheatRows(complaints) {
+  const rows = Array.isArray(complaints) ? complaints : [];
+  if (!rows.length) {
+    elements.anticheatBody.innerHTML = `
+      <tr>
+        <td colspan="8">Жалоб нет.</td>
+      </tr>
+    `;
+    return;
+  }
+  elements.anticheatBody.innerHTML = rows
+    .map((item) => {
+      const userId = escapeHtml(item.userId || "-");
+      const nick = escapeHtml(
+        item.userUsername ? `@${item.userUsername}` : item.userName || "-"
+      );
+      const reason = escapeHtml(normalizeReason(item.reason));
+      const level = escapeHtml(item.level || "-");
+      const score = escapeHtml(formatMaybeNumber(item.score || 0));
+      const burst = escapeHtml(formatMaybeNumber(item.burstCount || 0));
+      const interval = escapeHtml(`${formatMaybeNumber(item.intervalMs || 0)} мс`);
+      const ts = escapeHtml(formatTs(item.ts));
+      return `
+        <tr>
+          <td>${ts}</td>
+          <td>${userId}</td>
+          <td>${nick}</td>
+          <td>${reason}</td>
+          <td>${level}</td>
+          <td>${score}</td>
+          <td>${burst}</td>
+          <td>${interval}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+async function loadAnticheatComplaints() {
+  if (!elements.anticheatStatus || !elements.anticheatBody) return;
+  const userId = elements.adminUserId.value.trim();
+  setStatus(elements.anticheatStatus, "Загружаю жалобы античита...");
+  let cursor;
+  const complaints = [];
+  while (true) {
+    const query = new URLSearchParams({ limit: "120" });
+    if (userId) query.set("userId", userId);
+    if (cursor) query.set("cursor", cursor);
+    const endpoint = `/api/admin/anticheat?${query.toString()}`;
+    const data = await adminFetch(endpoint, {}, { statusEl: elements.anticheatStatus });
+    if (!data) return;
+    if (!data.ok) {
+      setStatus(elements.anticheatStatus, formatApiError(endpoint, data), true);
+      return;
+    }
+    complaints.push(...(Array.isArray(data.complaints) ? data.complaints : []));
+    cursor = data.cursor;
+    if (!cursor) {
+      const store = data.store || "unknown";
+      updateDiagnostics({
+        endpoint,
+        errorCode: "-",
+        store,
+        serverUrl: getServerUrl()
+      });
+      break;
+    }
+  }
+  renderAnticheatRows(complaints);
+  setStatus(
+    elements.anticheatStatus,
+    `Жалобы загружены • записей=${complaints.length}${userId ? ` • userId=${userId}` : ""}`
+  );
+}
+
 elements.enrollBtn.addEventListener("click", enrollDevice);
 elements.loadLogs.addEventListener("click", loadLogs);
 elements.clearLocal.addEventListener("click", clearLocal);
@@ -943,6 +1027,7 @@ elements.adminHideFromLeaderboard?.addEventListener("click", hideFromLeaderboard
 elements.adminShowInLeaderboard?.addEventListener("click", showInLeaderboard);
 elements.adminResetDaily?.addEventListener("click", resetDaily);
 elements.adminClearBoost?.addEventListener("click", clearBoost);
+elements.adminLoadAnticheat?.addEventListener("click", loadAnticheatComplaints);
 
 const state = getState();
 elements.serverUrl.value = state.serverUrl || DEFAULT_SERVER;

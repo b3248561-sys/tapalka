@@ -11,7 +11,26 @@ import {
   isDemoAllowed,
   upsertLeaderboardEntry
 } from "../_shared/utils.js";
-import { logEvent } from "../_shared/admin.js";
+import { logEvent, reportAntiCheat } from "../_shared/admin.js";
+
+function resolveAntiCheatReport(resultLike) {
+  if (!resultLike) return null;
+  if (resultLike.antiCheat && typeof resultLike.antiCheat === "object") {
+    return resultLike.antiCheat;
+  }
+  const extra = resultLike.log?.extra;
+  if (!extra || typeof extra !== "object") return null;
+  if (extra.antiCheat && typeof extra.antiCheat === "object") {
+    return extra.antiCheat;
+  }
+  if (
+    typeof extra.reason === "string" &&
+    (extra.level === "warn" || extra.level === "block")
+  ) {
+    return extra;
+  }
+  return null;
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -58,6 +77,24 @@ export async function onRequestPost(context) {
       now
     });
     if (!data.ok) {
+      const antiCheatReport = resolveAntiCheatReport(data);
+      if (data.log?.shouldLog) {
+        context.waitUntil(
+          logEvent(
+            env,
+            request,
+            data.user || user,
+            data.log.action || "tap_rejected",
+            data.log.extra || {},
+            { throttleMs: 0 }
+          )
+        );
+      }
+      if (antiCheatReport && data.user) {
+        context.waitUntil(
+          reportAntiCheat(env, request, data.user, antiCheatReport)
+        );
+      }
       const { status = 400, ...rest } = data;
       return jsonResponse({ ok: false, ...rest }, status);
     }
@@ -74,6 +111,22 @@ export async function onRequestPost(context) {
     );
     result = applyTapAction(user, { count, now });
     if (!result.ok) {
+      const antiCheatReport = resolveAntiCheatReport(result);
+      if (result.log?.shouldLog) {
+        context.waitUntil(
+          logEvent(
+            env,
+            request,
+            user,
+            result.log.action || "tap_rejected",
+            result.log.extra || {},
+            { throttleMs: 0 }
+          )
+        );
+      }
+      if (antiCheatReport) {
+        context.waitUntil(reportAntiCheat(env, request, user, antiCheatReport));
+      }
       const { status = 400, ...rest } = result;
       await saveUser(env, user);
       return jsonResponse({ ok: false, ...rest }, status);
@@ -92,6 +145,10 @@ export async function onRequestPost(context) {
         { throttleMs: 0 }
       )
     );
+  }
+  const antiCheatReport = resolveAntiCheatReport(result);
+  if (antiCheatReport && user) {
+    context.waitUntil(reportAntiCheat(env, request, user, antiCheatReport));
   }
   context.waitUntil(upsertLeaderboardEntry(env, user));
 

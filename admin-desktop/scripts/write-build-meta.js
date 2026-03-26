@@ -35,10 +35,23 @@ function getCommitHash() {
   }
 }
 
+function isDirtyTree() {
+  try {
+    const repoRoot = path.resolve(__dirname, "..", "..");
+    const output = execSync("git status --porcelain", { cwd: repoRoot })
+      .toString()
+      .trim();
+    return Boolean(output);
+  } catch {
+    return false;
+  }
+}
+
 function writeBuildMeta() {
   const pkg = require(path.resolve(__dirname, "..", "package.json"));
   const hash = getCommitHash();
-  const buildId = `desktop-v${pkg.version}-${hash}`;
+  const dirty = isDirtyTree();
+  const buildId = `desktop-v${pkg.version}-${hash}${dirty ? "-dirty" : ""}`;
   const outFile = path.resolve(__dirname, "..", "app", "build-meta.js");
   const content = `window.__ADMIN_BUILD__ = ${JSON.stringify(buildId)};\n`;
   fs.writeFileSync(outFile, content, "utf8");

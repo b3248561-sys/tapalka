@@ -330,6 +330,16 @@ tbody tr:hover {
   color: #ecf6ff;
 }
 
+.admin-complaints {
+  margin-top: 14px;
+}
+
+.admin-complaints h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #d8e9ff;
+}
+
 @media (max-width: 680px) {
   body {
     padding: 14px;

@@ -125,7 +125,7 @@ export class UserStore {
       );
       if (!result.ok) {
         const { status = 400, ...rest } = result;
-        return jsonResponse({ ok: false, status, ...rest }, status);
+        return jsonResponse({ ok: false, status, user, ...rest }, status);
       }
       return jsonResponse({ ...result.payload, user, log: result.log });
     }
