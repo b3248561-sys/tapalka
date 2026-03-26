@@ -194,6 +194,7 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     antiCheatLastReason: "",
     antiCheatBurstStartTs: 0,
     antiCheatBurstCount: 0,
+    antiCheatLastReportTs: 0,
     balance: 0,
     tapValue: 1,
     items: {},
@@ -629,6 +630,13 @@ export function normalizeUser(user) {
     user.antiCheatBurstCount = 0;
     dirty = true;
   }
+  if (
+    typeof user.antiCheatLastReportTs !== "number" ||
+    user.antiCheatLastReportTs < 0
+  ) {
+    user.antiCheatLastReportTs = 0;
+    dirty = true;
+  }
   if (!user.items || typeof user.items !== "object") {
     user.items = {};
     dirty = true;
@@ -913,16 +921,17 @@ const GOLDEN_INTERVAL_MAX_MS = 65000;
 const CRIT_CHANCE = 0.08;
 const CRIT_MULTIPLIERS = [3, 4, 5];
 const ANTICHEAT_MIN_INTERVAL_MS = 35;
-const ANTICHEAT_FAST_INTERVAL_MS = 190;
-const ANTICHEAT_STABLE_VARIANCE_MS = 20;
-const ANTICHEAT_STABLE_INTERVAL_MAX_MS = 700;
-const ANTICHEAT_STABLE_WARN_COUNT = 6;
-const ANTICHEAT_SCORE_WARN = 5;
-const ANTICHEAT_SCORE_BLOCK = 8;
+const ANTICHEAT_FAST_INTERVAL_MS = 120;
+const ANTICHEAT_STABLE_VARIANCE_MS = 6;
+const ANTICHEAT_STABLE_INTERVAL_MAX_MS = 220;
+const ANTICHEAT_STABLE_WARN_COUNT = 12;
+const ANTICHEAT_SCORE_WARN = 8;
+const ANTICHEAT_SCORE_BLOCK = 14;
 const ANTICHEAT_BLOCK_MS = 120000;
 const ANTICHEAT_BURST_WINDOW_MS = 5000;
-const ANTICHEAT_BURST_WARN_COUNT = 45;
-const ANTICHEAT_BURST_BLOCK_COUNT = 70;
+const ANTICHEAT_BURST_WARN_COUNT = 70;
+const ANTICHEAT_BURST_BLOCK_COUNT = 100;
+const ANTICHEAT_REPORT_COOLDOWN_MS = 15000;
 
 export function normalizeReferralCode(raw) {
   const text = String(raw || "").trim();
@@ -1018,7 +1027,7 @@ function evaluateAntiCheat(user, now, safeCount) {
     };
   }
 
-  let score = Math.max(0, Number(user.antiCheatScore || 0) - 1);
+  let score = Math.max(0, Number(user.antiCheatScore || 0) - 2);
   let stableCount = Number(user.antiCheatStableCount || 0);
   const prevInterval = Number(user.antiCheatLastInterval || 0);
   const prevTapTs = Number(user.lastTapTs || 0);
@@ -1043,12 +1052,12 @@ function evaluateAntiCheat(user, now, safeCount) {
     reason = "suspicious_burst_rate";
   }
 
-  if (safeCount >= 12) {
+  if (safeCount >= 16) {
     score += 3;
-    reason = "oversized_batch_tap";
-  } else if (safeCount >= 8) {
-    score += 2;
     reason = "large_batch_tap";
+  } else if (safeCount >= 12) {
+    score += 2;
+    reason = "oversized_batch_tap";
   }
 
   if (intervalMs > 0) {
@@ -1065,7 +1074,10 @@ function evaluateAntiCheat(user, now, safeCount) {
       } else {
         stableCount = Math.max(0, stableCount - 2);
       }
-      if (intervalMs < ANTICHEAT_FAST_INTERVAL_MS) {
+      if (intervalMs < 70) {
+        score += 3;
+        if (!reason) reason = "very_fast_repeats";
+      } else if (intervalMs < ANTICHEAT_FAST_INTERVAL_MS) {
         score += 2;
         if (!reason) reason = "suspicious_fast_repeats";
       }
@@ -1085,7 +1097,13 @@ function evaluateAntiCheat(user, now, safeCount) {
   user.antiCheatLastReason = reason || user.antiCheatLastReason || "";
 
   const shouldReport = Boolean(reason) && score >= ANTICHEAT_SCORE_WARN;
-  if (shouldReport && score >= ANTICHEAT_SCORE_BLOCK) {
+  const hasHardTrigger =
+    reason === "too_fast_interval" ||
+    reason === "very_fast_repeats" ||
+    reason === "extreme_burst_rate" ||
+    (intervalMs > 0 && intervalMs < ANTICHEAT_FAST_INTERVAL_MS) ||
+    Number(user.antiCheatBurstCount || 0) >= ANTICHEAT_BURST_BLOCK_COUNT;
+  if (shouldReport && score >= ANTICHEAT_SCORE_BLOCK && hasHardTrigger) {
     user.antiCheatBlockedUntil = now + ANTICHEAT_BLOCK_MS;
     return {
       blocked: true,
@@ -1151,19 +1169,27 @@ export function applyTapAction(user, { count = 1, now = Date.now() } = {}) {
   safeCount = Math.min(safeCount, user.energy);
 
   const antiCheat = evaluateAntiCheat(user, now, safeCount);
-  const antiCheatReport =
-    antiCheat.level === "warn" || antiCheat.level === "block"
-      ? {
-          level: antiCheat.level,
-          reason: antiCheat.reason,
-          score: antiCheat.score,
-          intervalMs: antiCheat.intervalMs,
-          stableCount: antiCheat.stableCount,
-          burstCount: antiCheat.burstCount,
-          blockedUntil: antiCheat.blockedUntil,
-          count: safeCount
-        }
-      : null;
+  const canReportByCooldown =
+    now - Number(user.antiCheatLastReportTs || 0) >= ANTICHEAT_REPORT_COOLDOWN_MS;
+  const shouldReportAntiCheat =
+    antiCheat.level === "block" ||
+    ((antiCheat.level === "warn" || antiCheat.level === "cooldown") &&
+      canReportByCooldown);
+  const antiCheatReport = shouldReportAntiCheat
+    ? {
+        level: antiCheat.level,
+        reason: antiCheat.reason,
+        score: antiCheat.score,
+        intervalMs: antiCheat.intervalMs,
+        stableCount: antiCheat.stableCount,
+        burstCount: antiCheat.burstCount,
+        blockedUntil: antiCheat.blockedUntil,
+        count: safeCount
+      }
+    : null;
+  if (antiCheatReport) {
+    user.antiCheatLastReportTs = now;
+  }
   if (antiCheat.blocked) {
     return {
       ok: false,
