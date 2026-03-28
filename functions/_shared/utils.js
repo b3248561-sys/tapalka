@@ -306,6 +306,8 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     referralClaimed: false,
     referralsCount: 0,
     referralsEarned: 0,
+    referralsLevel2Count: 0,
+    referralsLevel2Earned: 0,
     comboCount: 0,
     comboMultiplier: 1,
     lastComboTs: 0,
@@ -329,6 +331,10 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     lastDailyTs: 0,
     totalEarned: 0,
     totalTaps: 0,
+    dailyStreakCount: 0,
+    dailyStreakBest: 0,
+    dailyStreakLastDay: "",
+    dailyStreakLastClaimTs: 0,
     dailyQuestDay: "",
     dailyTapCount: 0,
     dailyPurchaseCount: 0,
@@ -341,11 +347,16 @@ export function createUser(userId, name, username = "", avatarUrl = "") {
     bannedUntil: 0,
     equippedCosmetic: "",
     equippedFrame: "",
+    squadId: "",
+    squadRole: "",
     leaderboardHidden: false,
     maxEnergy: 50,
     energy: 50,
     energyRegen: 1,
-    lastEnergyTs: now
+    lastEnergyTs: now,
+    miningStored: 0,
+    miningLastTs: now,
+    miningCapacityHours: 3
   };
 }
 
@@ -361,7 +372,8 @@ export async function loadUser(env, userId, name, username, avatarUrl = "") {
       const normalized = normalizeUser(data.user);
       const dailyChanged = ensureDaily(normalized);
       const seasonChanged = syncSeason(normalized);
-      if (normalized._dirty || dailyChanged || seasonChanged) {
+      const miningChanged = syncMining(normalized);
+      if (normalized._dirty || dailyChanged || seasonChanged || miningChanged) {
         if (normalized._dirty) delete normalized._dirty;
         const putData = await userDoRequest(env, userId, "put", { user: normalized });
         return putData.user || normalized;
@@ -385,7 +397,8 @@ export async function loadUser(env, userId, name, username, avatarUrl = "") {
       const normalized = normalizeUser(data.user);
       const dailyChanged = ensureDaily(normalized);
       const seasonChanged = syncSeason(normalized);
-      if (normalized._dirty || dailyChanged || seasonChanged) {
+      const miningChanged = syncMining(normalized);
+      if (normalized._dirty || dailyChanged || seasonChanged || miningChanged) {
         if (normalized._dirty) delete normalized._dirty;
         const putData = await userDoRequest(env, userId, "put", { user: normalized });
         return putData.user || normalized;
@@ -421,7 +434,8 @@ export async function loadUser(env, userId, name, username, avatarUrl = "") {
   const normalized = normalizeUser(user);
   const dailyChanged = ensureDaily(normalized);
   const seasonChanged = syncSeason(normalized);
-  if (normalized._dirty || dailyChanged || seasonChanged) {
+  const miningChanged = syncMining(normalized);
+  if (normalized._dirty || dailyChanged || seasonChanged || miningChanged) {
     delete normalized._dirty;
     await env.KV.put(key, JSON.stringify(normalized));
     user = normalized;
@@ -431,6 +445,7 @@ export async function loadUser(env, userId, name, username, avatarUrl = "") {
 
 export async function saveUser(env, user) {
   syncSeason(user);
+  syncMining(user);
   if (hasUserDo(env)) {
     const data = await userDoRequest(env, user.id, "put", { user });
     return data.user;
@@ -455,6 +470,323 @@ export async function getUserById(env, userId) {
     throw err;
   }
   return env.KV.get(userKey(userId), "json");
+}
+
+const SQUAD_PREFIX = "squad:";
+const SQUAD_INDEX_KEY = "squads:index";
+const SQUAD_MAX_MEMBERS = 30;
+
+function squadKey(squadId) {
+  return `${SQUAD_PREFIX}${squadId}`;
+}
+
+function sanitizeSquadId(raw) {
+  const value = String(raw || "").trim().toLowerCase();
+  return /^sq_[a-z0-9]{6,16}$/.test(value) ? value : "";
+}
+
+export function normalizeSquadName(raw) {
+  const value = String(raw || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!value) return { ok: false, error: "squad_name_required" };
+  if (value.length < 3) return { ok: false, error: "squad_name_too_short" };
+  if (value.length > 24) return { ok: false, error: "squad_name_too_long" };
+  if (!/^[\p{L}\p{N}_\-\s]+$/u.test(value)) {
+    return { ok: false, error: "squad_name_invalid" };
+  }
+  return { ok: true, value };
+}
+
+function buildSquadId() {
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `sq_${rand}`;
+}
+
+function normalizeSquadRecord(record) {
+  if (!record || typeof record !== "object") return null;
+  const id = sanitizeSquadId(record.id);
+  if (!id) return null;
+  const normalizedName = normalizeSquadName(record.name || "");
+  return {
+    id,
+    name: normalizedName.ok ? normalizedName.value : `Squad ${id.slice(-4)}`,
+    ownerId: String(record.ownerId || ""),
+    memberIds: Array.from(
+      new Set(
+        (Array.isArray(record.memberIds) ? record.memberIds : [])
+          .map((memberId) => String(memberId || "").trim())
+          .filter((memberId) => /^\d{3,20}$/.test(memberId))
+      )
+    ).slice(0, SQUAD_MAX_MEMBERS),
+    createdAt: Math.max(0, Number(record.createdAt || Date.now())),
+    updatedAt: Math.max(0, Number(record.updatedAt || Date.now()))
+  };
+}
+
+async function getSquadIndex(env) {
+  if (!env?.KV) return [];
+  const raw = await env.KV.get(SQUAD_INDEX_KEY, "json");
+  if (!Array.isArray(raw)) return [];
+  return Array.from(new Set(raw.map((item) => sanitizeSquadId(item)).filter(Boolean)));
+}
+
+async function saveSquadIndex(env, ids = []) {
+  if (!env?.KV) return;
+  await env.KV.put(SQUAD_INDEX_KEY, JSON.stringify(Array.from(new Set(ids))));
+}
+
+async function getSquadById(env, squadId) {
+  if (!env?.KV) return null;
+  const id = sanitizeSquadId(squadId);
+  if (!id) return null;
+  const raw = await env.KV.get(squadKey(id), "json");
+  return normalizeSquadRecord(raw);
+}
+
+async function saveSquad(env, squad) {
+  if (!env?.KV) return null;
+  const normalized = normalizeSquadRecord(squad);
+  if (!normalized) return null;
+  normalized.updatedAt = Date.now();
+  await env.KV.put(squadKey(normalized.id), JSON.stringify(normalized));
+  return normalized;
+}
+
+async function removeSquad(env, squadId) {
+  if (!env?.KV) return;
+  const id = sanitizeSquadId(squadId);
+  if (!id) return;
+  await env.KV.delete(squadKey(id));
+}
+
+async function addSquadToIndex(env, squadId) {
+  const id = sanitizeSquadId(squadId);
+  if (!id) return;
+  const current = await getSquadIndex(env);
+  if (current.includes(id)) return;
+  current.push(id);
+  await saveSquadIndex(env, current);
+}
+
+async function removeSquadFromIndex(env, squadId) {
+  const id = sanitizeSquadId(squadId);
+  if (!id) return;
+  const current = await getSquadIndex(env);
+  await saveSquadIndex(
+    env,
+    current.filter((item) => item !== id)
+  );
+}
+
+async function buildSquadSummary(env, squad, seasonKey = getSeasonKey()) {
+  const normalized = normalizeSquadRecord(squad);
+  if (!normalized) return null;
+  const memberUsers = await Promise.all(
+    normalized.memberIds.map((memberId) => getUserById(env, memberId))
+  );
+  const members = memberUsers
+    .filter((entry) => entry && entry.id)
+    .map((entry) => normalizeUser(entry));
+  let seasonPoints = 0;
+  let totalBalance = 0;
+  members.forEach((member) => {
+    totalBalance += Number(member.balance || 0);
+    if (String(member.seasonKey || "") === seasonKey) {
+      seasonPoints += Number(member.seasonPoints || 0);
+    }
+  });
+  const topMembers = members
+    .sort((a, b) => Number(b.seasonPoints || 0) - Number(a.seasonPoints || 0))
+    .slice(0, 3)
+    .map((member) => ({
+      id: String(member.id),
+      name: member.name || "Player",
+      username: member.username || "",
+      avatarUrl: member.avatarUrl || "",
+      seasonPoints: Number(member.seasonPoints || 0),
+      balance: Number(member.balance || 0)
+    }));
+  return {
+    id: normalized.id,
+    name: normalized.name,
+    ownerId: normalized.ownerId,
+    membersCount: members.length,
+    seasonPoints: Math.round(seasonPoints),
+    balance: Math.round(totalBalance),
+    topMembers,
+    createdAt: normalized.createdAt,
+    updatedAt: normalized.updatedAt
+  };
+}
+
+export async function listSquads(
+  env,
+  { limit = 30, seasonKey = getSeasonKey() } = {}
+) {
+  if (!env?.KV) return [];
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 30)));
+  const ids = await getSquadIndex(env);
+  const squads = await Promise.all(ids.map((id) => getSquadById(env, id)));
+  const summaries = (
+    await Promise.all(
+      squads.filter(Boolean).map((squad) => buildSquadSummary(env, squad, seasonKey))
+    )
+  ).filter(Boolean);
+  summaries.sort((a, b) => {
+    const seasonDiff = Number(b.seasonPoints || 0) - Number(a.seasonPoints || 0);
+    if (seasonDiff !== 0) return seasonDiff;
+    const balanceDiff = Number(b.balance || 0) - Number(a.balance || 0);
+    if (balanceDiff !== 0) return balanceDiff;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  return summaries.slice(0, safeLimit).map((entry, index) => ({
+    rank: index + 1,
+    ...entry
+  }));
+}
+
+export async function getUserSquad(env, user) {
+  const squadId = sanitizeSquadId(user?.squadId);
+  if (!squadId) return null;
+  const squad = await getSquadById(env, squadId);
+  if (!squad) return null;
+  return buildSquadSummary(env, squad, getSeasonKey());
+}
+
+export async function createSquadAction(env, user, rawName, now = Date.now()) {
+  if (!env?.KV) {
+    return { ok: false, status: 503, error: "kv_not_configured" };
+  }
+  const member = normalizeUser(user);
+  if (member.squadId) {
+    return { ok: false, status: 400, error: "already_in_squad" };
+  }
+  const normalizedName = normalizeSquadName(rawName);
+  if (!normalizedName.ok) {
+    return { ok: false, status: 400, error: normalizedName.error };
+  }
+
+  let squadId = "";
+  let tries = 0;
+  while (!squadId && tries < 8) {
+    tries += 1;
+    const candidate = buildSquadId();
+    const exists = await getSquadById(env, candidate);
+    if (!exists) squadId = candidate;
+  }
+  if (!squadId) {
+    return { ok: false, status: 500, error: "squad_create_failed" };
+  }
+
+  const squad = await saveSquad(env, {
+    id: squadId,
+    name: normalizedName.value,
+    ownerId: String(member.id),
+    memberIds: [String(member.id)],
+    createdAt: now,
+    updatedAt: now
+  });
+  await addSquadToIndex(env, squad.id);
+
+  member.squadId = squad.id;
+  member.squadRole = "owner";
+  await saveUser(env, member);
+  await upsertLeaderboardEntry(env, member);
+
+  return {
+    ok: true,
+    user: member,
+    squad: await buildSquadSummary(env, squad, getSeasonKey(now))
+  };
+}
+
+export async function joinSquadAction(env, user, rawSquadId) {
+  if (!env?.KV) {
+    return { ok: false, status: 503, error: "kv_not_configured" };
+  }
+  const member = normalizeUser(user);
+  if (member.squadId) {
+    return { ok: false, status: 400, error: "already_in_squad" };
+  }
+  const squadId = sanitizeSquadId(rawSquadId);
+  if (!squadId) {
+    return { ok: false, status: 400, error: "squad_id_invalid" };
+  }
+  const squad = await getSquadById(env, squadId);
+  if (!squad) {
+    return { ok: false, status: 404, error: "squad_not_found" };
+  }
+  if (squad.memberIds.includes(String(member.id))) {
+    member.squadId = squad.id;
+    member.squadRole = squad.ownerId === String(member.id) ? "owner" : "member";
+    await saveUser(env, member);
+    await upsertLeaderboardEntry(env, member);
+    return {
+      ok: true,
+      user: member,
+      squad: await buildSquadSummary(env, squad, getSeasonKey())
+    };
+  }
+  if (squad.memberIds.length >= SQUAD_MAX_MEMBERS) {
+    return { ok: false, status: 400, error: "squad_full" };
+  }
+  squad.memberIds.push(String(member.id));
+  const savedSquad = await saveSquad(env, squad);
+  member.squadId = savedSquad.id;
+  member.squadRole = savedSquad.ownerId === String(member.id) ? "owner" : "member";
+  await saveUser(env, member);
+  await upsertLeaderboardEntry(env, member);
+  return {
+    ok: true,
+    user: member,
+    squad: await buildSquadSummary(env, savedSquad, getSeasonKey())
+  };
+}
+
+export async function leaveSquadAction(env, user) {
+  if (!env?.KV) {
+    return { ok: false, status: 503, error: "kv_not_configured" };
+  }
+  const member = normalizeUser(user);
+  const squadId = sanitizeSquadId(member.squadId);
+  if (!squadId) {
+    return { ok: false, status: 400, error: "not_in_squad" };
+  }
+  const squad = await getSquadById(env, squadId);
+  member.squadId = "";
+  member.squadRole = "";
+  await saveUser(env, member);
+  await upsertLeaderboardEntry(env, member);
+  if (!squad) {
+    return { ok: true, user: member, squad: null, deleted: false };
+  }
+  squad.memberIds = squad.memberIds.filter(
+    (memberId) => String(memberId) !== String(member.id)
+  );
+  if (!squad.memberIds.length) {
+    await removeSquad(env, squad.id);
+    await removeSquadFromIndex(env, squad.id);
+    return { ok: true, user: member, squad: null, deleted: true };
+  }
+  if (String(squad.ownerId) === String(member.id)) {
+    squad.ownerId = String(squad.memberIds[0]);
+    const newOwner = await getUserById(env, squad.ownerId);
+    if (newOwner) {
+      const normalizedOwner = normalizeUser(newOwner);
+      normalizedOwner.squadId = squad.id;
+      normalizedOwner.squadRole = "owner";
+      await saveUser(env, normalizedOwner);
+      await upsertLeaderboardEntry(env, normalizedOwner);
+    }
+  }
+  const savedSquad = await saveSquad(env, squad);
+  return {
+    ok: true,
+    user: member,
+    squad: await buildSquadSummary(env, savedSquad, getSeasonKey()),
+    deleted: false
+  };
 }
 
 const LEADERBOARD_PREFIX = "lb:user:";
@@ -859,6 +1191,20 @@ export function normalizeUser(user) {
     user.referralsEarned = 0;
     dirty = true;
   }
+  if (
+    typeof user.referralsLevel2Count !== "number" ||
+    user.referralsLevel2Count < 0
+  ) {
+    user.referralsLevel2Count = 0;
+    dirty = true;
+  }
+  if (
+    typeof user.referralsLevel2Earned !== "number" ||
+    user.referralsLevel2Earned < 0
+  ) {
+    user.referralsLevel2Earned = 0;
+    dirty = true;
+  }
   if (typeof user.comboCount !== "number" || user.comboCount < 0) {
     user.comboCount = 0;
     dirty = true;
@@ -996,6 +1342,25 @@ export function normalizeUser(user) {
     user.totalTaps = 0;
     dirty = true;
   }
+  if (typeof user.dailyStreakCount !== "number" || user.dailyStreakCount < 0) {
+    user.dailyStreakCount = 0;
+    dirty = true;
+  }
+  if (typeof user.dailyStreakBest !== "number" || user.dailyStreakBest < 0) {
+    user.dailyStreakBest = 0;
+    dirty = true;
+  }
+  if (typeof user.dailyStreakLastDay !== "string") {
+    user.dailyStreakLastDay = "";
+    dirty = true;
+  }
+  if (
+    typeof user.dailyStreakLastClaimTs !== "number" ||
+    user.dailyStreakLastClaimTs < 0
+  ) {
+    user.dailyStreakLastClaimTs = 0;
+    dirty = true;
+  }
   if (typeof user.dailyQuestDay !== "string") {
     user.dailyQuestDay = "";
     dirty = true;
@@ -1035,6 +1400,14 @@ export function normalizeUser(user) {
     user.equippedFrame = "";
     dirty = true;
   }
+  if (typeof user.squadId !== "string") {
+    user.squadId = "";
+    dirty = true;
+  }
+  if (typeof user.squadRole !== "string") {
+    user.squadRole = "";
+    dirty = true;
+  }
   if (typeof user.leaderboardHidden !== "boolean") {
     user.leaderboardHidden = false;
     dirty = true;
@@ -1069,6 +1442,21 @@ export function normalizeUser(user) {
   }
   if (typeof user.lastTapTs !== "number" || user.lastTapTs < 0) {
     user.lastTapTs = 0;
+    dirty = true;
+  }
+  if (typeof user.miningStored !== "number" || user.miningStored < 0) {
+    user.miningStored = 0;
+    dirty = true;
+  }
+  if (typeof user.miningLastTs !== "number" || user.miningLastTs <= 0) {
+    user.miningLastTs = Date.now();
+    dirty = true;
+  }
+  if (
+    typeof user.miningCapacityHours !== "number" ||
+    user.miningCapacityHours < 1
+  ) {
+    user.miningCapacityHours = 3;
     dirty = true;
   }
   if (user.energy > user.maxEnergy) {
@@ -1213,6 +1601,7 @@ export function isDemoAllowed(env, request) {
 
 export function summarizeUser(user) {
   const giftStats = getUserGiftStats(user);
+  const mining = getMiningSnapshot(user);
   return {
     id: user.id,
     name: user.name,
@@ -1225,6 +1614,8 @@ export function summarizeUser(user) {
     referralClaimed: Boolean(user.referralClaimed),
     referralsCount: Number(user.referralsCount || 0),
     referralsEarned: Number(user.referralsEarned || 0),
+    referralsLevel2Count: Number(user.referralsLevel2Count || 0),
+    referralsLevel2Earned: Number(user.referralsLevel2Earned || 0),
     comboCount: Number(user.comboCount || 0),
     comboMultiplier: Number(user.comboMultiplier || 1),
     goldenUntil: Number(user.goldenUntil || 0),
@@ -1234,18 +1625,25 @@ export function summarizeUser(user) {
     lastTapTs: user.lastTapTs || 0,
     boostUntil: user.boostUntil || 0,
     lastDailyTs: user.lastDailyTs || 0,
+    dailyStreakCount: Number(user.dailyStreakCount || 0),
+    dailyStreakBest: Number(user.dailyStreakBest || 0),
+    dailyStreakLastDay: String(user.dailyStreakLastDay || ""),
+    dailyStreakLastClaimTs: Number(user.dailyStreakLastClaimTs || 0),
     totalEarned: user.totalEarned || 0,
     totalTaps: user.totalTaps || 0,
     equippedCosmetic: user.equippedCosmetic || "",
     equippedFrame: user.equippedFrame || "",
     gifts: listUserGifts(user, { limit: 40 }),
     giftStats,
+    squadId: user.squadId || "",
+    squadRole: user.squadRole || "",
     leaderboardHidden: Boolean(user.leaderboardHidden),
     seasonKey: user.seasonKey || getSeasonKey(),
     seasonPoints: Number(user.seasonPoints || 0),
     energy: user.energy,
     maxEnergy: user.maxEnergy,
     energyRegen: user.energyRegen || 1,
+    mining,
     rank: getRank(getRankPoints(user))
   };
 }
@@ -1253,6 +1651,15 @@ export function summarizeUser(user) {
 export const WELCOME_BONUS = 1800;
 export const REFERRAL_NEW_USER_BONUS = 2200;
 export const REFERRAL_REFERRER_BONUS = 1200;
+export const REFERRAL_LEVEL2_BONUS = 450;
+export const DAILY_STREAK_MAX = 7;
+const DAILY_STREAK_STEP_PCT = 10;
+const DAILY_STREAK_MILESTONE_BONUS = 2200;
+const MINING_BASE_RATE_PER_HOUR = 90;
+const MINING_TAP_RATE_FACTOR = 26;
+const MINING_MIN_RATE_PER_HOUR = 90;
+const MINING_MAX_CAPACITY_HOURS = 12;
+const MINING_DEFAULT_CAPACITY_HOURS = 3;
 const COMBO_WINDOW_MS = 1400;
 const GOLDEN_WINDOW_MS = 1800;
 const GOLDEN_MULTIPLIER = 4;
@@ -1276,6 +1683,93 @@ const ANTICHEAT_REPORT_COOLDOWN_MS = 15000;
 export function normalizeReferralCode(raw) {
   const text = String(raw || "").trim();
   return /^ref_\d{3,20}$/.test(text) ? text : "";
+}
+
+function utcDayKey(now = Date.now()) {
+  return new Date(now).toISOString().slice(0, 10);
+}
+
+function utcDayDiff(dayA, dayB) {
+  if (!dayA || !dayB) return 999;
+  const a = Date.parse(`${dayA}T00:00:00Z`);
+  const b = Date.parse(`${dayB}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 999;
+  return Math.round((b - a) / (24 * 60 * 60 * 1000));
+}
+
+function getMiningRatePerHour(user) {
+  const tapPart = Math.max(1, Math.floor(Number(user?.tapValue || 1)));
+  const computed = MINING_BASE_RATE_PER_HOUR + tapPart * MINING_TAP_RATE_FACTOR;
+  return Math.max(MINING_MIN_RATE_PER_HOUR, Math.round(computed));
+}
+
+export function syncMining(user, now = Date.now()) {
+  if (!user) return false;
+  const rate = getMiningRatePerHour(user);
+  const capacityHours = Math.max(
+    1,
+    Math.min(
+      MINING_MAX_CAPACITY_HOURS,
+      Math.floor(Number(user.miningCapacityHours || MINING_DEFAULT_CAPACITY_HOURS))
+    )
+  );
+  const capacity = rate * capacityHours;
+  const lastTs = Math.max(0, Number(user.miningLastTs || 0));
+  const baseStored = Math.max(0, Number(user.miningStored || 0));
+  if (!lastTs || now <= lastTs) {
+    const normalizedStored = Math.min(capacity, baseStored);
+    let changed = false;
+    if (user.miningCapacityHours !== capacityHours) {
+      user.miningCapacityHours = capacityHours;
+      changed = true;
+    }
+    if (user.miningStored !== normalizedStored) {
+      user.miningStored = normalizedStored;
+      changed = true;
+    }
+    if (!lastTs) {
+      user.miningLastTs = now;
+      changed = true;
+    }
+    return changed;
+  }
+  const elapsedMs = now - lastTs;
+  const generated = (elapsedMs / (60 * 60 * 1000)) * rate;
+  const nextStored = Math.min(capacity, baseStored + generated);
+  const changed =
+    Math.abs(nextStored - baseStored) > 0.0001 ||
+    user.miningCapacityHours !== capacityHours ||
+    user.miningLastTs !== now;
+  user.miningStored = nextStored;
+  user.miningCapacityHours = capacityHours;
+  user.miningLastTs = now;
+  return changed;
+}
+
+export function getMiningSnapshot(user, now = Date.now()) {
+  const rate = getMiningRatePerHour(user);
+  const capacityHours = Math.max(
+    1,
+    Math.min(
+      MINING_MAX_CAPACITY_HOURS,
+      Math.floor(Number(user?.miningCapacityHours || MINING_DEFAULT_CAPACITY_HOURS))
+    )
+  );
+  const capacity = rate * capacityHours;
+  const stored = Math.max(0, Number(user?.miningStored || 0));
+  const canClaim = Math.floor(stored);
+  const missing = Math.max(0, capacity - stored);
+  const nextReadyMs = rate > 0 && missing > 0 ? Math.ceil((missing / rate) * 60 * 60 * 1000) : 0;
+  return {
+    ratePerHour: rate,
+    capacityHours,
+    capacity,
+    stored: Math.floor(stored),
+    storedPrecise: stored,
+    canClaim,
+    nextReadyAt: nextReadyMs > 0 ? now + nextReadyMs : now,
+    isFull: stored >= capacity - 0.001
+  };
 }
 
 export function applyWelcomeBonus(user) {
@@ -1326,19 +1820,43 @@ export async function applyReferralBonus(env, user, referralCode) {
   referrer.totalEarned =
     (referrer.totalEarned || 0) + REFERRAL_REFERRER_BONUS;
   addSeasonPoints(referrer, REFERRAL_REFERRER_BONUS, now);
+  let level2Referrer = null;
+  const level2ReferrerId = String(referrer.referredBy || "").trim();
+  if (
+    /^\d{3,20}$/.test(level2ReferrerId) &&
+    level2ReferrerId !== String(referrer.id) &&
+    level2ReferrerId !== String(candidate.id)
+  ) {
+    const level2Raw = await getUserById(env, level2ReferrerId);
+    if (level2Raw) {
+      level2Referrer = normalizeUser(level2Raw);
+      syncSeason(level2Referrer, now);
+      level2Referrer.referralsLevel2Count =
+        (level2Referrer.referralsLevel2Count || 0) + 1;
+      level2Referrer.referralsLevel2Earned =
+        (level2Referrer.referralsLevel2Earned || 0) + REFERRAL_LEVEL2_BONUS;
+      level2Referrer.balance =
+        (level2Referrer.balance || 0) + REFERRAL_LEVEL2_BONUS;
+      level2Referrer.totalEarned =
+        (level2Referrer.totalEarned || 0) + REFERRAL_LEVEL2_BONUS;
+      addSeasonPoints(level2Referrer, REFERRAL_LEVEL2_BONUS, now);
+    }
+  }
 
-  await Promise.all([saveUser(env, candidate), saveUser(env, referrer)]);
-  await Promise.all([
-    upsertLeaderboardEntry(env, candidate),
-    upsertLeaderboardEntry(env, referrer)
-  ]);
+  const usersToSave = level2Referrer
+    ? [candidate, referrer, level2Referrer]
+    : [candidate, referrer];
+  await Promise.all(usersToSave.map((entry) => saveUser(env, entry)));
+  await Promise.all(usersToSave.map((entry) => upsertLeaderboardEntry(env, entry)));
 
   return {
     ok: true,
     referrerId,
     referrerName: referrer.name || "",
     newUserBonus: REFERRAL_NEW_USER_BONUS,
-    referrerBonus: REFERRAL_REFERRER_BONUS
+    referrerBonus: REFERRAL_REFERRER_BONUS,
+    level2ReferrerId: level2Referrer ? String(level2Referrer.id) : "",
+    level2Bonus: level2Referrer ? REFERRAL_LEVEL2_BONUS : 0
   };
 }
 
@@ -1972,6 +2490,7 @@ export function applyBuyAction(user, itemId, now = Date.now()) {
 export function applyDailyAction(user, now = Date.now()) {
   const DAY_MS = 24 * 60 * 60 * 1000;
   ensureDaily(user);
+  syncMining(user, now);
   syncEnergy(user, now);
   syncSeason(user, now);
   if (isBanned(user)) {
@@ -1986,19 +2505,114 @@ export function applyDailyAction(user, now = Date.now()) {
   if (now < nextAt) {
     return { ok: false, status: 400, error: "daily_not_ready", nextAt };
   }
-  const reward = 300 + Math.floor((user.tapValue || 1) * 25);
+  const todayKey = utcDayKey(now);
+  const prevDay = String(user.dailyStreakLastDay || "");
+  const prevStreak = Math.max(0, Math.floor(Number(user.dailyStreakCount || 0)));
+  const dayDiff = utcDayDiff(prevDay, todayKey);
+
+  let nextStreak = 1;
+  if (!prevDay) {
+    nextStreak = 1;
+  } else if (dayDiff === 1) {
+    nextStreak = Math.min(DAILY_STREAK_MAX, prevStreak + 1);
+  } else if (dayDiff === 0) {
+    nextStreak = Math.max(1, prevStreak);
+  } else {
+    nextStreak = 1;
+  }
+
+  const streakBonusPct = Math.max(
+    0,
+    Math.min((DAILY_STREAK_MAX - 1) * DAILY_STREAK_STEP_PCT, (nextStreak - 1) * DAILY_STREAK_STEP_PCT)
+  );
+  const baseReward = 300 + Math.floor((user.tapValue || 1) * 25);
+  const streakBonus = Math.floor((baseReward * streakBonusPct) / 100);
+  const milestoneBonus =
+    nextStreak === DAILY_STREAK_MAX && prevStreak < DAILY_STREAK_MAX
+      ? DAILY_STREAK_MILESTONE_BONUS
+      : 0;
+  const reward = baseReward + streakBonus + milestoneBonus;
+
+  user.dailyStreakCount = nextStreak;
+  user.dailyStreakBest = Math.max(Number(user.dailyStreakBest || 0), nextStreak);
+  user.dailyStreakLastDay = todayKey;
+  user.dailyStreakLastClaimTs = now;
   user.balance += reward;
   user.totalEarned = (user.totalEarned || 0) + reward;
   addSeasonPoints(user, reward, now);
   user.lastDailyTs = now;
   return {
     ok: true,
-    log: { action: "daily_claim", extra: { reward } },
+    log: {
+      action: "daily_claim",
+      extra: {
+        reward,
+        baseReward,
+        streakBonus,
+        milestoneBonus,
+        streakCount: nextStreak
+      }
+    },
     payload: {
       ok: true,
       reward,
+      baseReward,
+      streakBonus,
+      milestoneBonus,
       balance: user.balance,
       nextAt: now + DAY_MS,
+      energy: user.energy,
+      maxEnergy: user.maxEnergy,
+      energyRegen: user.energyRegen || 1,
+      dailyStreak: {
+        count: nextStreak,
+        best: user.dailyStreakBest,
+        max: DAILY_STREAK_MAX,
+        bonusPct: streakBonusPct,
+        milestoneBonus
+      }
+    }
+  };
+}
+
+export function applyMiningClaimAction(user, now = Date.now()) {
+  ensureDaily(user);
+  syncSeason(user, now);
+  syncEnergy(user, now);
+  syncMining(user, now);
+  if (isBanned(user)) {
+    return {
+      ok: false,
+      status: 403,
+      error: "banned",
+      bannedUntil: user.bannedUntil || 0
+    };
+  }
+  const available = Math.floor(Number(user.miningStored || 0));
+  if (available <= 0) {
+    return {
+      ok: false,
+      status: 400,
+      error: "mining_not_ready",
+      mining: getMiningSnapshot(user, now)
+    };
+  }
+  user.miningStored = Math.max(0, Number(user.miningStored || 0) - available);
+  user.balance = Math.max(0, Number(user.balance || 0) + available);
+  user.totalEarned = Math.max(0, Number(user.totalEarned || 0) + available);
+  addSeasonPoints(user, available, now);
+  return {
+    ok: true,
+    log: {
+      action: "mining_claim",
+      extra: { claimed: available }
+    },
+    payload: {
+      ok: true,
+      claimed: available,
+      balance: user.balance,
+      mining: getMiningSnapshot(user, now),
+      rank: getRank(getRankPoints(user)),
       energy: user.energy,
       maxEnergy: user.maxEnergy,
       energyRegen: user.energyRegen || 1

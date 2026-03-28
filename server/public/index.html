@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260328-21" />
+    <link rel="stylesheet" href="style.css?v=20260328-22" />
   </head>
   <body>
     <div class="bg">
@@ -57,6 +57,15 @@
             </div>
             <button class="daily-btn" id="dailyBtn">Claim</button>
             <div class="daily-status" id="dailyStatus">Ready</div>
+            <div class="daily-streak" id="dailyStreak">Streak 0/7</div>
+          </div>
+          <div class="mining-card" id="miningCard">
+            <div>
+              <div class="mining-title" id="miningTitle">Mining</div>
+              <div class="mining-subtitle" id="miningSubtitle">Passive income while you are away</div>
+            </div>
+            <button class="mining-btn" id="miningBtn">Claim</button>
+            <div class="mining-status" id="miningStatus">Loading...</div>
           </div>
           <section class="shop">
             <div class="shop-head">
@@ -93,6 +102,22 @@
                   <button class="leaderboard-mode" id="leaderboardModeAllTime" type="button">All time</button>
                 </div>
               </div>
+            </div>
+            <div class="squads-card" id="squadsCard">
+              <div class="squads-title" id="squadsTitle">Squads</div>
+              <div class="squads-subtitle" id="squadsSubtitle">Create or join a squad and climb together</div>
+              <div class="squad-actions">
+                <input id="squadNameInput" class="profile-input" type="text" maxlength="24" placeholder="Squad name" />
+                <button id="squadCreateBtn" class="quest-claim" type="button">Create</button>
+              </div>
+              <div class="squad-actions">
+                <input id="squadIdInput" class="profile-input" type="text" maxlength="20" placeholder="sq_xxxxxx" />
+                <button id="squadJoinBtn" class="quest-claim" type="button">Join</button>
+                <button id="squadLeaveBtn" class="profile-btn ghost" type="button">Leave</button>
+              </div>
+              <div class="squad-status" id="squadStatus"></div>
+              <div class="squad-current" id="squadCurrent"></div>
+              <div class="squad-list" id="squadList"></div>
             </div>
             <div class="leaderboard-list" id="leaderboardList"></div>
           </section>
@@ -200,7 +225,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260328-21";
+        script.src = "app.js?v=20260328-22";
         document.body.appendChild(script);
       })();
     </script>

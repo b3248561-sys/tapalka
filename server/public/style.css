@@ -565,6 +565,60 @@ body {
   color: var(--muted);
 }
 
+.daily-streak {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #245ea5;
+  border: 1px solid rgba(43, 145, 255, 0.32);
+  background: rgba(43, 145, 255, 0.11);
+}
+
+.mining-card {
+  margin-top: 12px;
+  background: #fffdf6;
+  border-radius: 18px;
+  padding: 14px;
+  border: 1px solid rgba(28, 26, 23, 0.08);
+  display: grid;
+  gap: 8px;
+}
+
+.mining-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.mining-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mining-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #2b91ff, #1f6fd1);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mining-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mining-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .tabs {
   position: fixed !important;
   left: 50%;
@@ -973,6 +1027,102 @@ body {
 .leaderboard-list {
   display: grid;
   gap: 8px;
+}
+
+.squads-card {
+  border-radius: 14px;
+  border: 1px solid rgba(28, 26, 23, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.squads-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.squads-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.squad-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.squad-actions .profile-input {
+  min-width: 0;
+}
+
+.squad-actions:last-of-type {
+  grid-template-columns: 1fr auto auto;
+}
+
+.squad-status {
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 16px;
+}
+
+.squad-status.error {
+  color: #d84f4f;
+}
+
+.squad-current {
+  border-radius: 10px;
+  padding: 8px;
+  border: 1px solid rgba(43, 145, 255, 0.26);
+  background: rgba(43, 145, 255, 0.08);
+  font-size: 12px;
+  color: #2f4f81;
+  word-break: break-word;
+}
+
+.squad-list {
+  display: grid;
+  gap: 6px;
+}
+
+.squad-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(28, 26, 23, 0.08);
+  background: #fffdf7;
+  padding: 7px 8px;
+}
+
+.squad-rank {
+  font-weight: 700;
+  color: #2f4f81;
+}
+
+.squad-main {
+  min-width: 0;
+}
+
+.squad-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.squad-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.squad-points {
+  font-size: 12px;
+  font-weight: 700;
+  color: #24467c;
+  text-align: right;
 }
 
 .leaderboard-empty {

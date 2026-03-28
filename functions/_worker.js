@@ -4,10 +4,12 @@ import {
   normalizeUser,
   ensureDaily,
   syncSeason,
+  syncMining,
   applyTapAction,
   applyBuyAction,
   applyDailyAction,
   applyQuestClaimAction,
+  applyMiningClaimAction,
   applyAdminAdjustAction
 } from "./_shared/utils.js";
 
@@ -50,6 +52,7 @@ export class UserStore {
     const normalized = normalizeUser(user);
     ensureDaily(normalized);
     syncSeason(normalized);
+    syncMining(normalized);
     if (normalized._dirty) delete normalized._dirty;
     await this.state.storage.put("user", normalized);
     return normalized;
@@ -66,6 +69,7 @@ export class UserStore {
     const normalized = normalizeUser(user);
     ensureDaily(normalized);
     syncSeason(normalized);
+    syncMining(normalized);
     if (normalized._dirty) {
       delete normalized._dirty;
       await this.state.storage.put("user", normalized);
@@ -79,6 +83,8 @@ export class UserStore {
     }
     const normalized = normalizeUser(user);
     ensureDaily(normalized);
+    syncSeason(normalized);
+    syncMining(normalized);
     await this.state.storage.put("user", normalized);
     return normalized;
   }
@@ -155,6 +161,16 @@ export class UserStore {
     if (action === "quest_claim") {
       const { result, user } = await this.applyAction(body, (candidate) =>
         applyQuestClaimAction(candidate, body.questId, body.now)
+      );
+      if (!result.ok) {
+        const { status = 400, ...rest } = result;
+        return jsonResponse({ ok: false, status, ...rest }, status);
+      }
+      return jsonResponse({ ...result.payload, user, log: result.log });
+    }
+    if (action === "mining_claim") {
+      const { result, user } = await this.applyAction(body, (candidate) =>
+        applyMiningClaimAction(candidate, body.now)
       );
       if (!result.ok) {
         const { status = 400, ...rest } = result;

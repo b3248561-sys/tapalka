@@ -71,7 +71,9 @@ export async function onRequest(context) {
         referrerId: referralResult.referrerId,
         referrerName: referralResult.referrerName || "",
         newUserBonus: referralResult.newUserBonus,
-        referrerBonus: referralResult.referrerBonus
+        referrerBonus: referralResult.referrerBonus,
+        level2ReferrerId: referralResult.level2ReferrerId || "",
+        level2Bonus: Number(referralResult.level2Bonus || 0)
       };
       const fresh = await getUserById(env, String(profile.id));
       if (fresh) {

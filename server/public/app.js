@@ -84,6 +84,21 @@ const dailyTitleEl = document.getElementById("dailyTitle");
 const dailySubtitleEl = document.getElementById("dailySubtitle");
 const dailyBtnEl = document.getElementById("dailyBtn");
 const dailyStatusEl = document.getElementById("dailyStatus");
+const dailyStreakEl = document.getElementById("dailyStreak");
+const miningTitleEl = document.getElementById("miningTitle");
+const miningSubtitleEl = document.getElementById("miningSubtitle");
+const miningBtnEl = document.getElementById("miningBtn");
+const miningStatusEl = document.getElementById("miningStatus");
+const squadsTitleEl = document.getElementById("squadsTitle");
+const squadsSubtitleEl = document.getElementById("squadsSubtitle");
+const squadNameInputEl = document.getElementById("squadNameInput");
+const squadIdInputEl = document.getElementById("squadIdInput");
+const squadCreateBtnEl = document.getElementById("squadCreateBtn");
+const squadJoinBtnEl = document.getElementById("squadJoinBtn");
+const squadLeaveBtnEl = document.getElementById("squadLeaveBtn");
+const squadStatusEl = document.getElementById("squadStatus");
+const squadCurrentEl = document.getElementById("squadCurrent");
+const squadListEl = document.getElementById("squadList");
 const questsTitleEl = document.getElementById("questsTitle");
 const questsSubtitleEl = document.getElementById("questsSubtitle");
 const questsListEl = document.getElementById("questsList");
@@ -115,6 +130,8 @@ let tapValue = 1;
 let lastTouchAt = 0;
 let lastPointerDownAt = 0;
 let lastDailyTs = 0;
+let dailyStreakState = { count: 0, best: 0, max: 7, bonusPct: 0, milestoneBonus: 0 };
+let miningState = null;
 let boostUntil = 0;
 let rankState = null;
 let lastQuestSyncAt = 0;
@@ -134,10 +151,13 @@ let nextGoldenAt = 0;
 let profileUser = null;
 let profileAvatarFileData = "";
 let donatePackages = [];
+let squadsState = [];
+let currentSquadState = null;
 let launchReferralCode = "";
 const BOT_USERNAME = "Nleo2bot";
 const REFERRAL_BONUS_YOU = 1200;
 const REFERRAL_BONUS_FRIEND = 2200;
+const REFERRAL_BONUS_LEVEL2 = 450;
 let giftsFilter = ["all", "rare", "epic", "mythic"].includes(localStorage.getItem("giftsFilter"))
   ? localStorage.getItem("giftsFilter")
   : "all";
@@ -201,6 +221,9 @@ const STRINGS = {
     dailyClaim: "Claim",
     dailyReady: "Ready",
     dailyNext: "Next in {time}",
+    dailyStreak: "Streak {count}/{max} • +{bonus}%",
+    dailyStreakReady: "Streak {count}/{max} • milestone reward ready",
+    dailyClaimed: "Daily reward +{amount} NF",
     boostActive: "Active {time}",
     questsTitle: "Daily Quests",
     questsSubtitle: "Complete and claim rewards",
@@ -294,7 +317,26 @@ const STRINGS = {
     profileRefTitle: "Invite friends and get bonuses",
     profileRefCopy: "Copy",
     profileRefCopied: "Referral link copied",
-    profileRefStats: "You: +{you} NF • Friend: +{friend} NF • Invited: {count}",
+    profileRefStats: "You: +{you} NF • Friend: +{friend} NF • L2: +{level2} NF • Invited: {count}",
+    miningTitle: "Mining",
+    miningSubtitle: "Passive income while you are away",
+    miningClaim: "Claim Mining",
+    miningReady: "Stored: {stored}/{capacity} NF • {rate}/h",
+    miningWait: "Stored: {stored}/{capacity} NF • full in {time}",
+    miningCollected: "Mining +{amount} NF",
+    miningNotReady: "Mining is empty",
+    squadsTitle: "Squads",
+    squadsSubtitle: "Create or join a squad",
+    squadCreate: "Create",
+    squadJoin: "Join",
+    squadLeave: "Leave",
+    squadNamePlaceholder: "Squad name",
+    squadIdPlaceholder: "sq_xxxxxx",
+    squadsEmpty: "No squads yet",
+    squadCurrent: "Your squad: {name} ({id}) • members {count}",
+    squadCreated: "Squad created",
+    squadJoined: "Joined squad",
+    squadLeft: "Left squad",
     donateTitle: "Support project",
     donateSubtitle: "Telegram Stars packs (non pay-to-win)",
     support_sName: "Starter Support",
@@ -385,6 +427,9 @@ const STRINGS = {
     dailyClaim: "Забрать",
     dailyReady: "Доступно",
     dailyNext: "Следующий через {time}",
+    dailyStreak: "Серия {count}/{max} • +{bonus}%",
+    dailyStreakReady: "Серия {count}/{max} • готова награда этапа",
+    dailyClaimed: "Ежедневная награда +{amount} NF",
     boostActive: "Активен {time}",
     questsTitle: "Квесты на день",
     questsSubtitle: "Выполняй и забирай награды",
@@ -478,7 +523,26 @@ const STRINGS = {
     profileRefTitle: "Приглашай друзей и получай бонус",
     profileRefCopy: "Копировать",
     profileRefCopied: "Реферальная ссылка скопирована",
-    profileRefStats: "Тебе: +{you} NF • Другу: +{friend} NF • Приглашено: {count}",
+    profileRefStats: "Тебе: +{you} NF • Другу: +{friend} NF • L2: +{level2} NF • Приглашено: {count}",
+    miningTitle: "Майнинг",
+    miningSubtitle: "Пассивный доход, пока тебя нет",
+    miningClaim: "Забрать майнинг",
+    miningReady: "Накоплено: {stored}/{capacity} NF • {rate}/ч",
+    miningWait: "Накоплено: {stored}/{capacity} NF • до фула {time}",
+    miningCollected: "Майнинг +{amount} NF",
+    miningNotReady: "Майнинг пуст",
+    squadsTitle: "Сквады",
+    squadsSubtitle: "Создай или вступи в сквад",
+    squadCreate: "Создать",
+    squadJoin: "Вступить",
+    squadLeave: "Выйти",
+    squadNamePlaceholder: "Название сквада",
+    squadIdPlaceholder: "sq_xxxxxx",
+    squadsEmpty: "Пока нет сквадов",
+    squadCurrent: "Твой сквад: {name} ({id}) • участников {count}",
+    squadCreated: "Сквад создан",
+    squadJoined: "Вступление успешно",
+    squadLeft: "Ты вышел из сквада",
     donateTitle: "Поддержка проекта",
     donateSubtitle: "Пакеты Telegram Stars (без pay-to-win)",
     support_sName: "Стартовая поддержка",
@@ -1165,6 +1229,16 @@ function applyTexts() {
   if (dailyTitleEl) dailyTitleEl.textContent = t("dailyTitle");
   if (dailySubtitleEl) dailySubtitleEl.textContent = t("dailySubtitle");
   if (dailyBtnEl) dailyBtnEl.textContent = t("dailyClaim");
+  if (miningTitleEl) miningTitleEl.textContent = t("miningTitle");
+  if (miningSubtitleEl) miningSubtitleEl.textContent = t("miningSubtitle");
+  if (miningBtnEl) miningBtnEl.textContent = t("miningClaim");
+  if (squadsTitleEl) squadsTitleEl.textContent = t("squadsTitle");
+  if (squadsSubtitleEl) squadsSubtitleEl.textContent = t("squadsSubtitle");
+  if (squadCreateBtnEl) squadCreateBtnEl.textContent = t("squadCreate");
+  if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
+  if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
+  if (squadNameInputEl) squadNameInputEl.placeholder = t("squadNamePlaceholder");
+  if (squadIdInputEl) squadIdInputEl.placeholder = t("squadIdPlaceholder");
   if (leaderboardTitleEl) leaderboardTitleEl.textContent = t("leaderboardTitle");
   if (leaderboardSubtitleEl) leaderboardSubtitleEl.textContent = t("leaderboardSubtitle");
   if (leaderboardModeSeasonEl) leaderboardModeSeasonEl.textContent = t("leaderboardModeSeason");
@@ -1209,10 +1283,13 @@ function applyTexts() {
   renderLeaderboardTools();
   renderLeaderboard();
   renderDonatePackages();
+  renderMining();
+  renderSquads();
   updateGiftsFilterButtons();
   renderProfilePanel(profileUser || { id: currentUserId || "-", name: "", username: "", avatarUrl: "" });
   updateTapBuffs();
   updateDailyStatus();
+  updateDailyStreakView();
 }
 
 if (tg) {
@@ -1359,6 +1436,206 @@ function setDonateStatus(keyOrText = "", isError = false) {
   const text = isLangKey ? t(keyOrText) : String(keyOrText || "");
   donateStatusEl.textContent = text;
   donateStatusEl.classList.toggle("error", isError);
+}
+
+function setSquadStatus(keyOrText = "", isError = false) {
+  if (!squadStatusEl) return;
+  const isLangKey =
+    typeof keyOrText === "string" &&
+    (STRINGS[currentLang]?.[keyOrText] || STRINGS.en?.[keyOrText]);
+  const text = isLangKey ? t(keyOrText) : String(keyOrText || "");
+  squadStatusEl.textContent = text;
+  squadStatusEl.classList.toggle("error", isError);
+}
+
+function updateDailyStreakView() {
+  if (!dailyStreakEl) return;
+  const count = Math.max(0, Number(dailyStreakState?.count || 0));
+  const max = Math.max(1, Number(dailyStreakState?.max || 7));
+  const bonus = Math.max(0, Number(dailyStreakState?.bonusPct || 0));
+  const milestoneBonus = Math.max(0, Number(dailyStreakState?.milestoneBonus || 0));
+  if (milestoneBonus > 0) {
+    dailyStreakEl.textContent = t("dailyStreakReady", { count, max, bonus });
+    return;
+  }
+  dailyStreakEl.textContent = t("dailyStreak", { count, max, bonus });
+}
+
+function renderMining() {
+  if (!miningStatusEl || !miningBtnEl) return;
+  if (miningTitleEl) miningTitleEl.textContent = t("miningTitle");
+  if (miningSubtitleEl) miningSubtitleEl.textContent = t("miningSubtitle");
+  miningBtnEl.textContent = t("miningClaim");
+  if (!miningState) {
+    miningStatusEl.textContent = t("loading");
+    miningBtnEl.disabled = true;
+    return;
+  }
+  const stored = Math.max(0, Number(miningState.stored || 0));
+  const capacity = Math.max(1, Number(miningState.capacity || 1));
+  const rate = Math.max(1, Number(miningState.ratePerHour || 1));
+  const canClaim = Math.max(0, Number(miningState.canClaim || stored));
+  miningBtnEl.disabled = canClaim <= 0;
+  if (miningState.isFull) {
+    miningStatusEl.textContent = t("miningReady", {
+      stored: formatNumberDots(stored),
+      capacity: formatNumberDots(capacity),
+      rate: formatNumberDots(rate)
+    });
+    return;
+  }
+  const nextReadyAt = Number(miningState.nextReadyAt || 0);
+  const remainMs = Math.max(0, nextReadyAt - Date.now());
+  if (remainMs > 0) {
+    miningStatusEl.textContent = t("miningWait", {
+      stored: formatNumberDots(stored),
+      capacity: formatNumberDots(capacity),
+      rate: formatNumberDots(rate),
+      time: formatTime(remainMs)
+    });
+  } else {
+    miningStatusEl.textContent = t("miningReady", {
+      stored: formatNumberDots(stored),
+      capacity: formatNumberDots(capacity),
+      rate: formatNumberDots(rate)
+    });
+  }
+}
+
+async function loadMiningStatus({ silent = false } = {}) {
+  const latestInit = tg?.initData || initData || "";
+  if (latestInit && latestInit !== initData) initData = latestInit;
+  if (!demoMode && !initData) return;
+
+  const headers = {};
+  let url = "/api/mining";
+  if (demoMode) {
+    url += `?demoUserId=${encodeURIComponent(demoUserId)}`;
+  } else {
+    headers["x-init-data"] = initData;
+  }
+  try {
+    const res = await fetch(url, { headers, cache: "no-store" });
+    const data = await res.json();
+    if (!data?.ok) {
+      if (!silent) setMetaText(data?.error || t("tryAgain"));
+      return;
+    }
+    miningState = data.mining || miningState;
+    if (data.dailyStreak) {
+      dailyStreakState = {
+        ...dailyStreakState,
+        ...data.dailyStreak
+      };
+    }
+    updateDailyStreakView();
+    renderMining();
+  } catch {
+    if (!silent) setMeta("network");
+  }
+}
+
+function renderSquads() {
+  if (!squadListEl || !squadCurrentEl) return;
+  if (squadsTitleEl) squadsTitleEl.textContent = t("squadsTitle");
+  if (squadsSubtitleEl) squadsSubtitleEl.textContent = t("squadsSubtitle");
+  if (squadCreateBtnEl) squadCreateBtnEl.textContent = t("squadCreate");
+  if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
+  if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
+  if (squadNameInputEl) squadNameInputEl.placeholder = t("squadNamePlaceholder");
+  if (squadIdInputEl) squadIdInputEl.placeholder = t("squadIdPlaceholder");
+
+  if (currentSquadState?.id) {
+    squadCurrentEl.textContent = t("squadCurrent", {
+      name: currentSquadState.name || "-",
+      id: currentSquadState.id || "-",
+      count: formatNumberDots(currentSquadState.membersCount || 1)
+    });
+  } else {
+    squadCurrentEl.textContent = "";
+  }
+
+  squadListEl.innerHTML = "";
+  if (!Array.isArray(squadsState) || !squadsState.length) {
+    const empty = document.createElement("div");
+    empty.className = "leaderboard-empty";
+    empty.textContent = t("squadsEmpty");
+    squadListEl.appendChild(empty);
+    return;
+  }
+  squadsState.forEach((squad) => {
+    const row = document.createElement("div");
+    row.className = "squad-row";
+    const rank = document.createElement("div");
+    rank.className = "squad-rank";
+    rank.textContent = `#${squad.rank || "?"}`;
+    const main = document.createElement("div");
+    main.className = "squad-main";
+    const name = document.createElement("div");
+    name.className = "squad-name";
+    name.textContent = `${squad.name || "Squad"} (${squad.id || "-"})`;
+    const meta = document.createElement("div");
+    meta.className = "squad-meta";
+    meta.textContent = `${formatNumberDots(squad.membersCount || 0)} members`;
+    main.append(name, meta);
+    const value = document.createElement("div");
+    value.className = "squad-points";
+    value.textContent = `${formatNumberDots(squad.seasonPoints || 0)} NF`;
+    row.append(rank, main, value);
+    squadListEl.appendChild(row);
+  });
+}
+
+async function loadSquads({ silent = false } = {}) {
+  const latestInit = tg?.initData || initData || "";
+  if (latestInit && latestInit !== initData) initData = latestInit;
+  if (!demoMode && !initData) return;
+
+  const headers = {};
+  let url = "/api/squads";
+  if (demoMode) {
+    url += `?demoUserId=${encodeURIComponent(demoUserId)}`;
+  } else {
+    headers["x-init-data"] = initData;
+  }
+  try {
+    const res = await fetch(url, { headers, cache: "no-store" });
+    const data = await res.json();
+    if (!data?.ok) {
+      if (!silent) setSquadStatus(data?.error || t("tryAgain"), true);
+      return;
+    }
+    squadsState = Array.isArray(data.squads) ? data.squads : [];
+    currentSquadState = data.currentSquad || null;
+    renderSquads();
+    if (!silent) setSquadStatus("");
+  } catch {
+    if (!silent) setSquadStatus("network", true);
+  }
+}
+
+async function handleSquadAction(action) {
+  const payload = { action };
+  if (action === "create") payload.name = String(squadNameInputEl?.value || "").trim();
+  if (action === "join") payload.squadId = String(squadIdInputEl?.value || "").trim().toLowerCase();
+  const data = await apiRequest("/api/squads", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  if (!data?.ok) {
+    setSquadStatus(data?.error || t("tryAgain"), true);
+    return;
+  }
+  if (data.userSummary) {
+    profileUser = data.userSummary;
+    renderProfilePanel(profileUser);
+  }
+  squadsState = Array.isArray(data.squads) ? data.squads : squadsState;
+  currentSquadState = data.currentSquad || null;
+  renderSquads();
+  if (action === "create") setSquadStatus("squadCreated");
+  if (action === "join") setSquadStatus("squadJoined");
+  if (action === "leave") setSquadStatus("squadLeft");
 }
 
 function clearProfileAvatarFileSelection() {
@@ -1568,6 +1845,7 @@ function renderProfilePanel(user, { refillInputs = false } = {}) {
     profileRefStatsEl.textContent = t("profileRefStats", {
       you: formatNumberDots(REFERRAL_BONUS_YOU),
       friend: formatNumberDots(REFERRAL_BONUS_FRIEND),
+      level2: formatNumberDots(REFERRAL_BONUS_LEVEL2),
       count: formatNumberDots(user.referralsCount || 0)
     });
   }
@@ -1603,6 +1881,7 @@ function updateDailyStatus() {
     dailyStatusEl.textContent = t("dailyNext", { time: formatTime(nextAt - Date.now()) });
     dailyBtnEl.disabled = true;
   }
+  updateDailyStreakView();
 }
 
 function setActiveTab(tab) {
@@ -1620,7 +1899,11 @@ function setActiveTab(tab) {
   if (tabProfileEl) tabProfileEl.classList.toggle("active", tab === "profile");
   if (tabSupportEl) tabSupportEl.classList.toggle("active", tab === "support");
   if (tabGiftsEl) tabGiftsEl.classList.toggle("active", tab === "gifts");
-  if (tab === "leaderboard") loadLeaderboard({ force: true, silent: true });
+  if (tab === "leaderboard") {
+    loadLeaderboard({ force: true, silent: true });
+    loadSquads({ silent: true });
+  }
+  if (tab === "shop") loadMiningStatus({ silent: true });
   if (tab === "profile") renderProfilePanel(profileUser, { refillInputs: true });
   if (tab === "support") loadDonatePackages({ silent: true });
   if (tab === "gifts") renderProfilePanel(profileUser);
@@ -2195,6 +2478,15 @@ async function init() {
     applyTapEffectsState(profile.user);
     renderProfilePanel(profile.user, { refillInputs: true });
     lastDailyTs = profile.user.lastDailyTs || 0;
+    const streakCount = Number(profile.user.dailyStreakCount || 0);
+    dailyStreakState = {
+      count: streakCount,
+      best: Number(profile.user.dailyStreakBest || 0),
+      max: 7,
+      bonusPct: Math.max(0, Math.min(60, (streakCount - 1) * 10)),
+      milestoneBonus: 0
+    };
+    miningState = profile.user.mining || miningState;
     boostUntil = profile.user.boostUntil || 0;
     rankState = profile.user.rank || null;
     if (typeof profile.user.equippedCosmetic === "string") {
@@ -2206,9 +2498,12 @@ async function init() {
     }
     updateEnergy(profile.user.energy, profile.user.maxEnergy, profile.user.energyRegen);
     updateDailyStatus();
+    renderMining();
     await loadShop();
     await loadQuests();
     await loadLeaderboard({ force: true, silent: true });
+    await loadMiningStatus({ silent: true });
+    await loadSquads({ silent: true });
     await loadDonatePackages({ silent: true });
   } catch {
     setMeta("failedLoad");
@@ -2245,8 +2540,18 @@ async function syncProfileSilently({ force = false } = {}) {
       equippedFrame = profile.user.equippedFrame;
     }
     lastDailyTs = profile.user.lastDailyTs || lastDailyTs || 0;
+    const streakCount = Number(profile.user.dailyStreakCount || 0);
+    dailyStreakState = {
+      count: streakCount,
+      best: Number(profile.user.dailyStreakBest || 0),
+      max: 7,
+      bonusPct: Math.max(0, Math.min(60, (streakCount - 1) * 10)),
+      milestoneBonus: 0
+    };
+    miningState = profile.user.mining || miningState;
     boostUntil = profile.user.boostUntil || 0;
     updateDailyStatus();
+    renderMining();
     lastProfileSyncAt = now;
   } catch {
     // silent
@@ -2259,6 +2564,8 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     syncProfileSilently({ force: true });
     loadLeaderboard({ force: true, silent: true });
+    loadMiningStatus({ silent: true });
+    loadSquads({ silent: true });
     loadDonatePackages({ silent: true });
   }
 });
@@ -2266,6 +2573,8 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("focus", () => {
   syncProfileSilently({ force: true });
   loadLeaderboard({ force: true, silent: true });
+  loadMiningStatus({ silent: true });
+  loadSquads({ silent: true });
   loadDonatePackages({ silent: true });
 });
 
@@ -2390,12 +2699,95 @@ if (dailyBtnEl) {
       }
       updateBalance(data.balance);
       if (typeof data.energy === "number") updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+      if (data.dailyStreak) {
+        dailyStreakState = {
+          ...dailyStreakState,
+          ...data.dailyStreak
+        };
+      }
+      if (data.reward) {
+        setMeta("dailyClaimed", { amount: formatNumberDots(data.reward) });
+      }
       lastDailyTs = Date.now();
       updateDailyStatus();
+      await loadMiningStatus({ silent: true });
     } catch {
       setMeta("network");
     } finally {
       updateDailyStatus();
+    }
+  });
+}
+
+if (miningBtnEl) {
+  miningBtnEl.addEventListener("click", async () => {
+    miningBtnEl.disabled = true;
+    try {
+      const data = await apiRequest("/api/mining", {
+        method: "POST",
+        body: "{}"
+      });
+      if (!data?.ok) {
+        if (data?.error === "mining_not_ready") {
+          setMeta("miningNotReady");
+          if (data.mining) miningState = data.mining;
+          renderMining();
+        } else {
+          setMetaText(data?.error || t("tryAgain"));
+        }
+        return;
+      }
+      if (typeof data.claimed === "number") {
+        setMeta("miningCollected", { amount: formatNumberDots(data.claimed) });
+      }
+      if (typeof data.balance === "number") updateBalance(data.balance);
+      if (data.mining) miningState = data.mining;
+      if (data.dailyStreak) {
+        dailyStreakState = { ...dailyStreakState, ...data.dailyStreak };
+      }
+      if (typeof data.energy === "number") updateEnergy(data.energy, data.maxEnergy, data.energyRegen);
+      if (data.rank) {
+        rankState = data.rank;
+        updateRank();
+      }
+      updateDailyStatus();
+      renderMining();
+      if (activeTab === "leaderboard") loadLeaderboard({ force: true, silent: true });
+    } catch {
+      setMeta("network");
+    } finally {
+      if (miningBtnEl) miningBtnEl.disabled = false;
+    }
+  });
+}
+
+if (squadCreateBtnEl) {
+  squadCreateBtnEl.addEventListener("click", async () => {
+    squadCreateBtnEl.disabled = true;
+    try {
+      await handleSquadAction("create");
+    } finally {
+      squadCreateBtnEl.disabled = false;
+    }
+  });
+}
+if (squadJoinBtnEl) {
+  squadJoinBtnEl.addEventListener("click", async () => {
+    squadJoinBtnEl.disabled = true;
+    try {
+      await handleSquadAction("join");
+    } finally {
+      squadJoinBtnEl.disabled = false;
+    }
+  });
+}
+if (squadLeaveBtnEl) {
+  squadLeaveBtnEl.addEventListener("click", async () => {
+    squadLeaveBtnEl.disabled = true;
+    try {
+      await handleSquadAction("leave");
+    } finally {
+      squadLeaveBtnEl.disabled = false;
     }
   });
 }
@@ -2525,9 +2917,13 @@ setInterval(() => {
   forceDockTabs();
   updateDailyStatus();
   tickEnergy();
+  renderMining();
   updateTapBuffs();
   renderLeaderboardTools();
   if (boostUntil && Date.now() < boostUntil) renderShop();
   syncProfileSilently();
-  if (activeTab === "leaderboard") loadLeaderboard({ silent: true });
+  if (activeTab === "leaderboard") {
+    loadLeaderboard({ silent: true });
+    loadSquads({ silent: true });
+  }
 }, 1000);
