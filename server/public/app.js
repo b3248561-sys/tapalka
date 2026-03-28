@@ -142,13 +142,29 @@ let giftsFilter = ["all", "rare", "epic", "mythic"].includes(localStorage.getIte
   ? localStorage.getItem("giftsFilter")
   : "all";
 let caseAnimationActive = false;
-const CASE_SLOT_POOL = ["🎁", "💎", "👑", "🔥", "⚡", "🍀", "🔮", "🌟", "🧸", "💖", "🐉", "🐋"];
+const CASE_SLOT_POOL = ["◈", "✦", "◆", "◎", "✶", "⬢", "▣", "⬥", "◇", "✧", "◉", "○"];
 let caseSpinSession = null;
 let tabsUseAbsoluteDock = Boolean(tg);
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura", "theme-void", "theme-aurora"];
 const TAP_THEMES = ["style-crown", "style-neon", "style-sakura", "style-void", "style-aurora"];
+const GIFT_ICON_MARK_BY_ID = {
+  gift_lucky_clover: "LC",
+  gift_prism_orb: "PO",
+  gift_neon_phoenix: "NP",
+  gift_cyber_crown: "CC",
+  gift_star_whale: "SW",
+  gift_solar_dragon: "SD"
+};
+const GIFT_CASE_SYMBOL_BY_ID = {
+  gift_lucky_clover: "◎",
+  gift_prism_orb: "◉",
+  gift_neon_phoenix: "✶",
+  gift_cyber_crown: "◆",
+  gift_star_whale: "⬢",
+  gift_solar_dragon: "✦"
+};
 
 function normalizeReferralCode(value) {
   const text = String(value || "").trim();
@@ -287,7 +303,7 @@ const STRINGS = {
     support_lName: "Legend Support",
     donateBuy: "Support for {stars} Stars",
     donateBonus: "Bonus +{bonus} NF",
-    donateGift: "Gift {emoji} {name}",
+    donateGift: "Gift: {name}",
     donatePaid: "Thanks for support",
     donateCanceled: "Payment canceled",
     donateFailed: "Payment failed",
@@ -471,7 +487,7 @@ const STRINGS = {
     support_lName: "Легендарная поддержка",
     donateBuy: "Поддержать за {stars} Stars",
     donateBonus: "Бонус +{bonus} NF",
-    donateGift: "Подарок {emoji} {name}",
+    donateGift: "Подарок: {name}",
     donatePaid: "Спасибо за поддержку",
     donateCanceled: "Оплата отменена",
     donateFailed: "Оплата не прошла",
@@ -678,6 +694,29 @@ function giftRarityClass(rarity) {
   return "rarity-common";
 }
 
+function giftIconClassFromId(giftId) {
+  const normalized = String(giftId || "")
+    .trim()
+    .replace(/^gift_/, "")
+    .replace(/_/g, "-")
+    .replace(/[^a-z0-9-]/gi, "");
+  return normalized ? `gift-icon-${normalized}` : "gift-icon-default";
+}
+
+function giftIconMarkFromId(giftId) {
+  return GIFT_ICON_MARK_BY_ID[String(giftId || "").trim()] || "GF";
+}
+
+function createGiftIconElement(giftId, size = "sm") {
+  const icon = document.createElement("span");
+  icon.className = `gift-icon gift-icon-${size} ${giftIconClassFromId(giftId)}`;
+  const mark = document.createElement("span");
+  mark.className = "gift-icon-mark";
+  mark.textContent = giftIconMarkFromId(giftId);
+  icon.appendChild(mark);
+  return icon;
+}
+
 function renderGiftChips(container, gifts = [], emptyKey = "profileGiftsEmpty", limit = 10) {
   if (!container) return;
   container.innerHTML = "";
@@ -695,11 +734,17 @@ function renderGiftChips(container, gifts = [], emptyKey = "profileGiftsEmpty", 
     const titleKey = `${gift.id}Name`;
     const giftName =
       STRINGS[currentLang]?.[titleKey] || STRINGS.en?.[titleKey] || gift.id || "Gift";
-    const safeEmoji = escapeHtml(gift.emoji || "🎁");
-    const safeGiftName = escapeHtml(giftName);
-    chip.innerHTML = `${safeEmoji} ${safeGiftName} <span class="gift-count">${t("giftCount", {
-      count: formatNumberDots(gift.count || 0)
-    })}</span>`;
+    const main = document.createElement("span");
+    main.className = "gift-chip-main";
+    main.appendChild(createGiftIconElement(gift.id, "xs"));
+    const name = document.createElement("span");
+    name.className = "gift-chip-name";
+    name.textContent = giftName;
+    main.appendChild(name);
+    const count = document.createElement("span");
+    count.className = "gift-count";
+    count.textContent = t("giftCount", { count: formatNumberDots(gift.count || 0) });
+    chip.append(main, count);
     container.appendChild(chip);
   });
 }
@@ -737,7 +782,7 @@ function renderGiftCollection(gifts = []) {
 
     const icon = document.createElement("div");
     icon.className = "gift-tile-icon";
-    icon.textContent = gift.emoji || "🎁";
+    icon.appendChild(createGiftIconElement(gift.id, "lg"));
 
     const title = document.createElement("div");
     title.className = "gift-tile-title";
@@ -767,18 +812,20 @@ function sleep(ms) {
 }
 
 function randomSlotSymbol() {
-  return CASE_SLOT_POOL[Math.floor(Math.random() * CASE_SLOT_POOL.length)] || "🎁";
+  return CASE_SLOT_POOL[Math.floor(Math.random() * CASE_SLOT_POOL.length)] || "◈";
 }
 
 function resolveCaseFinalSymbol(caseReward = {}) {
-  if (caseReward?.gift?.emoji) return caseReward.gift.emoji;
-  if (caseReward?.unlockedItem?.type === "frame") return "🖼️";
-  if (caseReward?.unlockedItem?.type === "cosmetic") return "✨";
+  if (caseReward?.gift?.id) {
+    return GIFT_CASE_SYMBOL_BY_ID[caseReward.gift.id] || "◉";
+  }
+  if (caseReward?.unlockedItem?.type === "frame") return "▣";
+  if (caseReward?.unlockedItem?.type === "cosmetic") return "◆";
   const rarity = String(caseReward?.rarity || "common").toLowerCase();
-  if (rarity === "mythic") return "🌈";
-  if (rarity === "epic") return "💜";
-  if (rarity === "rare") return "💙";
-  return "⭐";
+  if (rarity === "mythic") return "✦";
+  if (rarity === "epic") return "✶";
+  if (rarity === "rare") return "◈";
+  return "○";
 }
 
 function resolveCaseFinalSymbols(caseReward = {}) {
@@ -786,7 +833,7 @@ function resolveCaseFinalSymbols(caseReward = {}) {
   const pickOther = () => {
     let value = randomSlotSymbol();
     if (value === main) {
-      value = CASE_SLOT_POOL.find((candidate) => candidate !== main) || "🎁";
+      value = CASE_SLOT_POOL.find((candidate) => candidate !== main) || "◈";
     }
     return value;
   };
@@ -800,7 +847,7 @@ function resolveCaseFinalSymbols(caseReward = {}) {
 function buildCaseResultMeta(caseReward = {}) {
   const rarityLabel = t(`rarity_${String(caseReward.rarity || "common").toLowerCase()}`);
   const giftLabel = caseReward.gift?.id
-    ? `${caseReward.gift.emoji || "🎁"} ${
+    ? `${
         STRINGS[currentLang]?.[`${caseReward.gift.id}Name`] ||
         STRINGS.en?.[`${caseReward.gift.id}Name`] ||
         caseReward.gift.id
@@ -928,7 +975,7 @@ function startCaseSpin() {
 
 async function finishCaseAnimation(
   session,
-  { finalSymbols = ["🎁", "🎁", "🎁"], statusText = "", failed = false } = {}
+  { finalSymbols = ["◈", "◈", "◈"], statusText = "", failed = false } = {}
 ) {
   if (!session) return;
   const minSpinMs = 1500;
@@ -953,7 +1000,7 @@ async function finishCaseAnimation(
   if (intervals[2]) clearInterval(intervals[2]);
   if (slot3) {
     slot3.classList.remove("spinning");
-    slot3.textContent = finalSymbols[2] || "🎁";
+    slot3.textContent = finalSymbols[2] || "◈";
     slot3.classList.add("hit");
     setTimeout(() => slot3.classList.remove("hit"), 520);
   }
@@ -1353,14 +1400,13 @@ function renderDonatePackages() {
     let gift = null;
     if (pkg.giftId) {
       gift = document.createElement("div");
-      gift.className = "donate-item-bonus";
+      gift.className = "donate-item-bonus donate-gift-row";
       const giftKey = `${pkg.giftId}Name`;
       const giftName =
         STRINGS[currentLang]?.[giftKey] || STRINGS.en?.[giftKey] || pkg.giftId;
-      gift.textContent = t("donateGift", {
-        emoji: pkg.emoji || "🎁",
-        name: giftName
-      });
+      const giftText = document.createElement("span");
+      giftText.textContent = t("donateGift", { name: giftName });
+      gift.append(createGiftIconElement(pkg.giftId, "xs"), giftText);
     }
     const btn = document.createElement("button");
     btn.className = "donate-buy";
