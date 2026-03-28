@@ -631,7 +631,11 @@ body {
   border-radius: 14px;
   display: flex;
   gap: 0;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 6px 8px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
@@ -639,18 +643,28 @@ body {
   will-change: transform;
 }
 
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs::after {
+  content: "";
+  flex: 0 0 64px;
+}
+
 .tab {
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.75);
   font-weight: 700;
-  padding: 9px 6px;
+  padding: 9px 10px;
   border-radius: 10px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  min-width: 0;
+  min-width: 82px;
+  white-space: nowrap;
   text-align: center;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   line-height: 1;
   font-size: 12px;
   position: relative;
@@ -856,8 +870,8 @@ body {
 }
 
 .tab {
-  min-width: 0;
-  padding: 9px 6px;
+  min-width: 82px;
+  padding: 9px 10px;
   font-size: 11px;
 }
 
@@ -2197,8 +2211,8 @@ body {
 
 @media (max-width: 430px) {
   .tab {
-    min-width: 0;
-    padding: 9px 4px;
+    min-width: 76px;
+    padding: 9px 8px;
     font-size: 11px;
   }
 
