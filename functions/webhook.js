@@ -11,13 +11,26 @@ import {
 } from "./_shared/utils.js";
 
 const DONATE_REWARD_BY_PACKAGE = {
-  support_s: { bonus: 2800, giftId: "gift_prism_orb" },
-  support_m: { bonus: 10000, giftId: "gift_cyber_crown" },
-  support_l: { bonus: 32000, giftId: "gift_solar_dragon" }
+  support_s: { bonus: 6000, giftId: "gift_prism_orb" },
+  support_m: { bonus: 22000, giftId: "gift_cyber_crown" },
+  support_l: { bonus: 70000, giftId: "gift_solar_dragon" }
 };
 
-function resolveWebAppUrl(env, startPayload = "") {
-  const raw = String(env.WEBAPP_URL || "").trim();
+function resolveWebAppUrl(env, startPayload = "", requestUrl = "") {
+  const fallbackFromPages = env.CF_PAGES_URL
+    ? `https://${String(env.CF_PAGES_URL).trim()}`
+    : "";
+  let fallbackFromRequest = "";
+  try {
+    if (requestUrl) {
+      fallbackFromRequest = new URL(String(requestUrl)).origin;
+    }
+  } catch {
+    fallbackFromRequest = "";
+  }
+  const raw = String(
+    env.WEBAPP_URL || env.PUBLIC_URL || fallbackFromPages || fallbackFromRequest || ""
+  ).trim();
   if (!raw) return "";
   const build =
     String(env.WEBAPP_CACHE_BUSTER || env.CF_PAGES_COMMIT_SHA || "20260325-7").trim() ||
@@ -39,22 +52,21 @@ function resolveWebAppUrl(env, startPayload = "") {
   }
 }
 
-async function sendMessage(env, chatId, text, lang, startPayload = "") {
-  const webAppUrl = resolveWebAppUrl(env, startPayload);
-  const payload = {
-    chat_id: chatId,
-    text,
-    reply_markup: {
+async function sendMessage(env, chatId, text, lang, startPayload = "", requestUrl = "") {
+  const webAppUrl = resolveWebAppUrl(env, startPayload, requestUrl);
+  const payload = { chat_id: chatId, text };
+  if (webAppUrl) {
+    payload.reply_markup = {
       inline_keyboard: [
         [
           {
             text: bt(lang, "play"),
-            web_app: { url: webAppUrl || env.WEBAPP_URL }
+            web_app: { url: webAppUrl }
           }
         ]
       ]
-    }
-  };
+    };
+  }
 
   const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`;
   await fetch(url, {
@@ -185,9 +197,9 @@ export async function onRequestPost(context) {
   ).trim();
 
   if (text.startsWith("/start")) {
-    await sendMessage(env, message.chat.id, bt(lang, "start"), lang, startPayload);
+    await sendMessage(env, message.chat.id, bt(lang, "start"), lang, startPayload, request.url);
   } else if (text.startsWith("/play")) {
-    await sendMessage(env, message.chat.id, bt(lang, "playHint"), lang);
+    await sendMessage(env, message.chat.id, bt(lang, "playHint"), lang, "", request.url);
   }
 
   return jsonResponse({ ok: true });

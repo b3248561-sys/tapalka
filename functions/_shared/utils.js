@@ -2130,7 +2130,7 @@ const BOT_STRINGS = {
     playHint: "Open the tapper."
   },
   ru: {
-    play: "Играть",
+    play: "Открыть",
     start: "Тапай и зарабатывай.",
     playHint: "Открой тапалку."
   }

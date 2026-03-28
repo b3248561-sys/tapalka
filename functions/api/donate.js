@@ -11,7 +11,7 @@ const DONATE_PACKAGES = [
     id: "support_s",
     title: "Starter Support",
     stars: 50,
-    bonusNF: 2800,
+    bonusNF: 6000,
     giftId: "gift_prism_orb",
     description: "Thanks for supporting Tapalka"
   },
@@ -19,7 +19,7 @@ const DONATE_PACKAGES = [
     id: "support_m",
     title: "Creator Support",
     stars: 150,
-    bonusNF: 10000,
+    bonusNF: 22000,
     giftId: "gift_cyber_crown",
     description: "Bigger support pack with small NeoFlux bonus"
   },
@@ -27,7 +27,7 @@ const DONATE_PACKAGES = [
     id: "support_l",
     title: "Legend Support",
     stars: 400,
-    bonusNF: 32000,
+    bonusNF: 70000,
     giftId: "gift_solar_dragon",
     description: "Legendary support for project growth"
   }

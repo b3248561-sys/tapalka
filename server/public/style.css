@@ -27,7 +27,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
-  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+  padding-bottom: calc(120px + clamp(0px, env(safe-area-inset-bottom), 36px));
 }
 
 .bg {
@@ -87,7 +87,7 @@ body {
   max-width: 420px;
   margin: 26px auto 80px;
   padding: 20px;
-  animation: fadeUp 0.6s ease forwards;
+  animation: appAppear 0.45s ease forwards;
 }
 
 .top {
@@ -566,9 +566,9 @@ body {
 }
 
 .tabs {
-  position: fixed;
+  position: fixed !important;
   left: 50%;
-  bottom: max(12px, env(safe-area-inset-bottom));
+  bottom: calc(12px + clamp(0px, env(safe-area-inset-bottom), 24px));
   transform: translateX(-50%) translateZ(0);
   width: fit-content;
   max-width: calc(100% - 32px);
@@ -1047,6 +1047,14 @@ body {
 
 .gifts-page {
   margin-top: 16px;
+}
+
+.support-page {
+  margin-top: 16px;
+}
+
+.support-card {
+  box-shadow: 0 16px 34px rgba(28, 26, 23, 0.14);
 }
 
 .gifts-page-card {
@@ -1884,8 +1892,9 @@ body {
 }
 
 .case-anim-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -1895,6 +1904,9 @@ body {
   padding: 10px 12px;
   font-size: 14px;
   font-weight: 700;
+  min-width: 170px;
+  max-width: 220px;
+  flex: 1 1 170px;
 }
 
 .case-anim-btn.primary {
@@ -1955,6 +1967,15 @@ body {
   50% {
     transform: translate3d(var(--float-x, 18px), var(--float-y, -18px), 0)
       scale(1.04);
+  }
+}
+
+@keyframes appAppear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

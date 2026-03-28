@@ -24,11 +24,14 @@ const screenTapEl = document.getElementById("screenTap");
 const screenShopEl = document.getElementById("screenShop");
 const screenLeaderboardEl = document.getElementById("screenLeaderboard");
 const screenProfileEl = document.getElementById("screenProfile");
+const screenSupportEl = document.getElementById("screenSupport");
 const screenGiftsEl = document.getElementById("screenGifts");
+const tabsEl = document.getElementById("tabs");
 const tabTapEl = document.getElementById("tabTap");
 const tabShopEl = document.getElementById("tabShop");
 const tabLeaderboardEl = document.getElementById("tabLeaderboard");
 const tabProfileEl = document.getElementById("tabProfile");
+const tabSupportEl = document.getElementById("tabSupport");
 const tabGiftsEl = document.getElementById("tabGifts");
 const leaderboardTitleEl = document.getElementById("leaderboardTitle");
 const leaderboardSubtitleEl = document.getElementById("leaderboardSubtitle");
@@ -141,6 +144,7 @@ let giftsFilter = ["all", "rare", "epic", "mythic"].includes(localStorage.getIte
 let caseAnimationActive = false;
 const CASE_SLOT_POOL = ["🎁", "💎", "👑", "🔥", "⚡", "🍀", "🔮", "🌟", "🧸", "💖", "🐉", "🐋"];
 let caseSpinSession = null;
+let tabsUseAbsoluteDock = Boolean(tg);
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura", "theme-void", "theme-aurora"];
@@ -166,6 +170,7 @@ const STRINGS = {
     tabShop: "Shop",
     tabLeaderboard: "Leaderboard",
     tabProfile: "Profile",
+    tabSupport: "Support",
     tabGifts: "Gifts",
     leaderboardTitle: "Leaderboard",
     leaderboardSubtitle: "Top players by balance",
@@ -349,6 +354,7 @@ const STRINGS = {
     tabShop: "Магазин",
     tabLeaderboard: "Рейтинг",
     tabProfile: "Профиль",
+    tabSupport: "Поддержка",
     tabGifts: "Подарки",
     leaderboardTitle: "Рейтинг",
     leaderboardSubtitle: "Лучшие игроки по балансу",
@@ -879,7 +885,6 @@ async function askCaseOpenConfirmation(caseId) {
     const cleanup = () => {
       caseAnimConfirmEl.removeEventListener("click", onConfirm);
       caseAnimCloseEl.removeEventListener("click", onClose);
-      caseAnimEl.removeEventListener("click", onBackdrop);
     };
     const onConfirm = () => {
       cleanup();
@@ -890,14 +895,8 @@ async function askCaseOpenConfirmation(caseId) {
       closeCaseAnimation();
       resolve(false);
     };
-    const onBackdrop = (event) => {
-      if (event.target === caseAnimEl) {
-        onClose();
-      }
-    };
     caseAnimConfirmEl.addEventListener("click", onConfirm);
     caseAnimCloseEl.addEventListener("click", onClose);
-    caseAnimEl.addEventListener("click", onBackdrop);
   });
 }
 
@@ -969,20 +968,17 @@ async function finishCaseAnimation(
     caseAnimCloseEl.disabled = false;
     caseAnimCloseEl.style.display = "";
   }
-  await Promise.race([
-    new Promise((resolve) => {
-      if (!caseAnimCloseEl) {
-        resolve();
-        return;
-      }
-      const onClose = () => {
-        caseAnimCloseEl.removeEventListener("click", onClose);
-        resolve();
-      };
-      caseAnimCloseEl.addEventListener("click", onClose);
-    }),
-    sleep(3200)
-  ]);
+  await new Promise((resolve) => {
+    if (!caseAnimCloseEl) {
+      resolve();
+      return;
+    }
+    const onClose = () => {
+      caseAnimCloseEl.removeEventListener("click", onClose);
+      resolve();
+    };
+    caseAnimCloseEl.addEventListener("click", onClose);
+  });
   closeCaseAnimation();
 }
 
@@ -1145,6 +1141,7 @@ function applyTexts() {
   if (tabShopEl) tabShopEl.textContent = t("tabShop");
   if (tabLeaderboardEl) tabLeaderboardEl.textContent = t("tabLeaderboard");
   if (tabProfileEl) tabProfileEl.textContent = t("tabProfile");
+  if (tabSupportEl) tabSupportEl.textContent = t("tabSupport");
   if (tabGiftsEl) tabGiftsEl.textContent = t("tabGifts");
   if (caseAnimConfirmEl) caseAnimConfirmEl.textContent = t("openCase");
   if (caseAnimCloseEl) caseAnimCloseEl.textContent = t("caseAnimClose");
@@ -1566,19 +1563,21 @@ function updateDailyStatus() {
 function setActiveTab(tab) {
   activeTab = tab;
   setUserModalOpen(false);
-  if (caseAnimationActive) closeCaseAnimation();
   if (screenTapEl) screenTapEl.classList.toggle("active", tab === "tap");
   if (screenShopEl) screenShopEl.classList.toggle("active", tab === "shop");
   if (screenLeaderboardEl) screenLeaderboardEl.classList.toggle("active", tab === "leaderboard");
   if (screenProfileEl) screenProfileEl.classList.toggle("active", tab === "profile");
+  if (screenSupportEl) screenSupportEl.classList.toggle("active", tab === "support");
   if (screenGiftsEl) screenGiftsEl.classList.toggle("active", tab === "gifts");
   if (tabTapEl) tabTapEl.classList.toggle("active", tab === "tap");
   if (tabShopEl) tabShopEl.classList.toggle("active", tab === "shop");
   if (tabLeaderboardEl) tabLeaderboardEl.classList.toggle("active", tab === "leaderboard");
   if (tabProfileEl) tabProfileEl.classList.toggle("active", tab === "profile");
+  if (tabSupportEl) tabSupportEl.classList.toggle("active", tab === "support");
   if (tabGiftsEl) tabGiftsEl.classList.toggle("active", tab === "gifts");
   if (tab === "leaderboard") loadLeaderboard({ force: true, silent: true });
   if (tab === "profile") renderProfilePanel(profileUser, { refillInputs: true });
+  if (tab === "support") loadDonatePackages({ silent: true });
   if (tab === "gifts") renderProfilePanel(profileUser);
 }
 
@@ -1587,6 +1586,40 @@ function renderSkeletons() {
   if (shopListEl) shopListEl.innerHTML = skeleton.repeat(4);
   if (questsListEl) questsListEl.innerHTML = skeleton.repeat(2);
   if (leaderboardListEl) leaderboardListEl.innerHTML = skeleton.repeat(4);
+}
+
+function forceDockTabs() {
+  if (!tabsEl) return;
+  const tgInset = Number(tg?.safeAreaInset?.bottom || tg?.contentSafeAreaInset?.bottom || 0);
+  const clampedInset = Number.isFinite(tgInset) ? Math.max(0, Math.min(24, tgInset)) : 0;
+  const bottomPx = 12 + clampedInset;
+  tabsEl.style.left = "50%";
+  tabsEl.style.right = "auto";
+  tabsEl.style.transform = "translateX(-50%) translateZ(0)";
+  tabsEl.style.margin = "0";
+  tabsEl.style.zIndex = "9999";
+
+  if (tabsUseAbsoluteDock) {
+    const topPx = Math.max(0, Math.round(window.scrollY + window.innerHeight - tabsEl.offsetHeight - bottomPx));
+    tabsEl.style.setProperty("position", "absolute", "important");
+    tabsEl.style.top = `${topPx}px`;
+    tabsEl.style.bottom = "auto";
+    return;
+  }
+
+  tabsEl.style.setProperty("position", "fixed", "important");
+  tabsEl.style.top = "auto";
+  tabsEl.style.bottom = `${bottomPx}px`;
+
+  const rect = tabsEl.getBoundingClientRect();
+  const bottomGap = Math.max(0, Math.round(window.innerHeight - rect.bottom));
+  if (Math.abs(bottomGap - bottomPx) > 40) {
+    tabsUseAbsoluteDock = true;
+    const topPx = Math.max(0, Math.round(window.scrollY + window.innerHeight - tabsEl.offsetHeight - bottomPx));
+    tabsEl.style.setProperty("position", "absolute", "important");
+    tabsEl.style.top = `${topPx}px`;
+    tabsEl.style.bottom = "auto";
+  }
 }
 
 function setLoadingState(isLoading) {
@@ -2249,6 +2282,7 @@ if (tabTapEl) tabTapEl.addEventListener("click", () => setActiveTab("tap"));
 if (tabShopEl) tabShopEl.addEventListener("click", () => setActiveTab("shop"));
 if (tabLeaderboardEl) tabLeaderboardEl.addEventListener("click", () => setActiveTab("leaderboard"));
 if (tabProfileEl) tabProfileEl.addEventListener("click", () => setActiveTab("profile"));
+if (tabSupportEl) tabSupportEl.addEventListener("click", () => setActiveTab("support"));
 if (tabGiftsEl) tabGiftsEl.addEventListener("click", () => setActiveTab("gifts"));
 if (leaderboardModeSeasonEl) leaderboardModeSeasonEl.addEventListener("click", () => setLeaderboardMode("season"));
 if (leaderboardModeAllTimeEl) leaderboardModeAllTimeEl.addEventListener("click", () => setLeaderboardMode("alltime"));
@@ -2309,7 +2343,6 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   setUserModalOpen(false);
-  if (caseAnimationActive) closeCaseAnimation();
 });
 
 if (dailyBtnEl) {
@@ -2447,9 +2480,22 @@ function renderLangMenu() {
   });
 }
 
+forceDockTabs();
+window.addEventListener("resize", forceDockTabs, { passive: true });
+window.addEventListener("scroll", forceDockTabs, { passive: true });
+window.addEventListener("orientationchange", forceDockTabs);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", forceDockTabs);
+  window.visualViewport.addEventListener("scroll", forceDockTabs);
+}
+if (tg?.onEvent) {
+  tg.onEvent("viewportChanged", forceDockTabs);
+}
+
 init();
 
 setInterval(() => {
+  forceDockTabs();
   updateDailyStatus();
   tickEnergy();
   updateTapBuffs();
