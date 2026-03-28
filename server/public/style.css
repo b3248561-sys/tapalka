@@ -568,18 +568,19 @@ body {
 .tabs {
   position: fixed !important;
   left: 50%;
-  bottom: calc(12px + clamp(0px, env(safe-area-inset-bottom), 24px));
+  bottom: 0;
   transform: translateX(-50%) translateZ(0);
-  width: fit-content;
-  max-width: calc(100% - 14px);
-  background: #1f1f1f;
+  width: min(420px, 100%);
+  max-width: 100%;
+  background: rgba(23, 24, 31, 0.96);
   color: #fff;
-  border-radius: 999px;
+  border-radius: 18px 18px 0 0;
   display: flex;
-  gap: 4px;
+  gap: 2px;
   justify-content: center;
-  padding: 4px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  padding: 6px 8px calc(6px + clamp(0px, env(safe-area-inset-bottom), 22px));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
   z-index: 10;
   will-change: transform;
 }
@@ -589,14 +590,15 @@ body {
   background: transparent;
   color: rgba(255, 255, 255, 0.75);
   font-weight: 700;
-  padding: 7px 10px;
-  border-radius: 999px;
+  padding: 9px 6px;
+  border-radius: 12px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  min-width: 58px;
+  min-width: 0;
   text-align: center;
-  flex: 0 0 auto;
+  flex: 1 1 0;
   line-height: 1;
+  font-size: 12px;
 }
 
 .tab.active {
@@ -783,14 +785,14 @@ body {
 
 /* refreshed shop + cosmetics + leaderboard */
 .tabs {
-  width: min(398px, calc(100% - 10px));
-  gap: 4px;
+  width: min(420px, 100%);
+  gap: 2px;
 }
 
 .tab {
-  min-width: 56px;
-  padding: 7px 8px;
-  font-size: 12px;
+  min-width: 0;
+  padding: 9px 6px;
+  font-size: 11px;
 }
 
 .shop {
@@ -2033,8 +2035,8 @@ body {
 
 @media (max-width: 430px) {
   .tab {
-    min-width: 49px;
-    padding: 7px 6px;
+    min-width: 0;
+    padding: 9px 4px;
     font-size: 11px;
   }
 

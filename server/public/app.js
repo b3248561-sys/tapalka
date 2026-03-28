@@ -1637,7 +1637,7 @@ function forceDockTabs() {
   if (!tabsEl) return;
   const tgInset = Number(tg?.safeAreaInset?.bottom || tg?.contentSafeAreaInset?.bottom || 0);
   const clampedInset = Number.isFinite(tgInset) ? Math.max(0, Math.min(24, tgInset)) : 0;
-  const bottomPx = 12 + clampedInset;
+  const bottomPx = clampedInset;
   tabsEl.style.left = "50%";
   tabsEl.style.right = "auto";
   tabsEl.style.transform = "translateX(-50%) translateZ(0)";
