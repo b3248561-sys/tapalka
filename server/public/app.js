@@ -144,18 +144,17 @@ let giftsFilter = ["all", "rare", "epic", "mythic"].includes(localStorage.getIte
 let caseAnimationActive = false;
 const CASE_SLOT_POOL = ["◈", "✦", "◆", "◎", "✶", "⬢", "▣", "⬥", "◇", "✧", "◉", "○"];
 let caseSpinSession = null;
-let tabsUseAbsoluteDock = Boolean(tg);
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura", "theme-void", "theme-aurora"];
 const TAP_THEMES = ["style-crown", "style-neon", "style-sakura", "style-void", "style-aurora"];
 const GIFT_ICON_MARK_BY_ID = {
-  gift_lucky_clover: "LC",
-  gift_prism_orb: "PO",
-  gift_neon_phoenix: "NP",
-  gift_cyber_crown: "CC",
-  gift_star_whale: "SW",
-  gift_solar_dragon: "SD"
+  gift_lucky_clover: "✿",
+  gift_prism_orb: "◉",
+  gift_neon_phoenix: "✧",
+  gift_cyber_crown: "♔",
+  gift_star_whale: "✶",
+  gift_solar_dragon: "⬥"
 };
 const GIFT_CASE_SYMBOL_BY_ID = {
   gift_lucky_clover: "◎",
@@ -704,7 +703,7 @@ function giftIconClassFromId(giftId) {
 }
 
 function giftIconMarkFromId(giftId) {
-  return GIFT_ICON_MARK_BY_ID[String(giftId || "").trim()] || "GF";
+  return GIFT_ICON_MARK_BY_ID[String(giftId || "").trim()] || "◈";
 }
 
 function createGiftIconElement(giftId, size = "sm") {
@@ -1645,27 +1644,9 @@ function forceDockTabs() {
   tabsEl.style.margin = "0";
   tabsEl.style.zIndex = "9999";
 
-  if (tabsUseAbsoluteDock) {
-    const topPx = Math.max(0, Math.round(window.scrollY + window.innerHeight - tabsEl.offsetHeight - bottomPx));
-    tabsEl.style.setProperty("position", "absolute", "important");
-    tabsEl.style.top = `${topPx}px`;
-    tabsEl.style.bottom = "auto";
-    return;
-  }
-
   tabsEl.style.setProperty("position", "fixed", "important");
   tabsEl.style.top = "auto";
   tabsEl.style.bottom = `${bottomPx}px`;
-
-  const rect = tabsEl.getBoundingClientRect();
-  const bottomGap = Math.max(0, Math.round(window.innerHeight - rect.bottom));
-  if (Math.abs(bottomGap - bottomPx) > 40) {
-    tabsUseAbsoluteDock = true;
-    const topPx = Math.max(0, Math.round(window.scrollY + window.innerHeight - tabsEl.offsetHeight - bottomPx));
-    tabsEl.style.setProperty("position", "absolute", "important");
-    tabsEl.style.top = `${topPx}px`;
-    tabsEl.style.bottom = "auto";
-  }
 }
 
 function setLoadingState(isLoading) {
