@@ -622,26 +622,26 @@ body {
 .tabs {
   position: fixed !important;
   left: 50%;
-  bottom: 0;
+  bottom: 12px;
   transform: translateX(-50%) translateZ(0);
   width: min(420px, 100%);
   max-width: 100%;
   background: rgba(23, 24, 31, 0.96);
   color: #fff;
-  border-radius: 18px 18px 0 0;
+  border-radius: 14px;
   display: flex;
   gap: 0;
   justify-content: center;
-  padding: 6px 8px calc(6px + clamp(0px, env(safe-area-inset-bottom), 22px));
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   z-index: 10;
   will-change: transform;
 }
 
 .tab {
-  border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.75);
   font-weight: 700;
   padding: 9px 6px;
@@ -663,12 +663,12 @@ body {
   top: 8px;
   bottom: 8px;
   width: 1px;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .tab.active {
   background: #2b91ff;
-  border-color: rgba(160, 213, 255, 0.42);
+  border-color: rgba(198, 232, 255, 0.95);
   color: #fff;
 }
 
