@@ -23,6 +23,7 @@ const shopBalanceEl = document.getElementById("shopBalance");
 const screenTapEl = document.getElementById("screenTap");
 const screenShopEl = document.getElementById("screenShop");
 const screenLeaderboardEl = document.getElementById("screenLeaderboard");
+const screenSquadsEl = document.getElementById("screenSquads");
 const screenProfileEl = document.getElementById("screenProfile");
 const screenSupportEl = document.getElementById("screenSupport");
 const screenGiftsEl = document.getElementById("screenGifts");
@@ -30,6 +31,7 @@ const tabsEl = document.getElementById("tabs");
 const tabTapEl = document.getElementById("tabTap");
 const tabShopEl = document.getElementById("tabShop");
 const tabLeaderboardEl = document.getElementById("tabLeaderboard");
+const tabSquadsEl = document.getElementById("tabSquads");
 const tabProfileEl = document.getElementById("tabProfile");
 const tabSupportEl = document.getElementById("tabSupport");
 const tabGiftsEl = document.getElementById("tabGifts");
@@ -99,6 +101,10 @@ const squadLeaveBtnEl = document.getElementById("squadLeaveBtn");
 const squadRefreshBtnEl = document.getElementById("squadRefreshBtn");
 const squadStatusEl = document.getElementById("squadStatus");
 const squadCurrentEl = document.getElementById("squadCurrent");
+const squadBonusEl = document.getElementById("squadBonus");
+const squadMembersTitleEl = document.getElementById("squadMembersTitle");
+const squadMembersEl = document.getElementById("squadMembers");
+const squadListTitleEl = document.getElementById("squadListTitle");
 const squadListEl = document.getElementById("squadList");
 const questsTitleEl = document.getElementById("questsTitle");
 const questsSubtitleEl = document.getElementById("questsSubtitle");
@@ -206,6 +212,7 @@ const STRINGS = {
     tabTap: "Tap",
     tabShop: "Shop",
     tabLeaderboard: "Leaderboard",
+    tabSquads: "Squads",
     tabProfile: "Profile",
     tabSupport: "Support",
     tabGifts: "Gifts",
@@ -329,6 +336,11 @@ const STRINGS = {
     miningNotReady: "Mining is empty",
     squadsTitle: "Squads",
     squadsSubtitle: "Create or join a squad",
+    squadMembersTitle: "Your members",
+    squadListTitle: "Top squads",
+    squadBonusNone: "Bonus: not active. Join a squad to unlock boost",
+    squadBonusValue: "Squad bonus: +{percent}% to passive mining",
+    squadNoMembers: "No members yet",
     squadCreate: "Create",
     squadJoin: "Join",
     squadLeave: "Leave",
@@ -425,6 +437,7 @@ const STRINGS = {
     tabTap: "Тап",
     tabShop: "Магазин",
     tabLeaderboard: "Рейтинг",
+    tabSquads: "Сквады",
     tabProfile: "Профиль",
     tabSupport: "Поддержать",
     tabGifts: "Подарки",
@@ -548,6 +561,11 @@ const STRINGS = {
     miningNotReady: "Майнинг пуст",
     squadsTitle: "Сквады",
     squadsSubtitle: "Создай или вступи в сквад",
+    squadMembersTitle: "Участники твоего сквада",
+    squadListTitle: "Топ сквадов",
+    squadBonusNone: "Бонус не активен. Вступи в сквад для буста",
+    squadBonusValue: "Бонус сквада: +{percent}% к пассивному майнингу",
+    squadNoMembers: "Пока нет участников",
     squadCreate: "Создать",
     squadJoin: "Вступить",
     squadLeave: "Выйти",
@@ -1266,6 +1284,8 @@ function applyTexts() {
   if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
   if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
   if (squadRefreshBtnEl) squadRefreshBtnEl.textContent = t("squadRefresh");
+  if (squadMembersTitleEl) squadMembersTitleEl.textContent = t("squadMembersTitle");
+  if (squadListTitleEl) squadListTitleEl.textContent = t("squadListTitle");
   if (squadNameInputEl) squadNameInputEl.placeholder = t("squadNamePlaceholder");
   if (squadIdInputEl) squadIdInputEl.placeholder = t("squadIdPlaceholder");
   if (leaderboardTitleEl) leaderboardTitleEl.textContent = t("leaderboardTitle");
@@ -1289,6 +1309,7 @@ function applyTexts() {
   if (tabTapEl) tabTapEl.textContent = t("tabTap");
   if (tabShopEl) tabShopEl.textContent = t("tabShop");
   if (tabLeaderboardEl) tabLeaderboardEl.textContent = t("tabLeaderboard");
+  if (tabSquadsEl) tabSquadsEl.textContent = t("tabSquads");
   if (tabProfileEl) tabProfileEl.textContent = t("tabProfile");
   if (tabSupportEl) tabSupportEl.textContent = t("tabSupport");
   if (tabGiftsEl) tabGiftsEl.textContent = t("tabGifts");
@@ -1599,6 +1620,8 @@ function renderSquads() {
   if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
   if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
   if (squadRefreshBtnEl) squadRefreshBtnEl.textContent = t("squadRefresh");
+  if (squadMembersTitleEl) squadMembersTitleEl.textContent = t("squadMembersTitle");
+  if (squadListTitleEl) squadListTitleEl.textContent = t("squadListTitle");
   if (squadNameInputEl) squadNameInputEl.placeholder = t("squadNamePlaceholder");
   if (squadIdInputEl) squadIdInputEl.placeholder = t("squadIdPlaceholder");
   if (squadLeaveBtnEl) squadLeaveBtnEl.disabled = !currentSquadState?.id;
@@ -1609,8 +1632,38 @@ function renderSquads() {
       id: currentSquadState.id || "-",
       count: formatNumberDots(currentSquadState.membersCount || 1)
     });
+    if (squadBonusEl) {
+      const members = Math.max(1, Number(currentSquadState.membersCount || 1));
+      const bonusPct = Math.min(30, 5 + members * 2);
+      squadBonusEl.textContent = t("squadBonusValue", { percent: formatNumberDots(bonusPct) });
+    }
+    if (squadMembersEl) {
+      squadMembersEl.innerHTML = "";
+      const members = Array.isArray(currentSquadState.topMembers)
+        ? currentSquadState.topMembers
+        : [];
+      if (!members.length) {
+        const empty = document.createElement("div");
+        empty.className = "squad-member-empty";
+        empty.textContent = t("squadNoMembers");
+        squadMembersEl.appendChild(empty);
+      } else {
+        members.forEach((member) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "squad-member";
+          chip.textContent = member.name || member.username || `ID ${member.id}`;
+          chip.addEventListener("click", () => openUserProfile(member.id));
+          squadMembersEl.appendChild(chip);
+        });
+      }
+    }
   } else {
     squadCurrentEl.textContent = "";
+    if (squadBonusEl) squadBonusEl.textContent = t("squadBonusNone");
+    if (squadMembersEl) {
+      squadMembersEl.innerHTML = `<div class="squad-member-empty">${t("squadNoMembers")}</div>`;
+    }
   }
 
   squadListEl.innerHTML = "";
@@ -1982,23 +2035,25 @@ function setActiveTab(tab) {
   if (screenTapEl) screenTapEl.classList.toggle("active", tab === "tap");
   if (screenShopEl) screenShopEl.classList.toggle("active", tab === "shop");
   if (screenLeaderboardEl) screenLeaderboardEl.classList.toggle("active", tab === "leaderboard");
+  if (screenSquadsEl) screenSquadsEl.classList.toggle("active", tab === "squads");
   if (screenProfileEl) screenProfileEl.classList.toggle("active", tab === "profile");
   if (screenSupportEl) screenSupportEl.classList.toggle("active", tab === "support");
   if (screenGiftsEl) screenGiftsEl.classList.toggle("active", tab === "gifts");
   if (tabTapEl) tabTapEl.classList.toggle("active", tab === "tap");
   if (tabShopEl) tabShopEl.classList.toggle("active", tab === "shop");
   if (tabLeaderboardEl) tabLeaderboardEl.classList.toggle("active", tab === "leaderboard");
+  if (tabSquadsEl) tabSquadsEl.classList.toggle("active", tab === "squads");
   if (tabProfileEl) tabProfileEl.classList.toggle("active", tab === "profile");
   if (tabSupportEl) tabSupportEl.classList.toggle("active", tab === "support");
   if (tabGiftsEl) tabGiftsEl.classList.toggle("active", tab === "gifts");
   if (tab === "leaderboard") {
     loadLeaderboard({ force: true, silent: true });
   }
-  if (tab === "shop") loadMiningStatus({ silent: true });
-  if (tab === "profile") {
-    renderProfilePanel(profileUser, { refillInputs: true });
+  if (tab === "squads") {
     loadSquads({ silent: true });
   }
+  if (tab === "shop") loadMiningStatus({ silent: true });
+  if (tab === "profile") renderProfilePanel(profileUser, { refillInputs: true });
   if (tab === "support") loadDonatePackages({ silent: true });
   if (tab === "gifts") renderProfilePanel(profileUser);
 }
@@ -2716,6 +2771,7 @@ if (langToggle) {
 if (tabTapEl) tabTapEl.addEventListener("click", () => setActiveTab("tap"));
 if (tabShopEl) tabShopEl.addEventListener("click", () => setActiveTab("shop"));
 if (tabLeaderboardEl) tabLeaderboardEl.addEventListener("click", () => setActiveTab("leaderboard"));
+if (tabSquadsEl) tabSquadsEl.addEventListener("click", () => setActiveTab("squads"));
 if (tabProfileEl) tabProfileEl.addEventListener("click", () => setActiveTab("profile"));
 if (tabSupportEl) tabSupportEl.addEventListener("click", () => setActiveTab("support"));
 if (tabGiftsEl) tabGiftsEl.addEventListener("click", () => setActiveTab("gifts"));

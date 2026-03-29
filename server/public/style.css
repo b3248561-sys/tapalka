@@ -2416,3 +2416,483 @@ body {
     box-shadow: 0 0 10px rgba(116, 189, 255, 0.24);
   }
 }
+
+/* 2026 Redesign: Minimal Bright Premium UI */
+:root {
+  --ui-bg: #f5f8ff;
+  --ui-bg-soft: #eef3ff;
+  --ui-surface: #ffffff;
+  --ui-surface-soft: #f8faff;
+  --ui-stroke: #d8e1f1;
+  --ui-stroke-strong: #c6d3ec;
+  --ui-text: #1b2333;
+  --ui-muted: #6d7891;
+  --ui-primary: #3b82f6;
+  --ui-primary-2: #645bff;
+  --ui-accent: #1cc7b5;
+  --ui-danger: #ef5350;
+  --ui-radius-lg: 16px;
+  --ui-radius-xl: 20px;
+  --ui-shadow-sm: 0 8px 24px rgba(43, 66, 122, 0.08);
+  --ui-shadow-md: 0 14px 34px rgba(43, 66, 122, 0.14);
+  --ui-gradient: linear-gradient(135deg, #3b82f6, #635bff);
+}
+
+body {
+  background:
+    radial-gradient(circle at 14% 8%, rgba(85, 153, 255, 0.2), transparent 34%),
+    radial-gradient(circle at 92% 28%, rgba(46, 206, 186, 0.16), transparent 32%),
+    linear-gradient(165deg, var(--ui-bg), var(--ui-bg-soft));
+  color: var(--ui-text);
+  padding-bottom: calc(138px + clamp(0px, env(safe-area-inset-bottom), 36px));
+}
+
+.bg {
+  opacity: 0.58;
+}
+
+.orb {
+  filter: blur(26px);
+  opacity: 0.26;
+}
+
+.app {
+  max-width: 440px;
+  margin: 20px auto 84px;
+  padding: 16px;
+}
+
+.title {
+  color: #101a2d;
+  font-size: 34px;
+  letter-spacing: 0.2px;
+}
+
+.subtitle {
+  color: var(--ui-muted);
+  font-size: 15px;
+}
+
+.lang {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-stroke);
+  color: var(--ui-text);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+}
+
+.lang-dropdown {
+  border: 1px solid var(--ui-stroke);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.panel,
+.shop,
+.quests,
+.leaderboard,
+.profile-card,
+.support-card,
+.gifts-page-card,
+.daily-card,
+.mining-card,
+.squads-card {
+  background: var(--ui-surface) !important;
+  border: 1px solid var(--ui-stroke) !important;
+  box-shadow: var(--ui-shadow-sm) !important;
+  border-radius: var(--ui-radius-xl) !important;
+}
+
+.panel {
+  gap: 18px;
+  padding: 24px 20px;
+}
+
+.screen {
+  gap: 14px;
+}
+
+.balance-label,
+.rank,
+.energy-head,
+.shop-subtitle,
+.quests-subtitle,
+.leaderboard-subtitle,
+.profile-subtitle,
+.gifts-page-subtitle,
+.donate-subtitle,
+.daily-subtitle,
+.mining-subtitle {
+  color: var(--ui-muted);
+}
+
+.balance {
+  color: #101a2d;
+  text-shadow: none;
+  letter-spacing: 0.4px;
+}
+
+.player-id {
+  color: #7b879d;
+}
+
+.rank-bar,
+.energy-bar {
+  height: 10px;
+  background: #e7edf8;
+}
+
+.rank-bar span {
+  background: linear-gradient(135deg, var(--ui-primary), var(--ui-primary-2));
+}
+
+.energy-bar span {
+  background: linear-gradient(135deg, var(--ui-accent), #32a3ff);
+}
+
+.buff-chip {
+  background: #eef5ff;
+  border-color: #c7d9fb;
+  color: #2f5da8;
+}
+
+.tap {
+  width: 206px;
+  height: 206px;
+  font-size: 42px;
+  border: 1px solid #d2dcf2;
+  background: radial-gradient(circle at 34% 24%, #7ac6ff 0%, #3f89fa 58%, #5559ff 100%);
+  box-shadow: 0 16px 34px rgba(63, 137, 250, 0.34);
+}
+
+.tap::after {
+  inset: 8px;
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.32), transparent 44%),
+    radial-gradient(circle at 50% 65%, rgba(255, 255, 255, 0.12), transparent 62%);
+  opacity: 1;
+}
+
+.meta {
+  background: #edf8f7;
+  border-color: #c8ebe5;
+  color: #3f6576;
+}
+
+.meta.error {
+  background: #fff2f2;
+  border-color: #f5c9c9;
+  color: #cf4f4f;
+}
+
+.shop,
+.quests,
+.leaderboard,
+.profile-card,
+.support-card,
+.gifts-page-card,
+.squads-card {
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.shop-title,
+.quests-title,
+.leaderboard-title,
+.profile-title,
+.donate-title,
+.squads-title {
+  font-size: 17px;
+  color: #12213d;
+}
+
+.shop-balance {
+  background: #f2f7ff;
+  border: 1px solid #cfdbf2;
+  color: #284a82;
+  box-shadow: none;
+}
+
+.tap-value {
+  background: #e9f7ff;
+  border-color: #cbe5fb;
+  color: #2258a6;
+}
+
+.shop-grid {
+  gap: 10px;
+}
+
+.shop-item {
+  background: var(--ui-surface-soft);
+  border: 1px solid #d6e1f2;
+  box-shadow: none;
+}
+
+.shop-item.equipped {
+  box-shadow: 0 0 0 1px rgba(62, 133, 246, 0.4), 0 10px 24px rgba(98, 132, 255, 0.18);
+}
+
+.shop-item-top p,
+.shop-meta,
+.quest-item p,
+.quest-meta {
+  color: #72809a;
+}
+
+.quest-item,
+.leaderboard-row,
+.donate-item,
+.squad-row,
+.profile-preview,
+.profile-gifts-card,
+.gift-tile,
+.user-modal-stat,
+.case-slot {
+  background: var(--ui-surface-soft) !important;
+  border-color: #d6e1f2 !important;
+}
+
+.leaderboard-mode {
+  border: 1px solid var(--ui-stroke);
+  background: #f3f7ff;
+  color: #3b4a66;
+}
+
+.leaderboard-mode.active {
+  background: var(--ui-gradient);
+  color: #fff;
+  border-color: transparent;
+}
+
+.daily-card,
+.mining-card {
+  gap: 10px;
+}
+
+.daily-btn,
+.mining-btn,
+.quest-claim,
+.shop-buy,
+.profile-btn.primary,
+.donate-buy,
+.case-anim-btn.primary {
+  background: var(--ui-gradient) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 10px 22px rgba(80, 102, 250, 0.24);
+}
+
+.profile-btn.ghost,
+.squad-join-inline,
+.case-anim-btn.ghost,
+.leaderboard-mode,
+.gifts-filter-btn {
+  border: 1px solid var(--ui-stroke);
+  background: #f4f7ff;
+  color: #30435f;
+}
+
+.profile-btn:disabled,
+.shop-buy:disabled,
+.quest-claim:disabled,
+.daily-btn:disabled,
+.mining-btn:disabled,
+.donate-buy:disabled,
+.squad-join-inline[disabled] {
+  opacity: 0.56;
+}
+
+.profile-input,
+.profile-file-input,
+#squadNameInput,
+#squadIdInput {
+  background: #f8faff;
+  border: 1px solid #d2deef;
+  color: #1d2d47;
+  border-radius: 12px;
+}
+
+.profile-input:focus,
+.profile-file-input:focus {
+  outline: none;
+  border-color: #8bb3ff;
+  box-shadow: 0 0 0 3px rgba(109, 154, 255, 0.18);
+}
+
+.profile-hint,
+.profile-id,
+.profile-gifts-count,
+.squad-meta,
+.squad-status,
+.donate-item-bonus {
+  color: #70809b;
+}
+
+.squad-current {
+  background: #edf4ff;
+  border: 1px solid #cddcf4;
+  color: #2b4b80;
+}
+
+.squad-bonus {
+  border-radius: 10px;
+  padding: 8px 10px;
+  border: 1px dashed #bfd4f3;
+  background: #f6f9ff;
+  color: #3d5b8f;
+  font-size: 12px;
+}
+
+.squad-members-head,
+.squad-list-head {
+  font-size: 12px;
+  color: #596886;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.squad-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.squad-member {
+  border: 1px solid #cfdbf1;
+  background: #f6f9ff;
+  color: #2f4f85;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.squad-member-empty {
+  font-size: 12px;
+  color: #7b879d;
+  border: 1px dashed #cfdbf1;
+  background: #f8fbff;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.squad-chip {
+  background: #e8f2ff;
+  border-color: #bed5f8;
+  color: #29508d;
+}
+
+.gifts-page-card,
+.gift-tile {
+  background: var(--ui-surface) !important;
+}
+
+.gift-tile-title {
+  color: #243656;
+}
+
+.gift-tile-count {
+  color: #2d58a2;
+}
+
+.donate-empty,
+.leaderboard-empty {
+  background: #f8fbff;
+  border: 1px dashed #ccd9ef;
+  color: #6e7f9d;
+}
+
+.tabs {
+  bottom: 14px;
+  width: min(468px, calc(100% - 16px));
+  padding: 8px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid #cfdaf0;
+  box-shadow: var(--ui-shadow-md);
+  backdrop-filter: blur(10px);
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  min-width: 68px;
+  border: 1px solid #d4dff2;
+  background: #f6f9ff;
+  color: #51607b;
+  border-radius: 13px;
+  padding: 9px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  flex: 1 1 auto;
+}
+
+.tab + .tab::before {
+  display: none;
+}
+
+.tab.active {
+  background: var(--ui-gradient);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 10px 22px rgba(78, 102, 248, 0.26);
+}
+
+.footer {
+  color: #7d8ba4;
+  margin-top: 18px;
+}
+
+.user-modal-card,
+.case-anim-card {
+  border: 1px solid #d2ddf1;
+  background: #ffffff;
+  box-shadow: 0 22px 48px rgba(32, 50, 94, 0.22);
+}
+
+.case-anim-title,
+.user-modal-title {
+  color: #1c2c49;
+}
+
+.case-anim-status {
+  color: #4066a1;
+}
+
+@media (max-width: 430px) {
+  .app {
+    padding: 14px;
+  }
+
+  .title {
+    font-size: 31px;
+  }
+
+  .panel {
+    padding: 20px 14px;
+  }
+
+  .tap {
+    width: 188px;
+    height: 188px;
+    font-size: 38px;
+  }
+
+  .tabs {
+    width: calc(100% - 12px);
+    border-radius: 18px;
+    padding: 6px;
+    gap: 4px;
+  }
+
+  .tab {
+    min-width: 64px;
+    font-size: 10px;
+    padding: 8px 4px;
+  }
+}
