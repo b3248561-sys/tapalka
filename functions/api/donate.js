@@ -75,9 +75,7 @@ async function createInvoiceLink(env, userId, pack) {
 
 export async function onRequestPost(context) {
   const { request, env } = context;
-  if (env.STARS_DISABLED === "1") {
-    return jsonResponse({ ok: false, error: "stars_disabled" }, 400);
-  }
+  const starsEnabled = env.STARS_DISABLED !== "1";
 
   let body = {};
   try {
@@ -101,7 +99,11 @@ export async function onRequestPost(context) {
 
   const packageId = String(body.packageId || "").trim();
   if (!packageId) {
-    return jsonResponse({ ok: true, packages: sanitizePackages() });
+    return jsonResponse({ ok: true, packages: sanitizePackages(), starsEnabled });
+  }
+
+  if (!starsEnabled) {
+    return jsonResponse({ ok: false, error: "stars_disabled" }, 400);
   }
 
   const pack = getPackageById(packageId);

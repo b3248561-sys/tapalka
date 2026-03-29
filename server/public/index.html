@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260328-25" />
+    <link rel="stylesheet" href="style.css?v=20260329-26" />
   </head>
   <body>
     <div class="bg">
@@ -103,22 +103,6 @@
                 </div>
               </div>
             </div>
-            <div class="squads-card" id="squadsCard">
-              <div class="squads-title" id="squadsTitle">Squads</div>
-              <div class="squads-subtitle" id="squadsSubtitle">Create or join a squad and climb together</div>
-              <div class="squad-actions">
-                <input id="squadNameInput" class="profile-input" type="text" maxlength="24" placeholder="Squad name" />
-                <button id="squadCreateBtn" class="quest-claim" type="button">Create</button>
-              </div>
-              <div class="squad-actions">
-                <input id="squadIdInput" class="profile-input" type="text" maxlength="20" placeholder="sq_xxxxxx" />
-                <button id="squadJoinBtn" class="quest-claim" type="button">Join</button>
-                <button id="squadLeaveBtn" class="profile-btn ghost" type="button">Leave</button>
-              </div>
-              <div class="squad-status" id="squadStatus"></div>
-              <div class="squad-current" id="squadCurrent"></div>
-              <div class="squad-list" id="squadList"></div>
-            </div>
             <div class="leaderboard-list" id="leaderboardList"></div>
           </section>
         </section>
@@ -149,6 +133,25 @@
                 <button id="profileRefCopyBtn" class="profile-btn ghost" type="button">Copy</button>
               </div>
               <div class="profile-hint" id="profileRefStats">You: +500 NF • Friend: +1000 NF</div>
+            </div>
+            <div class="squads-card" id="squadsCard">
+              <div class="squads-title" id="squadsTitle">Squads</div>
+              <div class="squads-subtitle" id="squadsSubtitle">Create or join a squad and climb together</div>
+              <div class="squad-actions">
+                <input id="squadNameInput" class="profile-input" type="text" maxlength="24" placeholder="Squad name" />
+                <button id="squadCreateBtn" class="quest-claim" type="button">Create</button>
+              </div>
+              <div class="squad-actions">
+                <input id="squadIdInput" class="profile-input" type="text" maxlength="20" placeholder="sq_xxxxxx" />
+                <button id="squadJoinBtn" class="quest-claim" type="button">Join</button>
+                <button id="squadLeaveBtn" class="profile-btn ghost" type="button">Leave</button>
+              </div>
+              <div class="squad-actions squad-actions-tools">
+                <button id="squadRefreshBtn" class="profile-btn ghost" type="button">Refresh list</button>
+              </div>
+              <div class="squad-status" id="squadStatus"></div>
+              <div class="squad-current" id="squadCurrent"></div>
+              <div class="squad-list" id="squadList"></div>
             </div>
             <div class="profile-actions">
               <button id="profileSaveBtn" class="profile-btn primary">Save</button>
@@ -195,7 +198,7 @@
       <button class="tab" data-tab="shop" id="tabShop">Shop</button>
       <button class="tab" data-tab="leaderboard" id="tabLeaderboard">Leaderboard</button>
       <button class="tab" data-tab="profile" id="tabProfile">Profile</button>
-      <button class="tab" data-tab="support" id="tabSupport">Support</button>
+      <button class="tab" data-tab="support" id="tabSupport">Donate</button>
       <button class="tab" data-tab="gifts" id="tabGifts">Gifts</button>
     </nav>
     <div class="user-modal" id="userModal">
@@ -225,7 +228,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260328-25";
+        script.src = "app.js?v=20260329-26";
         document.body.appendChild(script);
       })();
     </script>

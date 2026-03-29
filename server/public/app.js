@@ -96,6 +96,7 @@ const squadIdInputEl = document.getElementById("squadIdInput");
 const squadCreateBtnEl = document.getElementById("squadCreateBtn");
 const squadJoinBtnEl = document.getElementById("squadJoinBtn");
 const squadLeaveBtnEl = document.getElementById("squadLeaveBtn");
+const squadRefreshBtnEl = document.getElementById("squadRefreshBtn");
 const squadStatusEl = document.getElementById("squadStatus");
 const squadCurrentEl = document.getElementById("squadCurrent");
 const squadListEl = document.getElementById("squadList");
@@ -151,6 +152,7 @@ let nextGoldenAt = 0;
 let profileUser = null;
 let profileAvatarFileData = "";
 let donatePackages = [];
+let starsEnabled = true;
 let squadsState = [];
 let currentSquadState = null;
 let launchReferralCode = "";
@@ -330,6 +332,10 @@ const STRINGS = {
     squadCreate: "Create",
     squadJoin: "Join",
     squadLeave: "Leave",
+    squadRefresh: "Refresh list",
+    squadJoinLocked: "Locked",
+    squadYou: "Your squad",
+    squadMembers: "{count} members",
     squadNamePlaceholder: "Squad name",
     squadIdPlaceholder: "sq_xxxxxx",
     squadsEmpty: "No squads yet",
@@ -337,6 +343,14 @@ const STRINGS = {
     squadCreated: "Squad created",
     squadJoined: "Joined squad",
     squadLeft: "Left squad",
+    squadErrorAlreadyIn: "You are already in a squad",
+    squadErrorNotFound: "Squad not found",
+    squadErrorFull: "Squad is full",
+    squadErrorInvalidId: "Invalid squad ID",
+    squadErrorNameShort: "Name is too short (min 3)",
+    squadErrorNameLong: "Name is too long (max 24)",
+    squadErrorNameInvalid: "Use letters and numbers only",
+    squadErrorNotInSquad: "You are not in a squad",
     donateTitle: "Support project",
     donateSubtitle: "Telegram Stars packs (non pay-to-win)",
     support_sName: "Starter Support",
@@ -349,6 +363,7 @@ const STRINGS = {
     donateCanceled: "Payment canceled",
     donateFailed: "Payment failed",
     donateNotReady: "Stars unavailable",
+    donateDisabled: "Payments are temporarily disabled by admin",
     profileSave: "Save",
     profileReset: "Reset",
     profileSaved: "Profile updated",
@@ -411,7 +426,7 @@ const STRINGS = {
     tabShop: "Магазин",
     tabLeaderboard: "Рейтинг",
     tabProfile: "Профиль",
-    tabSupport: "Поддержка",
+    tabSupport: "Поддержать",
     tabGifts: "Подарки",
     leaderboardTitle: "Рейтинг",
     leaderboardSubtitle: "Лучшие игроки по балансу",
@@ -536,6 +551,10 @@ const STRINGS = {
     squadCreate: "Создать",
     squadJoin: "Вступить",
     squadLeave: "Выйти",
+    squadRefresh: "Обновить список",
+    squadJoinLocked: "Недоступно",
+    squadYou: "Твой сквад",
+    squadMembers: "{count} участников",
     squadNamePlaceholder: "Название сквада",
     squadIdPlaceholder: "sq_xxxxxx",
     squadsEmpty: "Пока нет сквадов",
@@ -543,6 +562,14 @@ const STRINGS = {
     squadCreated: "Сквад создан",
     squadJoined: "Вступление успешно",
     squadLeft: "Ты вышел из сквада",
+    squadErrorAlreadyIn: "Ты уже в скваде",
+    squadErrorNotFound: "Сквад не найден",
+    squadErrorFull: "Сквад заполнен",
+    squadErrorInvalidId: "Некорректный ID сквада",
+    squadErrorNameShort: "Название слишком короткое (минимум 3)",
+    squadErrorNameLong: "Название слишком длинное (максимум 24)",
+    squadErrorNameInvalid: "Только буквы, цифры и пробелы",
+    squadErrorNotInSquad: "Ты сейчас не в скваде",
     donateTitle: "Поддержка проекта",
     donateSubtitle: "Пакеты Telegram Stars (без pay-to-win)",
     support_sName: "Стартовая поддержка",
@@ -555,6 +582,7 @@ const STRINGS = {
     donateCanceled: "Оплата отменена",
     donateFailed: "Оплата не прошла",
     donateNotReady: "Stars пока недоступны",
+    donateDisabled: "Платежи временно отключены админом",
     profileSave: "Сохранить",
     profileReset: "Сбросить",
     profileSaved: "Профиль обновлен",
@@ -1237,6 +1265,7 @@ function applyTexts() {
   if (squadCreateBtnEl) squadCreateBtnEl.textContent = t("squadCreate");
   if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
   if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
+  if (squadRefreshBtnEl) squadRefreshBtnEl.textContent = t("squadRefresh");
   if (squadNameInputEl) squadNameInputEl.placeholder = t("squadNamePlaceholder");
   if (squadIdInputEl) squadIdInputEl.placeholder = t("squadIdPlaceholder");
   if (leaderboardTitleEl) leaderboardTitleEl.textContent = t("leaderboardTitle");
@@ -1438,6 +1467,18 @@ function setDonateStatus(keyOrText = "", isError = false) {
   donateStatusEl.classList.toggle("error", isError);
 }
 
+function mapDonateErrorKey(rawError) {
+  const code = String(rawError || "").trim();
+  const errorMap = {
+    stars_disabled: "donateDisabled",
+    invoice_create_failed: "donateNotReady",
+    "initData missing": "authError",
+    "initData invalid": "authError",
+    "user missing": "authError"
+  };
+  return errorMap[code] || code || "donateNotReady";
+}
+
 function setSquadStatus(keyOrText = "", isError = false) {
   if (!squadStatusEl) return;
   const isLangKey =
@@ -1446,6 +1487,21 @@ function setSquadStatus(keyOrText = "", isError = false) {
   const text = isLangKey ? t(keyOrText) : String(keyOrText || "");
   squadStatusEl.textContent = text;
   squadStatusEl.classList.toggle("error", isError);
+}
+
+function mapSquadErrorKey(rawError) {
+  const code = String(rawError || "").trim();
+  const errorMap = {
+    already_in_squad: "squadErrorAlreadyIn",
+    squad_not_found: "squadErrorNotFound",
+    squad_full: "squadErrorFull",
+    squad_id_invalid: "squadErrorInvalidId",
+    squad_name_too_short: "squadErrorNameShort",
+    squad_name_too_long: "squadErrorNameLong",
+    squad_name_invalid: "squadErrorNameInvalid",
+    not_in_squad: "squadErrorNotInSquad"
+  };
+  return errorMap[code] || code || "tryAgain";
 }
 
 function updateDailyStreakView() {
@@ -1542,8 +1598,10 @@ function renderSquads() {
   if (squadCreateBtnEl) squadCreateBtnEl.textContent = t("squadCreate");
   if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
   if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
+  if (squadRefreshBtnEl) squadRefreshBtnEl.textContent = t("squadRefresh");
   if (squadNameInputEl) squadNameInputEl.placeholder = t("squadNamePlaceholder");
   if (squadIdInputEl) squadIdInputEl.placeholder = t("squadIdPlaceholder");
+  if (squadLeaveBtnEl) squadLeaveBtnEl.disabled = !currentSquadState?.id;
 
   if (currentSquadState?.id) {
     squadCurrentEl.textContent = t("squadCurrent", {
@@ -1576,12 +1634,41 @@ function renderSquads() {
     name.textContent = `${squad.name || "Squad"} (${squad.id || "-"})`;
     const meta = document.createElement("div");
     meta.className = "squad-meta";
-    meta.textContent = `${formatNumberDots(squad.membersCount || 0)} members`;
+    meta.textContent = t("squadMembers", { count: formatNumberDots(squad.membersCount || 0) });
     main.append(name, meta);
     const value = document.createElement("div");
     value.className = "squad-points";
     value.textContent = `${formatNumberDots(squad.seasonPoints || 0)} NF`;
-    row.append(rank, main, value);
+    const action = document.createElement("div");
+    action.className = "squad-action";
+    const isCurrent = String(currentSquadState?.id || "") === String(squad.id || "");
+    if (isCurrent) {
+      const chip = document.createElement("span");
+      chip.className = "squad-chip";
+      chip.textContent = t("squadYou");
+      action.append(chip);
+    } else {
+      const inlineJoin = document.createElement("button");
+      inlineJoin.className = "squad-join-inline";
+      inlineJoin.type = "button";
+      inlineJoin.textContent = t("squadJoin");
+      if (currentSquadState?.id) {
+        inlineJoin.disabled = true;
+        inlineJoin.textContent = t("squadJoinLocked");
+      } else {
+        inlineJoin.addEventListener("click", async () => {
+          inlineJoin.disabled = true;
+          if (squadIdInputEl) squadIdInputEl.value = String(squad.id || "");
+          try {
+            await handleSquadAction("join");
+          } finally {
+            inlineJoin.disabled = false;
+          }
+        });
+      }
+      action.append(inlineJoin);
+    }
+    row.append(rank, main, value, action);
     squadListEl.appendChild(row);
   });
 }
@@ -1602,7 +1689,7 @@ async function loadSquads({ silent = false } = {}) {
     const res = await fetch(url, { headers, cache: "no-store" });
     const data = await res.json();
     if (!data?.ok) {
-      if (!silent) setSquadStatus(data?.error || t("tryAgain"), true);
+      if (!silent) setSquadStatus(mapSquadErrorKey(data?.error), true);
       return;
     }
     squadsState = Array.isArray(data.squads) ? data.squads : [];
@@ -1623,7 +1710,7 @@ async function handleSquadAction(action) {
     body: JSON.stringify(payload)
   });
   if (!data?.ok) {
-    setSquadStatus(data?.error || t("tryAgain"), true);
+    setSquadStatus(mapSquadErrorKey(data?.error), true);
     return;
   }
   if (data.userSummary) {
@@ -1656,7 +1743,7 @@ function renderDonatePackages() {
   if (!donatePackages.length) {
     const empty = document.createElement("div");
     empty.className = "donate-empty";
-    empty.textContent = t("donateNotReady");
+    empty.textContent = starsEnabled ? t("donateNotReady") : t("donateDisabled");
     donateListEl.appendChild(empty);
     return;
   }
@@ -1688,7 +1775,12 @@ function renderDonatePackages() {
     btn.className = "donate-buy";
     btn.type = "button";
     btn.textContent = t("donateBuy", { stars: formatNumberDots(pkg.stars || 0) });
+    if (!starsEnabled) {
+      btn.disabled = true;
+      btn.textContent = t("donateDisabled");
+    }
     btn.addEventListener("click", async () => {
+      if (!starsEnabled) return;
       btn.disabled = true;
       try {
         const data = await apiRequest("/api/donate", {
@@ -1696,7 +1788,7 @@ function renderDonatePackages() {
           body: JSON.stringify({ packageId: pkg.id })
         });
         if (!data?.ok || !data.invoiceLink) {
-          setDonateStatus(data?.error || "donateNotReady", true);
+          setDonateStatus(mapDonateErrorKey(data?.error), true);
           return;
         }
         if (tg?.openInvoice) {
@@ -1717,7 +1809,7 @@ function renderDonatePackages() {
       } catch {
         setDonateStatus("network", true);
       } finally {
-        btn.disabled = false;
+        btn.disabled = !starsEnabled;
       }
     });
     if (gift) {
@@ -1901,10 +1993,12 @@ function setActiveTab(tab) {
   if (tabGiftsEl) tabGiftsEl.classList.toggle("active", tab === "gifts");
   if (tab === "leaderboard") {
     loadLeaderboard({ force: true, silent: true });
-    loadSquads({ silent: true });
   }
   if (tab === "shop") loadMiningStatus({ silent: true });
-  if (tab === "profile") renderProfilePanel(profileUser, { refillInputs: true });
+  if (tab === "profile") {
+    renderProfilePanel(profileUser, { refillInputs: true });
+    loadSquads({ silent: true });
+  }
   if (tab === "support") loadDonatePackages({ silent: true });
   if (tab === "gifts") renderProfilePanel(profileUser);
 }
@@ -2378,14 +2472,19 @@ async function loadDonatePackages({ silent = false } = {}) {
   try {
     const data = await apiRequest("/api/donate", { method: "POST", body: "{}" });
     if (!data?.ok) {
+      starsEnabled = false;
       donatePackages = [];
       renderDonatePackages();
-      if (!silent) setDonateStatus(data?.error || "donateNotReady", true);
+      if (!silent) setDonateStatus(mapDonateErrorKey(data?.error), true);
       return;
     }
+    starsEnabled = data.starsEnabled !== false;
     donatePackages = Array.isArray(data.packages) ? data.packages : [];
     renderDonatePackages();
-    if (!silent) setDonateStatus("");
+    if (!silent) {
+      if (!starsEnabled) setDonateStatus("donateDisabled", true);
+      else setDonateStatus("");
+    }
   } catch {
     donatePackages = [];
     renderDonatePackages();
@@ -2788,6 +2887,17 @@ if (squadLeaveBtnEl) {
       await handleSquadAction("leave");
     } finally {
       squadLeaveBtnEl.disabled = false;
+    }
+  });
+}
+if (squadRefreshBtnEl) {
+  squadRefreshBtnEl.addEventListener("click", async () => {
+    squadRefreshBtnEl.disabled = true;
+    try {
+      await loadSquads({ silent: false });
+      setSquadStatus("");
+    } finally {
+      squadRefreshBtnEl.disabled = false;
     }
   });
 }
