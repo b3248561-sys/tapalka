@@ -4,10 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260329-36" />
+    <link rel="stylesheet" href="style.css?v=20260329-37" />
   </head>
   <body>
-    <div class="space-bg" id="appBackground" aria-hidden="true"></div>
+    <div class="AppBackground" id="appBackground" aria-hidden="true">
+      <div class="AppBackground__stars AppBackground__stars--deep"></div>
+      <div class="AppBackground__stars AppBackground__stars--mid"></div>
+      <div class="AppBackground__stars AppBackground__stars--near"></div>
+      <div class="AppBackground__blackhole"></div>
+    </div>
     <div class="app">
       <header class="top">
         <div class="brand">
@@ -240,7 +245,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260329-36";
+        script.src = "app.js?v=20260329-37";
         document.body.appendChild(script);
       })();
     </script>
