@@ -2419,8 +2419,10 @@ body {
 
 /* 2026 Redesign: High-contrast Minimal Mobile Game */
 :root {
-  --ui-bg: #f6f7fb;
+  --ui-bg: #f4f6fa;
+  --ui-bg-soft: #eef2f8;
   --ui-surface: #ffffff;
+  --ui-surface-soft: #f8faff;
   --ui-stroke: #e0e6f4;
   --ui-text: #1a2340;
   --ui-muted: #66708c;
@@ -2428,14 +2430,18 @@ body {
   --ui-accent: #8a5cff;
   --ui-accent-2: #00d1b2;
   --ui-danger: #ef5350;
-  --ui-shadow-sm: 0 10px 24px rgba(56, 78, 128, 0.08);
+  --ui-shadow-xs: 0 6px 14px rgba(56, 78, 128, 0.06);
+  --ui-shadow-sm: 0 12px 28px rgba(56, 78, 128, 0.1);
   --ui-shadow-md: 0 18px 44px rgba(56, 78, 128, 0.16);
   --ui-gradient-main: linear-gradient(135deg, #5b6cff, #8a5cff);
   --ui-gradient-soft: linear-gradient(135deg, #eef0ff, #f3eefe);
 }
 
 body {
-  background: var(--ui-bg);
+  background:
+    radial-gradient(circle at 14% 8%, rgba(91, 108, 255, 0.08), transparent 34%),
+    radial-gradient(circle at 92% 24%, rgba(0, 209, 178, 0.08), transparent 32%),
+    linear-gradient(180deg, var(--ui-bg), var(--ui-bg-soft));
   color: var(--ui-text);
   padding-bottom: calc(208px + clamp(0px, env(safe-area-inset-bottom), 36px));
 }
@@ -2467,27 +2473,34 @@ body {
 }
 
 .lang {
-  background: #ffffff;
+  background: var(--ui-surface-soft);
   border: 1px solid var(--ui-stroke);
   color: #243150;
-  box-shadow: 0 8px 16px rgba(91, 108, 255, 0.08);
+  box-shadow: var(--ui-shadow-xs);
 }
 
 .lang-dropdown {
+  background: var(--ui-surface-soft);
   border: 1px solid var(--ui-stroke);
-  box-shadow: var(--ui-shadow-sm);
+  box-shadow: var(--ui-shadow-xs);
 }
 
 .panel,
-.shop,
-.quests,
 .leaderboard,
 .profile-card,
 .support-card,
 .gifts-page-card,
-.daily-card,
-.mining-card,
 .squads-card {
+  background: var(--ui-surface) !important;
+  border: 1px solid var(--ui-stroke) !important;
+  box-shadow: var(--ui-shadow-md) !important;
+  border-radius: 22px !important;
+}
+
+.shop,
+.quests,
+.daily-card,
+.mining-card {
   background: var(--ui-surface) !important;
   border: 1px solid var(--ui-stroke) !important;
   box-shadow: var(--ui-shadow-sm) !important;
@@ -2642,9 +2655,9 @@ body {
 .gift-tile,
 .user-modal-stat,
 .case-slot {
-  background: #fbfcff !important;
+  background: var(--ui-surface-soft) !important;
   border-color: #dce4f5 !important;
-  box-shadow: none;
+  box-shadow: var(--ui-shadow-xs);
 }
 
 .shop-item.equipped {
@@ -2757,7 +2770,7 @@ body {
 
 .gifts-page-card,
 .gift-tile {
-  background: #ffffff !important;
+  background: var(--ui-surface) !important;
 }
 
 .gift-tile-title {
@@ -2773,7 +2786,7 @@ body {
   width: min(472px, calc(100% - 14px));
   padding: 8px;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(246, 249, 255, 0.96);
   border: 1px solid #d4ddf1;
   box-shadow: var(--ui-shadow-md);
   backdrop-filter: blur(10px);
@@ -2797,7 +2810,7 @@ body {
   justify-content: center;
   gap: 3px;
   border: 1px solid #d8e0f2;
-  background: #f7f9ff;
+  background: var(--ui-surface-soft);
   color: #4e5e7e;
   border-radius: 14px;
   min-height: 52px;
@@ -2895,7 +2908,7 @@ body {
 .user-modal-card,
 .case-anim-card {
   border: 1px solid #d6def1;
-  background: #ffffff;
+  background: var(--ui-surface-soft);
   box-shadow: 0 24px 50px rgba(54, 77, 128, 0.24);
 }
 
