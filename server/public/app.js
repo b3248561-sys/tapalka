@@ -155,6 +155,7 @@ let energy = 0;
 let maxEnergy = 0;
 let energyRegen = 1;
 let energySyncedAt = Date.now();
+let displayedBalance = 0;
 let lastTapPoint = null;
 let comboCount = 0;
 let comboMultiplier = 1;
@@ -1508,6 +1509,7 @@ async function loadProfile() {
 }
 
 function updateBalance(value, { bump = true } = {}) {
+  displayedBalance = Math.max(0, Number(value || 0));
   const pretty = formatNumberDots(value);
   if (balanceEl) balanceEl.textContent = pretty;
   if (shopBalanceEl) shopBalanceEl.textContent = pretty;
@@ -3216,11 +3218,11 @@ if (squadRefreshBtnEl) {
 async function sendTap(count = 1, point = null) {
   if (!demoMode && !initData) {
     setMeta("authError");
-    return;
+    return false;
   }
-  if (!demoMode && energy <= 0) {
+  if (!demoMode && energy <= 0 && count <= 1) {
     setMeta("energyEmpty");
-    return;
+    return false;
   }
   try {
     const data = await apiRequest("/api/tap", {
@@ -3245,7 +3247,7 @@ async function sendTap(count = 1, point = null) {
       } else {
         setMeta("tryAgain");
       }
-      return;
+      return false;
     }
     updateBalance(data.balance);
     if (data.tapValue) updateTapValue(data.tapValue);
@@ -3259,9 +3261,6 @@ async function sendTap(count = 1, point = null) {
     } else {
       setMeta("niceTap");
     }
-    const mult = data.multiplier || 1;
-    const prefix = data.critHit ? "CRIT " : data.goldenActive ? "GOLD " : "";
-    showSpark(`${prefix}+${formatNumberDots((data.tapValue || 1) * count * mult)}`, point);
     if (Date.now() - lastHapticAt > HAPTIC_MIN_INTERVAL_MS) {
       lastHapticAt = Date.now();
       if (tg?.HapticFeedback?.impactOccurred) {
@@ -3275,8 +3274,10 @@ async function sendTap(count = 1, point = null) {
       loadQuests({ silent: true });
     }
     if (activeTab === "leaderboard") loadLeaderboard({ force: true, silent: true });
+    return true;
   } catch {
     setMeta("network");
+    return false;
   }
 }
 
@@ -3291,14 +3292,47 @@ function enqueueTap(count = 1, point = null) {
   }
 }
 
+function applyOptimisticTap(count = 1, point = null) {
+  const safeCount = Math.max(1, Math.floor(Number(count) || 1));
+  const usableEnergy = Math.max(0, Math.floor(Number(energy || 0)));
+  const allowed = Math.min(safeCount, usableEnergy);
+  if (allowed <= 0) return 0;
+  const predictedEarn = Math.max(1, Math.round((tapValue || 1) * allowed));
+  updateBalance(displayedBalance + predictedEarn);
+  updateEnergy(Math.max(0, usableEnergy - allowed), maxEnergy, energyRegen);
+  showSpark(`+${formatNumberDots(predictedEarn)}`, point);
+  return allowed;
+}
+
 async function flushTapQueue() {
   tapFlushTimer = 0;
   if (isTapRequestInFlight || tapQueueCount <= 0) return;
   isTapRequestInFlight = true;
-  const batchCount = Math.max(1, Math.min(TAP_BATCH_MAX_COUNT, tapQueueCount));
-  tapQueueCount -= batchCount;
+  const requestedCount = Math.max(1, Math.min(TAP_BATCH_MAX_COUNT, tapQueueCount));
+  tapQueueCount -= requestedCount;
+  const snapshot = {
+    balance: displayedBalance,
+    energy,
+    maxEnergy,
+    energyRegen
+  };
+  const batchCount = applyOptimisticTap(requestedCount, queuedTapPoint);
+  if (batchCount <= 0) {
+    isTapRequestInFlight = false;
+    if (!tapFlushTimer && tapQueueCount > 0) {
+      tapFlushTimer = setTimeout(flushTapQueue, TAP_BATCH_WINDOW_MS);
+    }
+    return;
+  }
   try {
-    await sendTap(batchCount, queuedTapPoint);
+    const ok = await sendTap(batchCount, queuedTapPoint);
+    if (!ok) {
+      updateBalance(snapshot.balance, { bump: false });
+      updateEnergy(snapshot.energy, snapshot.maxEnergy, snapshot.energyRegen);
+    }
+  } catch {
+    updateBalance(snapshot.balance, { bump: false });
+    updateEnergy(snapshot.energy, snapshot.maxEnergy, snapshot.energyRegen);
   } finally {
     isTapRequestInFlight = false;
     if (tapQueueCount > 0) {
