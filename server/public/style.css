@@ -2443,7 +2443,7 @@ body {
     radial-gradient(circle at 92% 24%, rgba(0, 209, 178, 0.08), transparent 32%),
     linear-gradient(180deg, var(--ui-bg), var(--ui-bg-soft));
   color: var(--ui-text);
-  padding-bottom: calc(208px + clamp(0px, env(safe-area-inset-bottom), 36px));
+  padding-bottom: calc(176px + clamp(0px, env(safe-area-inset-bottom), 36px));
 }
 
 .bg {
@@ -2456,14 +2456,14 @@ body {
 }
 
 .app {
-  max-width: 446px;
-  margin: 20px auto 90px;
-  padding: 16px;
+  max-width: 418px;
+  margin: 14px auto 74px;
+  padding: 12px;
 }
 
 .title {
   color: #121a33;
-  font-size: 34px;
+  font-size: 31px;
   letter-spacing: 0.3px;
 }
 
@@ -2508,8 +2508,8 @@ body {
 }
 
 .panel {
-  padding: 26px 20px;
-  gap: 20px;
+  padding: 20px 14px;
+  gap: 14px;
 }
 
 .screen {
@@ -2532,7 +2532,7 @@ body {
 
 .balance {
   color: #10172e;
-  font-size: clamp(48px, 12vw, 66px);
+  font-size: clamp(40px, 10vw, 56px);
   letter-spacing: 0.8px;
   text-shadow: none;
 }
@@ -2562,10 +2562,10 @@ body {
 }
 
 .tap {
-  width: 224px;
-  height: 224px;
+  width: 182px;
+  height: 182px;
   border: none;
-  font-size: 44px;
+  font-size: 36px;
   background: linear-gradient(145deg, #5b6cff 0%, #8a5cff 100%);
   box-shadow:
     0 20px 44px rgba(91, 108, 255, 0.44),
@@ -2619,7 +2619,7 @@ body {
 .gifts-page-card,
 .squads-card {
   margin-top: 12px;
-  padding: 16px;
+  padding: 12px;
 }
 
 .shop-title,
@@ -2628,7 +2628,7 @@ body {
 .profile-title,
 .donate-title,
 .squads-title {
-  font-size: 18px;
+  font-size: 16px;
   color: #162242;
 }
 
@@ -2688,6 +2688,9 @@ body {
   color: #fff !important;
   border: none !important;
   box-shadow: 0 12px 24px rgba(91, 108, 255, 0.24);
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 .profile-btn.ghost,
@@ -2698,6 +2701,14 @@ body {
   border: 1px solid #d7e0f3;
   background: #f6f8ff;
   color: #334466;
+  min-height: 36px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.shop-buy {
+  width: auto;
+  min-width: 74px;
 }
 
 .leaderboard-mode.active {
@@ -2793,14 +2804,14 @@ body {
 
 .tabs {
   bottom: 14px;
-  width: min(472px, calc(100% - 14px));
-  padding: 8px;
-  border-radius: 22px;
+  width: min(430px, calc(100% - 12px));
+  padding: 6px;
+  border-radius: 18px;
   background: rgba(246, 249, 255, 0.96);
   border: 1px solid #d4ddf1;
   box-shadow: var(--ui-shadow-md);
   backdrop-filter: blur(10px);
-  gap: 6px;
+  gap: 4px;
   display: flex;
   flex-wrap: wrap;
   align-content: stretch;
@@ -2818,22 +2829,22 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   border: 1px solid #d8e0f2;
   background: var(--ui-surface-soft);
   color: #4e5e7e;
-  border-radius: 14px;
-  min-height: 52px;
-  padding: 6px 5px;
-  font-size: 10px;
+  border-radius: 11px;
+  min-height: 42px;
+  padding: 5px 4px;
+  font-size: 9px;
   font-weight: 700;
-  flex: 1 1 calc(25% - 6px);
+  flex: 1 1 calc(25% - 4px);
 }
 
 .tab::before {
   content: "";
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background-color: currentColor;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: contain;
@@ -2912,7 +2923,8 @@ body {
 
 .footer {
   color: #7884a0;
-  margin-top: 20px;
+  margin-top: 12px;
+  font-size: 11px;
 }
 
 .user-modal-card,
@@ -2945,34 +2957,34 @@ body {
 
 @media (max-width: 430px) {
   .app {
-    padding: 14px;
+    padding: 10px;
   }
 
   .title {
-    font-size: 31px;
+    font-size: 28px;
   }
 
   .panel {
-    padding: 22px 14px;
+    padding: 16px 12px;
   }
 
   .tap {
-    width: 196px;
-    height: 196px;
-    font-size: 40px;
+    width: 168px;
+    height: 168px;
+    font-size: 34px;
   }
 
   .tabs {
-    width: calc(100% - 10px);
-    padding: 6px;
-    gap: 4px;
+    width: calc(100% - 8px);
+    padding: 5px;
+    gap: 3px;
   }
 
   .tab {
     min-width: 0;
-    font-size: 9px;
-    min-height: 50px;
-    padding: 6px 4px;
-    flex-basis: calc(25% - 4px);
+    font-size: 8px;
+    min-height: 40px;
+    padding: 4px 3px;
+    flex-basis: calc(25% - 3px);
   }
 }
