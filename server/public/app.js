@@ -202,8 +202,8 @@ const MINING_SYNC_INTERVAL_MS = 12000;
 const SHOP_BOOST_RERENDER_MS = 3000;
 const SPARK_MIN_INTERVAL_MS = 70;
 const SPARK_MAX_ACTIVE = 10;
-const TAP_BATCH_WINDOW_MS = 90;
-const TAP_BATCH_MAX_COUNT = 12;
+const TAP_BATCH_WINDOW_MS = 150;
+const TAP_BATCH_MAX_COUNT = 8;
 const HAPTIC_MIN_INTERVAL_MS = 120;
 
 const isMobileViewport = window.matchMedia?.("(max-width: 720px)")?.matches || false;
@@ -1464,18 +1464,24 @@ async function apiRequest(path, options = {}) {
   if (latestInit && latestInit !== initData) initData = latestInit;
   if (!demoMode && !initData) return { ok: false, error: "auth_required" };
 
-  const headers = {};
-  if (options.body !== undefined) headers["Content-Type"] = "application/json";
-  const opts = { ...options, headers: { ...headers, ...(options.headers || {}) } };
+  const headers = { ...(options.headers || {}) };
+  if (options.body !== undefined && !headers["Content-Type"] && !headers["content-type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+  const opts = { ...options, headers };
 
   if (demoMode) {
-    const body = opts.body ? JSON.parse(opts.body) : {};
-    body.demoUserId = demoUserId;
-    opts.body = JSON.stringify(body);
+    if (opts.body !== undefined) {
+      try {
+        const body = JSON.parse(String(opts.body || "{}"));
+        body.demoUserId = demoUserId;
+        opts.body = JSON.stringify(body);
+      } catch {
+        opts.body = JSON.stringify({ demoUserId });
+      }
+    }
   } else {
-    const body = opts.body ? JSON.parse(opts.body) : {};
-    body.initData = initData;
-    opts.body = JSON.stringify(body);
+    // Keep initData only in header for smaller payload and lower per-tap latency.
     opts.headers["x-init-data"] = initData;
   }
   const res = await fetch(path, { ...opts, cache: "no-store" });
@@ -3296,7 +3302,7 @@ async function flushTapQueue() {
   } finally {
     isTapRequestInFlight = false;
     if (tapQueueCount > 0) {
-      tapFlushTimer = setTimeout(flushTapQueue, 40);
+      tapFlushTimer = setTimeout(flushTapQueue, TAP_BATCH_WINDOW_MS);
     }
   }
 }
