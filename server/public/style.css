@@ -2737,6 +2737,16 @@ body {
   color: #3d5695;
 }
 
+.squad-create-fee {
+  border-radius: 10px;
+  padding: 7px 10px;
+  background: #eef3ff;
+  border: 1px solid #d2ddfb;
+  color: #375496;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .squad-members-head,
 .squad-list-head {
   font-size: 12px;

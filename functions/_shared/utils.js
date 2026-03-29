@@ -475,6 +475,13 @@ export async function getUserById(env, userId) {
 const SQUAD_PREFIX = "squad:";
 const SQUAD_INDEX_KEY = "squads:index";
 const SQUAD_MAX_MEMBERS = 30;
+const DEFAULT_SQUAD_CREATE_COST = 250000;
+
+export function resolveSquadCreateCost(env) {
+  const raw = Number(env?.SQUAD_CREATE_COST || DEFAULT_SQUAD_CREATE_COST);
+  if (!Number.isFinite(raw)) return DEFAULT_SQUAD_CREATE_COST;
+  return Math.max(0, Math.floor(raw));
+}
 
 function squadKey(squadId) {
   return `${SQUAD_PREFIX}${squadId}`;
@@ -659,8 +666,12 @@ export async function createSquadAction(env, user, rawName, now = Date.now()) {
     return { ok: false, status: 503, error: "kv_not_configured" };
   }
   const member = normalizeUser(user);
+  const createCost = resolveSquadCreateCost(env);
   if (member.squadId) {
     return { ok: false, status: 400, error: "already_in_squad" };
+  }
+  if (Number(member.balance || 0) < createCost) {
+    return { ok: false, status: 400, error: "squad_create_insufficient_balance" };
   }
   const normalizedName = normalizeSquadName(rawName);
   if (!normalizedName.ok) {
@@ -689,6 +700,7 @@ export async function createSquadAction(env, user, rawName, now = Date.now()) {
   });
   await addSquadToIndex(env, squad.id);
 
+  member.balance = Math.max(0, Number(member.balance || 0) - createCost);
   member.squadId = squad.id;
   member.squadRole = "owner";
   await saveUser(env, member);

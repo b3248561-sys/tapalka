@@ -101,6 +101,7 @@ const squadLeaveBtnEl = document.getElementById("squadLeaveBtn");
 const squadRefreshBtnEl = document.getElementById("squadRefreshBtn");
 const squadStatusEl = document.getElementById("squadStatus");
 const squadCurrentEl = document.getElementById("squadCurrent");
+const squadCreateFeeEl = document.getElementById("squadCreateFee");
 const squadBonusEl = document.getElementById("squadBonus");
 const squadMembersTitleEl = document.getElementById("squadMembersTitle");
 const squadMembersEl = document.getElementById("squadMembers");
@@ -159,6 +160,7 @@ let profileUser = null;
 let profileAvatarFileData = "";
 let donatePackages = [];
 let starsEnabled = true;
+let squadCreateCost = 250000;
 let squadsState = [];
 let currentSquadState = null;
 let launchReferralCode = "";
@@ -336,6 +338,7 @@ const STRINGS = {
     miningNotReady: "Mining is empty",
     squadsTitle: "Squads",
     squadsSubtitle: "Create or join a squad",
+    squadCreateFee: "Create cost: {cost} NF",
     squadMembersTitle: "Your members",
     squadListTitle: "Top squads",
     squadBonusNone: "Bonus: not active. Join a squad to unlock boost",
@@ -363,6 +366,7 @@ const STRINGS = {
     squadErrorNameLong: "Name is too long (max 24)",
     squadErrorNameInvalid: "Use letters and numbers only",
     squadErrorNotInSquad: "You are not in a squad",
+    squadErrorInsufficient: "Need at least {cost} NF to create a squad",
     donateTitle: "Support project",
     donateSubtitle: "Telegram Stars packs (non pay-to-win)",
     support_sName: "Starter Support",
@@ -561,6 +565,7 @@ const STRINGS = {
     miningNotReady: "Майнинг пуст",
     squadsTitle: "Сквады",
     squadsSubtitle: "Создай или вступи в сквад",
+    squadCreateFee: "Создание: {cost} NF",
     squadMembersTitle: "Участники твоего сквада",
     squadListTitle: "Топ сквадов",
     squadBonusNone: "Бонус не активен. Вступи в сквад для буста",
@@ -588,6 +593,7 @@ const STRINGS = {
     squadErrorNameLong: "Название слишком длинное (максимум 24)",
     squadErrorNameInvalid: "Только буквы, цифры и пробелы",
     squadErrorNotInSquad: "Ты сейчас не в скваде",
+    squadErrorInsufficient: "Нужно минимум {cost} NF для создания сквада",
     donateTitle: "Поддержка проекта",
     donateSubtitle: "Пакеты Telegram Stars (без pay-to-win)",
     support_sName: "Стартовая поддержка",
@@ -1280,6 +1286,9 @@ function applyTexts() {
   if (miningBtnEl) miningBtnEl.textContent = t("miningClaim");
   if (squadsTitleEl) squadsTitleEl.textContent = t("squadsTitle");
   if (squadsSubtitleEl) squadsSubtitleEl.textContent = t("squadsSubtitle");
+  if (squadCreateFeeEl) {
+    squadCreateFeeEl.textContent = t("squadCreateFee", { cost: formatNumberDots(squadCreateCost) });
+  }
   if (squadCreateBtnEl) squadCreateBtnEl.textContent = t("squadCreate");
   if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
   if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
@@ -1500,12 +1509,12 @@ function mapDonateErrorKey(rawError) {
   return errorMap[code] || code || "donateNotReady";
 }
 
-function setSquadStatus(keyOrText = "", isError = false) {
+function setSquadStatus(keyOrText = "", isError = false, vars = {}) {
   if (!squadStatusEl) return;
   const isLangKey =
     typeof keyOrText === "string" &&
     (STRINGS[currentLang]?.[keyOrText] || STRINGS.en?.[keyOrText]);
-  const text = isLangKey ? t(keyOrText) : String(keyOrText || "");
+  const text = isLangKey ? t(keyOrText, vars || {}) : String(keyOrText || "");
   squadStatusEl.textContent = text;
   squadStatusEl.classList.toggle("error", isError);
 }
@@ -1520,7 +1529,8 @@ function mapSquadErrorKey(rawError) {
     squad_name_too_short: "squadErrorNameShort",
     squad_name_too_long: "squadErrorNameLong",
     squad_name_invalid: "squadErrorNameInvalid",
-    not_in_squad: "squadErrorNotInSquad"
+    not_in_squad: "squadErrorNotInSquad",
+    squad_create_insufficient_balance: "squadErrorInsufficient"
   };
   return errorMap[code] || code || "tryAgain";
 }
@@ -1616,6 +1626,9 @@ function renderSquads() {
   if (!squadListEl || !squadCurrentEl) return;
   if (squadsTitleEl) squadsTitleEl.textContent = t("squadsTitle");
   if (squadsSubtitleEl) squadsSubtitleEl.textContent = t("squadsSubtitle");
+  if (squadCreateFeeEl) {
+    squadCreateFeeEl.textContent = t("squadCreateFee", { cost: formatNumberDots(squadCreateCost) });
+  }
   if (squadCreateBtnEl) squadCreateBtnEl.textContent = t("squadCreate");
   if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
   if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
@@ -1745,6 +1758,9 @@ async function loadSquads({ silent = false } = {}) {
       if (!silent) setSquadStatus(mapSquadErrorKey(data?.error), true);
       return;
     }
+    if (typeof data.createCost === "number" && Number.isFinite(data.createCost)) {
+      squadCreateCost = Math.max(0, Math.floor(data.createCost));
+    }
     squadsState = Array.isArray(data.squads) ? data.squads : [];
     currentSquadState = data.currentSquad || null;
     renderSquads();
@@ -1763,11 +1779,22 @@ async function handleSquadAction(action) {
     body: JSON.stringify(payload)
   });
   if (!data?.ok) {
-    setSquadStatus(mapSquadErrorKey(data?.error), true);
+    const mapped = mapSquadErrorKey(data?.error);
+    if (mapped === "squadErrorInsufficient") {
+      setSquadStatus(mapped, true, { cost: formatNumberDots(squadCreateCost) });
+    } else {
+      setSquadStatus(mapped, true);
+    }
     return;
+  }
+  if (typeof data.createCost === "number" && Number.isFinite(data.createCost)) {
+    squadCreateCost = Math.max(0, Math.floor(data.createCost));
   }
   if (data.userSummary) {
     profileUser = data.userSummary;
+    if (typeof data.userSummary.balance === "number") {
+      updateBalance(data.userSummary.balance, { bump: false });
+    }
     renderProfilePanel(profileUser);
   }
   squadsState = Array.isArray(data.squads) ? data.squads : squadsState;

@@ -8,6 +8,7 @@ import {
   resolveInitDataMaxAgeSec,
   isDemoAllowed,
   listSquads,
+  resolveSquadCreateCost,
   getUserSquad,
   createSquadAction,
   joinSquadAction,
@@ -45,6 +46,7 @@ async function buildSquadsPayload(env, user) {
   }
   const squads = await listSquads(env, { limit: 20 });
   return {
+    createCost: resolveSquadCreateCost(env),
     user: {
       id: String(user.id),
       squadId: String(user.squadId || ""),
