@@ -2670,6 +2670,42 @@ body {
   }
 }
 
+@media (max-width: 480px) {
+  .AppBackground::before {
+    filter: blur(52px);
+    animation-duration: 90s;
+  }
+
+  .AppBackground::after {
+    filter: blur(72px);
+    animation-duration: 120s;
+  }
+
+  .AppBackground__stars--near {
+    opacity: 0.16;
+    animation-duration: 210s, 8s;
+  }
+
+  .AppBackground__blackhole {
+    width: 228px;
+    height: 228px;
+    left: 72%;
+    top: 40%;
+    opacity: 0.86;
+  }
+}
+
+@media (prefers-reduced-data: reduce) {
+  .AppBackground__stars--near {
+    display: none;
+  }
+
+  .AppBackground__blackhole::before {
+    animation-duration: 28s;
+    opacity: 0.62;
+  }
+}
+
 .app {
   max-width: 418px;
   margin: 14px auto 74px;
