@@ -188,6 +188,11 @@ let lastShopRenderAt = 0;
 let dockTabsRaf = 0;
 let dockStylesApplied = false;
 let lastDockBottomPx = -1;
+let tapQueueCount = 0;
+let tapFlushTimer = 0;
+let isTapRequestInFlight = false;
+let queuedTapPoint = null;
+let lastHapticAt = 0;
 
 const UI_TICK_MS = 1000;
 const PROFILE_SYNC_INTERVAL_MS = 8000;
@@ -197,9 +202,14 @@ const MINING_SYNC_INTERVAL_MS = 12000;
 const SHOP_BOOST_RERENDER_MS = 3000;
 const SPARK_MIN_INTERVAL_MS = 70;
 const SPARK_MAX_ACTIVE = 10;
+const TAP_BATCH_WINDOW_MS = 90;
+const TAP_BATCH_MAX_COUNT = 12;
+const HAPTIC_MIN_INTERVAL_MS = 120;
 
+const isMobileViewport = window.matchMedia?.("(max-width: 720px)")?.matches || false;
 const isLowPerfDevice =
   window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ||
+  isMobileViewport ||
   (typeof navigator !== "undefined" && Number(navigator.hardwareConcurrency || 8) <= 4) ||
   (typeof navigator !== "undefined" && Number(navigator.deviceMemory || 8) <= 4);
 if (isLowPerfDevice) {
@@ -2953,6 +2963,13 @@ document.addEventListener("visibilitychange", () => {
     loadMiningStatus({ silent: true, force: true });
     loadSquads({ silent: true, force: true });
     loadDonatePackages({ silent: true });
+  } else {
+    tapQueueCount = 0;
+    queuedTapPoint = null;
+    if (tapFlushTimer) {
+      clearTimeout(tapFlushTimer);
+      tapFlushTimer = 0;
+    }
   }
 });
 
@@ -2965,30 +2982,30 @@ window.addEventListener("focus", () => {
 });
 
 if (tapBtn) {
-  tapBtn.addEventListener("click", async () => {
+  tapBtn.addEventListener("click", () => {
     const now = Date.now();
     if (now - lastTouchAt < 300) return;
     if (now - lastPointerDownAt < 300) return;
-    await sendTap(1, lastTapPoint);
+    enqueueTap(1, lastTapPoint);
   });
   tapBtn.addEventListener(
     "touchstart",
-    async (event) => {
+    (event) => {
       lastTouchAt = Date.now();
       const count = Math.max(1, event.touches?.length || 1);
       if (event.touches && event.touches[0]) {
         lastTapPoint = { x: event.touches[0].clientX, y: event.touches[0].clientY };
       }
       event.preventDefault();
-      await sendTap(count, lastTapPoint);
+      enqueueTap(count, lastTapPoint);
     },
     { passive: false }
   );
-  tapBtn.addEventListener("pointerdown", async (event) => {
+  tapBtn.addEventListener("pointerdown", (event) => {
     if (event.pointerType === "touch") return;
     lastPointerDownAt = Date.now();
     lastTapPoint = { x: event.clientX, y: event.clientY };
-    await sendTap(1, lastTapPoint);
+    enqueueTap(1, lastTapPoint);
   });
 }
 
@@ -3239,10 +3256,13 @@ async function sendTap(count = 1, point = null) {
     const mult = data.multiplier || 1;
     const prefix = data.critHit ? "CRIT " : data.goldenActive ? "GOLD " : "";
     showSpark(`${prefix}+${formatNumberDots((data.tapValue || 1) * count * mult)}`, point);
-    if (tg?.HapticFeedback?.impactOccurred) {
-      tg.HapticFeedback.impactOccurred("light");
-    } else if (navigator.vibrate) {
-      navigator.vibrate(10);
+    if (Date.now() - lastHapticAt > HAPTIC_MIN_INTERVAL_MS) {
+      lastHapticAt = Date.now();
+      if (tg?.HapticFeedback?.impactOccurred) {
+        tg.HapticFeedback.impactOccurred("light");
+      } else if (navigator.vibrate) {
+        navigator.vibrate(8);
+      }
     }
     if (Date.now() - lastQuestSyncAt > 1000) {
       lastQuestSyncAt = Date.now();
@@ -3251,6 +3271,33 @@ async function sendTap(count = 1, point = null) {
     if (activeTab === "leaderboard") loadLeaderboard({ force: true, silent: true });
   } catch {
     setMeta("network");
+  }
+}
+
+function enqueueTap(count = 1, point = null) {
+  const add = Math.max(1, Math.floor(Number(count) || 1));
+  tapQueueCount = Math.min(200, tapQueueCount + add);
+  if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) {
+    queuedTapPoint = point;
+  }
+  if (!tapFlushTimer) {
+    tapFlushTimer = setTimeout(flushTapQueue, TAP_BATCH_WINDOW_MS);
+  }
+}
+
+async function flushTapQueue() {
+  tapFlushTimer = 0;
+  if (isTapRequestInFlight || tapQueueCount <= 0) return;
+  isTapRequestInFlight = true;
+  const batchCount = Math.max(1, Math.min(TAP_BATCH_MAX_COUNT, tapQueueCount));
+  tapQueueCount -= batchCount;
+  try {
+    await sendTap(batchCount, queuedTapPoint);
+  } finally {
+    isTapRequestInFlight = false;
+    if (tapQueueCount > 0) {
+      tapFlushTimer = setTimeout(flushTapQueue, 40);
+    }
   }
 }
 
@@ -3320,7 +3367,7 @@ init();
 
 setInterval(() => {
   tickEnergy();
-  updateTapBuffs();
+  if (activeTab === "tap") updateTapBuffs();
   if (activeTab === "shop") {
     updateDailyStatus();
     renderMining();
