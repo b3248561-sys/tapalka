@@ -2442,51 +2442,184 @@ body {
 }
 
 body {
-  background:
-    radial-gradient(circle at 14% 8%, rgba(91, 108, 255, 0.08), transparent 34%),
-    radial-gradient(circle at 92% 24%, rgba(0, 209, 178, 0.08), transparent 32%),
-    linear-gradient(180deg, var(--ui-bg), var(--ui-bg-soft));
+  background: #0b0f1a;
   color: var(--ui-text);
   padding-bottom: calc(176px + clamp(0px, env(safe-area-inset-bottom), 36px));
 }
 
-.bg {
-  opacity: 1;
+.app-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
 
-.orb {
-  filter: blur(34px);
+.app-background-layer {
+  position: absolute;
+  inset: -12%;
+  pointer-events: none;
+}
+
+.space-base {
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(92, 112, 255, 0.1), transparent 38%),
+    radial-gradient(circle at 84% 22%, rgba(0, 209, 178, 0.08), transparent 34%),
+    linear-gradient(155deg, #0b0f1a 0%, #0f1422 46%, #12182a 100%);
+}
+
+.nebula {
+  filter: blur(54px);
+  opacity: 0.28;
+  mix-blend-mode: screen;
+  animation: cosmicDrift 34s ease-in-out infinite alternate,
+    nebulaPulse 22s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.nebula-a {
+  background:
+    radial-gradient(circle at 22% 30%, rgba(74, 117, 255, 0.52) 0%, transparent 58%),
+    radial-gradient(circle at 62% 62%, rgba(141, 98, 255, 0.42) 0%, transparent 52%);
+  animation-delay: -5s;
+}
+
+.nebula-b {
+  background:
+    radial-gradient(circle at 74% 20%, rgba(61, 190, 255, 0.42) 0%, transparent 54%),
+    radial-gradient(circle at 35% 70%, rgba(133, 89, 255, 0.34) 0%, transparent 50%);
+  opacity: 0.24;
+  animation-duration: 38s, 26s;
+  animation-delay: -12s, -9s;
+}
+
+.nebula-c {
+  background:
+    radial-gradient(circle at 84% 72%, rgba(17, 196, 177, 0.36) 0%, transparent 48%),
+    radial-gradient(circle at 28% 16%, rgba(108, 134, 255, 0.32) 0%, transparent 50%);
   opacity: 0.2;
+  animation-duration: 30s, 18s;
+  animation-delay: -17s, -6s;
+}
+
+.stars {
+  inset: 0;
+  background-repeat: repeat;
+  animation: starDrift 40s linear infinite, starTwinkle 16s ease-in-out infinite;
+}
+
+.stars-far {
+  opacity: 0.26;
+  background-image:
+    radial-gradient(1px 1px at 18px 26px, rgba(226, 236, 255, 0.66), transparent 1.5px),
+    radial-gradient(1px 1px at 78px 62px, rgba(201, 224, 255, 0.54), transparent 1.5px),
+    radial-gradient(1px 1px at 130px 112px, rgba(177, 202, 255, 0.45), transparent 1.5px);
+  background-size: 160px 160px;
+}
+
+.stars-near {
+  opacity: 0.17;
+  background-image:
+    radial-gradient(1.2px 1.2px at 36px 46px, rgba(240, 246, 255, 0.76), transparent 1.8px),
+    radial-gradient(1.2px 1.2px at 92px 24px, rgba(210, 227, 255, 0.6), transparent 1.8px),
+    radial-gradient(1.2px 1.2px at 142px 94px, rgba(187, 208, 255, 0.5), transparent 1.8px);
+  background-size: 180px 180px;
+  animation-duration: 30s, 12s;
+  animation-delay: -8s;
+}
+
+@keyframes cosmicDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(1.6%, -1.2%, 0) scale(1.03);
+  }
+  100% {
+    transform: translate3d(-1.1%, 1.5%, 0) scale(1.01);
+  }
+}
+
+@keyframes nebulaPulse {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.32;
+  }
+}
+
+@keyframes starTwinkle {
+  0%,
+  100% {
+    opacity: 0.16;
+  }
+  45% {
+    opacity: 0.26;
+  }
+  65% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes starDrift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-24px, 18px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nebula,
+  .stars {
+    animation: none !important;
+  }
 }
 
 .app {
   max-width: 418px;
   margin: 14px auto 74px;
   padding: 12px;
+  position: relative;
+  z-index: 1;
 }
 
 .title {
-  color: #121a33;
+  color: #edf2ff;
   font-size: 31px;
   letter-spacing: 0.3px;
+  text-shadow: 0 6px 24px rgba(9, 16, 36, 0.55);
 }
 
 .subtitle {
-  color: var(--ui-muted);
+  color: #b4c0df;
   font-size: 15px;
 }
 
 .lang {
-  background: var(--ui-surface-soft);
-  border: 1px solid var(--ui-stroke);
-  color: #243150;
-  box-shadow: var(--ui-shadow-xs);
+  background: rgba(16, 24, 44, 0.7);
+  border: 1px solid rgba(145, 164, 218, 0.28);
+  color: #e8efff;
+  box-shadow: 0 10px 22px rgba(2, 8, 22, 0.32);
 }
 
 .lang-dropdown {
-  background: var(--ui-surface-soft);
-  border: 1px solid var(--ui-stroke);
-  box-shadow: var(--ui-shadow-xs);
+  background: rgba(15, 24, 44, 0.92);
+  border: 1px solid rgba(136, 157, 214, 0.26);
+  box-shadow: 0 20px 40px rgba(2, 10, 27, 0.42);
+}
+
+.lang-option {
+  color: #d8e4ff;
+}
+
+.lang-option.active {
+  background: rgba(91, 108, 255, 0.28);
+  color: #f3f7ff;
 }
 
 .panel,
