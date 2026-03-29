@@ -2425,11 +2425,11 @@ body {
 :root {
   --ui-bg: #f4f6fa;
   --ui-bg-soft: #eef2f8;
-  --ui-surface: rgba(255, 255, 255, 0.88);
-  --ui-surface-soft: rgba(248, 251, 255, 0.84);
-  --ui-stroke: rgba(215, 225, 247, 0.72);
-  --ui-text: #1a2340;
-  --ui-muted: #66708c;
+  --ui-surface: rgba(9, 14, 29, 0.5);
+  --ui-surface-soft: rgba(15, 22, 43, 0.42);
+  --ui-stroke: rgba(171, 191, 238, 0.22);
+  --ui-text: #e9efff;
+  --ui-muted: #a7b5d8;
   --ui-primary: #5b6cff;
   --ui-accent: #8a5cff;
   --ui-accent-2: #00d1b2;
@@ -2798,20 +2798,20 @@ body {
 }
 
 .balance {
-  color: #10172e;
+  color: #eef3ff;
   font-size: clamp(40px, 10vw, 56px);
   letter-spacing: 0.8px;
-  text-shadow: none;
+  text-shadow: 0 6px 18px rgba(0, 0, 0, 0.38);
 }
 
 .player-id {
-  color: #6e7894;
+  color: #b7c3e3;
 }
 
 .rank-bar,
 .energy-bar {
   height: 10px;
-  background: #ebf0fb;
+  background: rgba(168, 185, 230, 0.24);
 }
 
 .rank-bar span {
@@ -2823,9 +2823,9 @@ body {
 }
 
 .buff-chip {
-  background: #eff3ff;
-  border-color: #cdd8f8;
-  color: #405a96;
+  background: rgba(75, 96, 150, 0.28);
+  border-color: rgba(164, 184, 236, 0.36);
+  color: #dbe6ff;
 }
 
 .tap {
@@ -2867,15 +2867,15 @@ body {
 }
 
 .meta {
-  background: #eef3ff;
-  border-color: #d2ddf8;
-  color: #3f5586;
+  background: rgba(36, 48, 84, 0.55);
+  border-color: rgba(166, 186, 236, 0.34);
+  color: #dce7ff;
 }
 
 .meta.error {
-  background: #fff2f2;
-  border-color: #f3cece;
-  color: #cb4c4c;
+  background: rgba(110, 30, 44, 0.44);
+  border-color: rgba(238, 145, 155, 0.36);
+  color: #ffb3bd;
 }
 
 .shop,
@@ -2896,20 +2896,20 @@ body {
 .donate-title,
 .squads-title {
   font-size: 16px;
-  color: #162242;
+  color: #e8efff;
 }
 
 .shop-balance {
-  background: #f0f3ff;
-  border: 1px solid #d1daf6;
-  color: #2f4480;
+  background: rgba(50, 69, 120, 0.38);
+  border: 1px solid rgba(169, 190, 237, 0.34);
+  color: #dce8ff;
   box-shadow: none;
 }
 
 .tap-value {
-  background: #edf6ff;
-  border-color: #cde0ff;
-  color: #2f5296;
+  background: rgba(28, 71, 111, 0.34);
+  border-color: rgba(128, 191, 245, 0.34);
+  color: #cfe7ff;
 }
 
 .shop-item,
@@ -2923,7 +2923,7 @@ body {
 .user-modal-stat,
 .case-slot {
   background: var(--ui-surface-soft) !important;
-  border-color: #dce4f5 !important;
+  border-color: rgba(165, 186, 236, 0.28) !important;
   box-shadow: var(--ui-shadow-xs);
 }
 
@@ -2941,7 +2941,7 @@ body {
 .squad-meta,
 .squad-status,
 .donate-item-bonus {
-  color: #6e7b97;
+  color: #aab8d8;
 }
 
 .daily-btn,
@@ -2965,9 +2965,9 @@ body {
 .case-anim-btn.ghost,
 .leaderboard-mode,
 .gifts-filter-btn {
-  border: 1px solid #d7e0f3;
-  background: #f6f8ff;
-  color: #334466;
+  border: 1px solid rgba(165, 186, 234, 0.32);
+  background: rgba(23, 32, 57, 0.6);
+  color: #d8e4ff;
   min-height: 36px;
   padding: 7px 10px;
   font-size: 12px;
@@ -2988,9 +2988,9 @@ body {
 .profile-file-input,
 #squadNameInput,
 #squadIdInput {
-  background: #f8faff;
-  border: 1px solid #d6dff1;
-  color: #1f2c4b;
+  background: rgba(17, 24, 45, 0.62);
+  border: 1px solid rgba(156, 178, 229, 0.3);
+  color: #e6eeff;
   border-radius: 12px;
 }
 
@@ -3002,25 +3002,25 @@ body {
 }
 
 .squad-current {
-  background: #eef2ff;
-  border: 1px solid #d1dcfa;
-  color: #36508d;
+  background: rgba(34, 49, 89, 0.52);
+  border: 1px solid rgba(160, 183, 236, 0.34);
+  color: #d7e5ff;
 }
 
 .squad-bonus {
   border-radius: 10px;
   padding: 8px 10px;
-  border: 1px dashed #c6d5fa;
-  background: #f4f7ff;
-  color: #3d5695;
+  border: 1px dashed rgba(160, 184, 242, 0.36);
+  background: rgba(26, 43, 83, 0.48);
+  color: #d4e4ff;
 }
 
 .squad-create-fee {
   border-radius: 10px;
   padding: 7px 10px;
-  background: #eef3ff;
-  border: 1px solid #d2ddfb;
-  color: #375496;
+  background: rgba(33, 47, 84, 0.52);
+  border: 1px solid rgba(162, 185, 237, 0.34);
+  color: #d8e6ff;
   font-size: 12px;
   font-weight: 700;
 }
@@ -3030,7 +3030,7 @@ body {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #445a8f;
+  color: #b7c6ea;
   user-select: none;
 }
 
@@ -3042,7 +3042,7 @@ body {
 
 .squad-pending-head {
   font-size: 12px;
-  color: #566587;
+  color: #bdcae8;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -3057,8 +3057,8 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
-  border: 1px solid #d2dcf1;
-  background: #f8fbff;
+  border: 1px solid rgba(162, 184, 233, 0.32);
+  background: rgba(20, 29, 54, 0.64);
   border-radius: 12px;
   padding: 8px 10px;
 }
@@ -3070,7 +3070,7 @@ body {
 .squad-pending-name {
   font-size: 13px;
   font-weight: 700;
-  color: #253c6f;
+  color: #e5eeff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3078,7 +3078,7 @@ body {
 
 .squad-pending-id {
   font-size: 11px;
-  color: #6c7e9e;
+  color: #aebdde;
 }
 
 .squad-pending-actions {
@@ -3097,8 +3097,8 @@ body {
 }
 
 .squad-pending-btn.ghost {
-  background: #ffffff;
-  color: #335798;
+  background: rgba(20, 31, 58, 0.6);
+  color: #d8e4ff;
 }
 
 .squad-pending-btn[disabled] {
@@ -3108,7 +3108,7 @@ body {
 .squad-members-head,
 .squad-list-head {
   font-size: 12px;
-  color: #566587;
+  color: #c1cde9;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -3120,9 +3120,9 @@ body {
 }
 
 .squad-member {
-  border: 1px solid #d1dbf2;
-  background: #f8faff;
-  color: #314f88;
+  border: 1px solid rgba(162, 184, 237, 0.3);
+  background: rgba(24, 36, 67, 0.58);
+  color: #d8e6ff;
   border-radius: 999px;
   font-size: 12px;
   padding: 6px 10px;
@@ -3131,9 +3131,9 @@ body {
 .squad-member-empty,
 .donate-empty,
 .leaderboard-empty {
-  border: 1px dashed #d2dcef;
-  background: #f8fbff;
-  color: #6f7f9c;
+  border: 1px dashed rgba(162, 184, 237, 0.32);
+  background: rgba(19, 31, 58, 0.56);
+  color: #aebddd;
 }
 
 .gifts-page-card,
@@ -3142,11 +3142,11 @@ body {
 }
 
 .gift-tile-title {
-  color: #1e3158;
+  color: #e3edff;
 }
 
 .gift-tile-count {
-  color: #355fa8;
+  color: #c4d9ff;
 }
 
 .tabs {
@@ -3154,8 +3154,8 @@ body {
   width: min(430px, calc(100% - 12px));
   padding: 6px;
   border-radius: 18px;
-  background: rgba(229, 238, 255, 0.68);
-  border: 1px solid rgba(182, 201, 242, 0.72);
+  background: rgba(12, 19, 39, 0.68);
+  border: 1px solid rgba(157, 179, 233, 0.34);
   box-shadow: 0 16px 40px rgba(8, 16, 34, 0.26);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -3178,9 +3178,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  border: 1px solid rgba(181, 201, 238, 0.8);
-  background: rgba(255, 255, 255, 0.54);
-  color: #4a5b7f;
+  border: 1px solid rgba(156, 179, 236, 0.34);
+  background: rgba(19, 30, 56, 0.62);
+  color: #c5d4f8;
   border-radius: 11px;
   min-height: 42px;
   padding: 5px 4px;
@@ -3277,18 +3277,67 @@ body {
 
 .user-modal-card,
 .case-anim-card {
-  border: 1px solid #d6def1;
-  background: var(--ui-surface-soft);
-  box-shadow: 0 24px 50px rgba(54, 77, 128, 0.24);
+  border: 1px solid rgba(165, 186, 236, 0.28);
+  background: rgba(11, 18, 36, 0.82);
+  box-shadow: 0 24px 50px rgba(4, 10, 24, 0.5);
 }
 
 .case-anim-title,
 .user-modal-title {
-  color: #19284a;
+  color: #eaf1ff;
 }
 
 .case-anim-status {
-  color: #4563a0;
+  color: #b8c9ef;
+}
+
+/* 2026-03-29 hotfix: remove bright white blocks over cosmic background */
+.panel,
+.shop,
+.quests,
+.leaderboard,
+.profile-card,
+.support-card,
+.gifts-page-card,
+.squads-card,
+.daily-card,
+.mining-card,
+.user-modal-card,
+.case-anim-card {
+  background: rgba(10, 16, 33, 0.6) !important;
+  border-color: rgba(165, 186, 236, 0.26) !important;
+}
+
+.shop-item,
+.quest-item,
+.leaderboard-row,
+.donate-item,
+.squad-row,
+.profile-preview,
+.gift-tile,
+.user-modal-user,
+.user-modal-stat,
+.case-slot,
+.squad-current,
+.squad-bonus,
+.squad-create-fee,
+.squad-pending-row,
+.squad-member,
+.leaderboard-empty,
+.donate-empty,
+.squad-member-empty {
+  background: rgba(15, 23, 45, 0.56) !important;
+  border-color: rgba(165, 186, 236, 0.24) !important;
+}
+
+.tabs {
+  background: rgba(9, 14, 30, 0.82) !important;
+  border-color: rgba(165, 186, 236, 0.28) !important;
+}
+
+.tab {
+  background: rgba(16, 25, 48, 0.74) !important;
+  border-color: rgba(165, 186, 236, 0.24) !important;
 }
 
 @keyframes tapGlow {
