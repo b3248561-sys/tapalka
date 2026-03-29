@@ -4,17 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260329-35" />
+    <link rel="stylesheet" href="style.css?v=20260329-36" />
   </head>
   <body>
-    <div class="app-background" id="appBackground" aria-hidden="true">
-      <div class="app-background-layer space-base"></div>
-      <div class="app-background-layer nebula nebula-a"></div>
-      <div class="app-background-layer nebula nebula-b"></div>
-      <div class="app-background-layer nebula nebula-c"></div>
-      <div class="app-background-layer stars stars-far"></div>
-      <div class="app-background-layer stars stars-near"></div>
-    </div>
+    <div class="space-bg" id="appBackground" aria-hidden="true"></div>
     <div class="app">
       <header class="top">
         <div class="brand">
@@ -247,7 +240,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260329-35";
+        script.src = "app.js?v=20260329-36";
         document.body.appendChild(script);
       })();
     </script>

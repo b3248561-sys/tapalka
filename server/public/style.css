@@ -2425,9 +2425,9 @@ body {
 :root {
   --ui-bg: #f4f6fa;
   --ui-bg-soft: #eef2f8;
-  --ui-surface: #ffffff;
-  --ui-surface-soft: #f8faff;
-  --ui-stroke: #e0e6f4;
+  --ui-surface: rgba(255, 255, 255, 0.88);
+  --ui-surface-soft: rgba(248, 251, 255, 0.84);
+  --ui-stroke: rgba(215, 225, 247, 0.72);
   --ui-text: #1a2340;
   --ui-muted: #66708c;
   --ui-primary: #5b6cff;
@@ -2442,140 +2442,80 @@ body {
 }
 
 body {
-  background: #0b0f1a;
+  background: linear-gradient(180deg, #0b0f1a 0%, #11182a 100%);
   color: var(--ui-text);
   padding-bottom: calc(176px + clamp(0px, env(safe-area-inset-bottom), 36px));
 }
 
-.app-background {
+.space-bg {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  background:
+    radial-gradient(ellipse at bottom, #0d1b2a 0%, #020617 100%),
+    radial-gradient(1.4px 1.4px at 18px 24px, rgba(255, 255, 255, 0.46), transparent 2px),
+    radial-gradient(1.4px 1.4px at 74px 56px, rgba(255, 255, 255, 0.34), transparent 2px),
+    radial-gradient(1.4px 1.4px at 136px 104px, rgba(255, 255, 255, 0.26), transparent 2px);
+  background-size: auto, 180px 180px, 180px 180px, 180px 180px;
+  animation: spaceStarTwinkle 14s ease-in-out infinite;
 }
 
-.app-background-layer {
+.space-bg::before,
+.space-bg::after {
+  content: "";
   position: absolute;
   inset: -12%;
   pointer-events: none;
 }
 
-.space-base {
-  inset: 0;
+.space-bg::before {
   background:
-    radial-gradient(circle at 18% 14%, rgba(92, 112, 255, 0.1), transparent 38%),
-    radial-gradient(circle at 84% 22%, rgba(0, 209, 178, 0.08), transparent 34%),
-    linear-gradient(155deg, #0b0f1a 0%, #0f1422 46%, #12182a 100%);
+    radial-gradient(circle at 26% 30%, rgba(91, 108, 255, 0.34), transparent 40%),
+    radial-gradient(circle at 72% 62%, rgba(138, 92, 255, 0.28), transparent 45%),
+    radial-gradient(circle at 52% 82%, rgba(0, 209, 178, 0.2), transparent 50%);
+  filter: blur(84px);
+  opacity: 0.9;
+  animation: spaceNebulaMove 40s ease-in-out infinite alternate;
 }
 
-.nebula {
-  filter: blur(54px);
-  opacity: 0.28;
-  mix-blend-mode: screen;
-  animation: cosmicDrift 34s ease-in-out infinite alternate,
-    nebulaPulse 22s ease-in-out infinite;
-  transform-origin: center;
-}
-
-.nebula-a {
+.space-bg::after {
   background:
-    radial-gradient(circle at 22% 30%, rgba(74, 117, 255, 0.52) 0%, transparent 58%),
-    radial-gradient(circle at 62% 62%, rgba(141, 98, 255, 0.42) 0%, transparent 52%);
-  animation-delay: -5s;
+    radial-gradient(circle at 66% 22%, rgba(91, 108, 255, 0.24), transparent 42%),
+    radial-gradient(circle at 30% 68%, rgba(138, 92, 255, 0.22), transparent 46%),
+    radial-gradient(circle at 82% 76%, rgba(0, 209, 178, 0.17), transparent 48%);
+  filter: blur(78px);
+  opacity: 0.7;
+  animation: spaceNebulaMove 60s ease-in-out infinite alternate-reverse;
 }
 
-.nebula-b {
-  background:
-    radial-gradient(circle at 74% 20%, rgba(61, 190, 255, 0.42) 0%, transparent 54%),
-    radial-gradient(circle at 35% 70%, rgba(133, 89, 255, 0.34) 0%, transparent 50%);
-  opacity: 0.24;
-  animation-duration: 38s, 26s;
-  animation-delay: -12s, -9s;
-}
-
-.nebula-c {
-  background:
-    radial-gradient(circle at 84% 72%, rgba(17, 196, 177, 0.36) 0%, transparent 48%),
-    radial-gradient(circle at 28% 16%, rgba(108, 134, 255, 0.32) 0%, transparent 50%);
-  opacity: 0.2;
-  animation-duration: 30s, 18s;
-  animation-delay: -17s, -6s;
-}
-
-.stars {
-  inset: 0;
-  background-repeat: repeat;
-  animation: starDrift 40s linear infinite, starTwinkle 16s ease-in-out infinite;
-}
-
-.stars-far {
-  opacity: 0.26;
-  background-image:
-    radial-gradient(1px 1px at 18px 26px, rgba(226, 236, 255, 0.66), transparent 1.5px),
-    radial-gradient(1px 1px at 78px 62px, rgba(201, 224, 255, 0.54), transparent 1.5px),
-    radial-gradient(1px 1px at 130px 112px, rgba(177, 202, 255, 0.45), transparent 1.5px);
-  background-size: 160px 160px;
-}
-
-.stars-near {
-  opacity: 0.17;
-  background-image:
-    radial-gradient(1.2px 1.2px at 36px 46px, rgba(240, 246, 255, 0.76), transparent 1.8px),
-    radial-gradient(1.2px 1.2px at 92px 24px, rgba(210, 227, 255, 0.6), transparent 1.8px),
-    radial-gradient(1.2px 1.2px at 142px 94px, rgba(187, 208, 255, 0.5), transparent 1.8px);
-  background-size: 180px 180px;
-  animation-duration: 30s, 12s;
-  animation-delay: -8s;
-}
-
-@keyframes cosmicDrift {
+@keyframes spaceNebulaMove {
   0% {
     transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    transform: translate3d(1.6%, -1.2%, 0) scale(1.03);
+    transform: translate3d(-3%, 2%, 0) scale(1.05);
   }
   100% {
-    transform: translate3d(-1.1%, 1.5%, 0) scale(1.01);
+    transform: translate3d(3%, -2%, 0) scale(1);
   }
 }
 
-@keyframes nebulaPulse {
+@keyframes spaceStarTwinkle {
   0%,
   100% {
-    opacity: 0.2;
+    opacity: 0.78;
   }
   50% {
-    opacity: 0.32;
-  }
-}
-
-@keyframes starTwinkle {
-  0%,
-  100% {
-    opacity: 0.16;
-  }
-  45% {
-    opacity: 0.26;
-  }
-  65% {
-    opacity: 0.2;
-  }
-}
-
-@keyframes starDrift {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  100% {
-    transform: translate3d(-24px, 18px, 0);
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nebula,
-  .stars {
+  .space-bg,
+  .space-bg::before,
+  .space-bg::after {
     animation: none !important;
   }
 }
@@ -2632,6 +2572,8 @@ body {
   border: 1px solid var(--ui-stroke) !important;
   box-shadow: var(--ui-shadow-md) !important;
   border-radius: 22px !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .shop,
@@ -2642,6 +2584,8 @@ body {
   border: 1px solid var(--ui-stroke) !important;
   box-shadow: var(--ui-shadow-sm) !important;
   border-radius: 22px !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .panel {
@@ -3024,10 +2968,11 @@ body {
   width: min(430px, calc(100% - 12px));
   padding: 6px;
   border-radius: 18px;
-  background: rgba(246, 249, 255, 0.96);
-  border: 1px solid #d4ddf1;
-  box-shadow: var(--ui-shadow-md);
-  backdrop-filter: blur(10px);
+  background: rgba(229, 238, 255, 0.68);
+  border: 1px solid rgba(182, 201, 242, 0.72);
+  box-shadow: 0 16px 40px rgba(8, 16, 34, 0.26);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   gap: 4px;
   display: flex;
   flex-wrap: wrap;
@@ -3047,9 +2992,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  border: 1px solid #d8e0f2;
-  background: var(--ui-surface-soft);
-  color: #4e5e7e;
+  border: 1px solid rgba(181, 201, 238, 0.8);
+  background: rgba(255, 255, 255, 0.54);
+  color: #4a5b7f;
   border-radius: 11px;
   min-height: 42px;
   padding: 5px 4px;
