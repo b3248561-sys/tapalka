@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tapalka</title>
-    <link rel="stylesheet" href="style.css?v=20260329-32" />
+    <link rel="stylesheet" href="style.css?v=20260329-34" />
   </head>
   <body>
     <div class="bg">
@@ -116,6 +116,10 @@
                 <input id="squadNameInput" class="profile-input" type="text" maxlength="24" placeholder="Squad name" />
                 <button id="squadCreateBtn" class="quest-claim" type="button">Create</button>
               </div>
+              <label class="squad-private-toggle" for="squadPrivateInput">
+                <input id="squadPrivateInput" type="checkbox" />
+                <span id="squadPrivateLabel">Private squad (join by approval)</span>
+              </label>
               <div class="squad-actions">
                 <input id="squadIdInput" class="profile-input" type="text" maxlength="20" placeholder="sq_xxxxxx" />
                 <button id="squadJoinBtn" class="quest-claim" type="button">Join</button>
@@ -127,6 +131,8 @@
               <div class="squad-status" id="squadStatus"></div>
               <div class="squad-current" id="squadCurrent"></div>
               <div class="squad-bonus" id="squadBonus"></div>
+              <div class="squad-pending-head" id="squadPendingTitle">Join requests</div>
+              <div class="squad-pending-list" id="squadPendingList"></div>
               <div class="squad-members-head" id="squadMembersTitle">Members</div>
               <div class="squad-members" id="squadMembers"></div>
               <div class="squad-list-head" id="squadListTitle">Top squads</div>
@@ -238,7 +244,7 @@
     <script>
       (function () {
         const script = document.createElement("script");
-        script.src = "app.js?v=20260329-32";
+        script.src = "app.js?v=20260329-34";
         document.body.appendChild(script);
       })();
     </script>

@@ -12,7 +12,9 @@ import {
   getUserSquad,
   createSquadAction,
   joinSquadAction,
-  leaveSquadAction
+  leaveSquadAction,
+  approveSquadJoinRequestAction,
+  rejectSquadJoinRequestAction
 } from "../_shared/utils.js";
 import { logEvent } from "../_shared/admin.js";
 
@@ -44,7 +46,7 @@ async function buildSquadsPayload(env, user) {
     user.squadRole = "";
     await saveUser(env, user);
   }
-  const squads = await listSquads(env, { limit: 20 });
+  const squads = await listSquads(env, { limit: 20, viewerUserId: String(user.id) });
   return {
     createCost: resolveSquadCreateCost(env),
     user: {
@@ -106,11 +108,21 @@ export async function onRequestPost(context) {
   let result = null;
 
   if (action === "create") {
-    result = await createSquadAction(env, user, body.name, Date.now());
+    result = await createSquadAction(
+      env,
+      user,
+      body.name,
+      Date.now(),
+      Boolean(body.isPrivate)
+    );
   } else if (action === "join") {
     result = await joinSquadAction(env, user, body.squadId);
   } else if (action === "leave") {
     result = await leaveSquadAction(env, user);
+  } else if (action === "approve_request") {
+    result = await approveSquadJoinRequestAction(env, user, body.targetUserId);
+  } else if (action === "reject_request") {
+    result = await rejectSquadJoinRequestAction(env, user, body.targetUserId);
   } else {
     return jsonResponse({ ok: false, error: "action_invalid" }, 400);
   }

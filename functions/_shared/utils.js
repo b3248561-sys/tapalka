@@ -492,6 +492,11 @@ function sanitizeSquadId(raw) {
   return /^sq_[a-z0-9]{6,16}$/.test(value) ? value : "";
 }
 
+function sanitizeSquadUserId(raw) {
+  const value = String(raw || "").trim();
+  return /^\d{3,20}$/.test(value) ? value : "";
+}
+
 export function normalizeSquadName(raw) {
   const value = String(raw || "")
     .trim()
@@ -515,17 +520,27 @@ function normalizeSquadRecord(record) {
   const id = sanitizeSquadId(record.id);
   if (!id) return null;
   const normalizedName = normalizeSquadName(record.name || "");
+  const memberIds = Array.from(
+    new Set(
+      (Array.isArray(record.memberIds) ? record.memberIds : [])
+        .map((memberId) => sanitizeSquadUserId(memberId))
+        .filter(Boolean)
+    )
+  ).slice(0, SQUAD_MAX_MEMBERS);
+  const joinRequests = Array.from(
+    new Set(
+      (Array.isArray(record.joinRequests) ? record.joinRequests : [])
+        .map((memberId) => sanitizeSquadUserId(memberId))
+        .filter((memberId) => Boolean(memberId) && !memberIds.includes(memberId))
+    )
+  ).slice(0, 200);
   return {
     id,
     name: normalizedName.ok ? normalizedName.value : `Squad ${id.slice(-4)}`,
     ownerId: String(record.ownerId || ""),
-    memberIds: Array.from(
-      new Set(
-        (Array.isArray(record.memberIds) ? record.memberIds : [])
-          .map((memberId) => String(memberId || "").trim())
-          .filter((memberId) => /^\d{3,20}$/.test(memberId))
-      )
-    ).slice(0, SQUAD_MAX_MEMBERS),
+    memberIds,
+    isPrivate: Boolean(record.isPrivate),
+    joinRequests,
     createdAt: Math.max(0, Number(record.createdAt || Date.now())),
     updatedAt: Math.max(0, Number(record.updatedAt || Date.now()))
   };
@@ -586,9 +601,18 @@ async function removeSquadFromIndex(env, squadId) {
   );
 }
 
-async function buildSquadSummary(env, squad, seasonKey = getSeasonKey()) {
+async function buildSquadSummary(
+  env,
+  squad,
+  seasonKey = getSeasonKey(),
+  { viewerUserId = "", includePending = false } = {}
+) {
   const normalized = normalizeSquadRecord(squad);
   if (!normalized) return null;
+  const viewerId = sanitizeSquadUserId(viewerUserId);
+  const pendingIds = normalized.joinRequests.filter(
+    (memberId) => !normalized.memberIds.includes(memberId)
+  );
   const memberUsers = await Promise.all(
     normalized.memberIds.map((memberId) => getUserById(env, memberId))
   );
@@ -614,14 +638,36 @@ async function buildSquadSummary(env, squad, seasonKey = getSeasonKey()) {
       seasonPoints: Number(member.seasonPoints || 0),
       balance: Number(member.balance || 0)
     }));
+  let pendingRequests;
+  if (includePending) {
+    const pendingUsers = await Promise.all(
+      pendingIds.map((memberId) => getUserById(env, memberId))
+    );
+    pendingRequests = pendingUsers
+      .filter((entry) => entry && entry.id)
+      .map((entry) => {
+        const user = normalizeUser(entry);
+        return {
+          id: String(user.id),
+          name: user.name || "Player",
+          username: user.username || "",
+          avatarUrl: user.avatarUrl || "",
+          balance: Number(user.balance || 0)
+        };
+      });
+  }
   return {
     id: normalized.id,
     name: normalized.name,
     ownerId: normalized.ownerId,
+    isPrivate: Boolean(normalized.isPrivate),
     membersCount: members.length,
+    joinRequestsCount: pendingIds.length,
+    requestedByMe: Boolean(viewerId) && pendingIds.includes(viewerId),
     seasonPoints: Math.round(seasonPoints),
     balance: Math.round(totalBalance),
     topMembers,
+    ...(includePending ? { pendingRequests } : {}),
     createdAt: normalized.createdAt,
     updatedAt: normalized.updatedAt
   };
@@ -629,7 +675,7 @@ async function buildSquadSummary(env, squad, seasonKey = getSeasonKey()) {
 
 export async function listSquads(
   env,
-  { limit = 30, seasonKey = getSeasonKey() } = {}
+  { limit = 30, seasonKey = getSeasonKey(), viewerUserId = "" } = {}
 ) {
   if (!env?.KV) return [];
   const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 30)));
@@ -637,7 +683,13 @@ export async function listSquads(
   const squads = await Promise.all(ids.map((id) => getSquadById(env, id)));
   const summaries = (
     await Promise.all(
-      squads.filter(Boolean).map((squad) => buildSquadSummary(env, squad, seasonKey))
+      squads
+        .filter(Boolean)
+        .map((squad) =>
+          buildSquadSummary(env, squad, seasonKey, {
+            viewerUserId
+          })
+        )
     )
   ).filter(Boolean);
   summaries.sort((a, b) => {
@@ -658,10 +710,20 @@ export async function getUserSquad(env, user) {
   if (!squadId) return null;
   const squad = await getSquadById(env, squadId);
   if (!squad) return null;
-  return buildSquadSummary(env, squad, getSeasonKey());
+  const isOwner = String(squad.ownerId || "") === String(user?.id || "");
+  return buildSquadSummary(env, squad, getSeasonKey(), {
+    viewerUserId: String(user?.id || ""),
+    includePending: isOwner
+  });
 }
 
-export async function createSquadAction(env, user, rawName, now = Date.now()) {
+export async function createSquadAction(
+  env,
+  user,
+  rawName,
+  now = Date.now(),
+  rawIsPrivate = false
+) {
   if (!env?.KV) {
     return { ok: false, status: 503, error: "kv_not_configured" };
   }
@@ -677,6 +739,7 @@ export async function createSquadAction(env, user, rawName, now = Date.now()) {
   if (!normalizedName.ok) {
     return { ok: false, status: 400, error: normalizedName.error };
   }
+  const isPrivate = Boolean(rawIsPrivate);
 
   let squadId = "";
   let tries = 0;
@@ -695,6 +758,8 @@ export async function createSquadAction(env, user, rawName, now = Date.now()) {
     name: normalizedName.value,
     ownerId: String(member.id),
     memberIds: [String(member.id)],
+    isPrivate,
+    joinRequests: [],
     createdAt: now,
     updatedAt: now
   });
@@ -709,7 +774,10 @@ export async function createSquadAction(env, user, rawName, now = Date.now()) {
   return {
     ok: true,
     user: member,
-    squad: await buildSquadSummary(env, squad, getSeasonKey(now))
+    squad: await buildSquadSummary(env, squad, getSeasonKey(now), {
+      viewerUserId: String(member.id),
+      includePending: true
+    })
   };
 }
 
@@ -729,7 +797,8 @@ export async function joinSquadAction(env, user, rawSquadId) {
   if (!squad) {
     return { ok: false, status: 404, error: "squad_not_found" };
   }
-  if (squad.memberIds.includes(String(member.id))) {
+  const memberId = String(member.id);
+  if (squad.memberIds.includes(memberId)) {
     member.squadId = squad.id;
     member.squadRole = squad.ownerId === String(member.id) ? "owner" : "member";
     await saveUser(env, member);
@@ -737,13 +806,33 @@ export async function joinSquadAction(env, user, rawSquadId) {
     return {
       ok: true,
       user: member,
-      squad: await buildSquadSummary(env, squad, getSeasonKey())
+      squad: await buildSquadSummary(env, squad, getSeasonKey(), {
+        viewerUserId: memberId,
+        includePending: member.squadRole === "owner"
+      })
+    };
+  }
+  if (Boolean(squad.isPrivate)) {
+    if (squad.joinRequests.includes(memberId)) {
+      return { ok: false, status: 409, error: "squad_join_request_exists" };
+    }
+    squad.joinRequests.push(memberId);
+    const pendingSquad = await saveSquad(env, squad);
+    return {
+      ok: true,
+      pending: true,
+      user: member,
+      squad: await buildSquadSummary(env, pendingSquad, getSeasonKey(), {
+        viewerUserId: memberId,
+        includePending: false
+      })
     };
   }
   if (squad.memberIds.length >= SQUAD_MAX_MEMBERS) {
     return { ok: false, status: 400, error: "squad_full" };
   }
-  squad.memberIds.push(String(member.id));
+  squad.joinRequests = squad.joinRequests.filter((entry) => entry !== memberId);
+  squad.memberIds.push(memberId);
   const savedSquad = await saveSquad(env, squad);
   member.squadId = savedSquad.id;
   member.squadRole = savedSquad.ownerId === String(member.id) ? "owner" : "member";
@@ -752,7 +841,121 @@ export async function joinSquadAction(env, user, rawSquadId) {
   return {
     ok: true,
     user: member,
-    squad: await buildSquadSummary(env, savedSquad, getSeasonKey())
+    squad: await buildSquadSummary(env, savedSquad, getSeasonKey(), {
+      viewerUserId: memberId,
+      includePending: member.squadRole === "owner"
+    })
+  };
+}
+
+export async function approveSquadJoinRequestAction(env, user, rawTargetUserId) {
+  if (!env?.KV) {
+    return { ok: false, status: 503, error: "kv_not_configured" };
+  }
+  const actor = normalizeUser(user);
+  const squadId = sanitizeSquadId(actor.squadId);
+  if (!squadId) {
+    return { ok: false, status: 400, error: "not_in_squad" };
+  }
+  const targetUserId = sanitizeSquadUserId(rawTargetUserId);
+  if (!targetUserId) {
+    return { ok: false, status: 400, error: "squad_user_invalid" };
+  }
+  const squad = await getSquadById(env, squadId);
+  if (!squad) {
+    return { ok: false, status: 404, error: "squad_not_found" };
+  }
+  if (String(squad.ownerId) !== String(actor.id)) {
+    return { ok: false, status: 403, error: "squad_not_owner" };
+  }
+  if (!squad.joinRequests.includes(targetUserId)) {
+    return { ok: false, status: 404, error: "squad_join_request_not_found" };
+  }
+  if (squad.memberIds.length >= SQUAD_MAX_MEMBERS) {
+    return { ok: false, status: 400, error: "squad_full" };
+  }
+  const targetRaw = await getUserById(env, targetUserId);
+  if (!targetRaw) {
+    squad.joinRequests = squad.joinRequests.filter((entry) => entry !== targetUserId);
+    const savedWithoutUser = await saveSquad(env, squad);
+    return {
+      ok: false,
+      status: 404,
+      error: "squad_user_not_found",
+      user: actor,
+      squad: await buildSquadSummary(env, savedWithoutUser, getSeasonKey(), {
+        viewerUserId: String(actor.id),
+        includePending: true
+      })
+    };
+  }
+  const target = normalizeUser(targetRaw);
+  if (target.squadId && String(target.squadId) !== String(squad.id)) {
+    squad.joinRequests = squad.joinRequests.filter((entry) => entry !== targetUserId);
+    await saveSquad(env, squad);
+    return { ok: false, status: 409, error: "squad_target_already_in_squad" };
+  }
+  squad.joinRequests = squad.joinRequests.filter((entry) => entry !== targetUserId);
+  if (!squad.memberIds.includes(targetUserId)) {
+    squad.memberIds.push(targetUserId);
+  }
+  const savedSquad = await saveSquad(env, squad);
+  target.squadId = savedSquad.id;
+  target.squadRole = String(savedSquad.ownerId) === String(target.id) ? "owner" : "member";
+  await saveUser(env, target);
+  await upsertLeaderboardEntry(env, target);
+  actor.squadId = savedSquad.id;
+  actor.squadRole = "owner";
+  await saveUser(env, actor);
+  await upsertLeaderboardEntry(env, actor);
+  return {
+    ok: true,
+    approvedUserId: targetUserId,
+    user: actor,
+    squad: await buildSquadSummary(env, savedSquad, getSeasonKey(), {
+      viewerUserId: String(actor.id),
+      includePending: true
+    })
+  };
+}
+
+export async function rejectSquadJoinRequestAction(env, user, rawTargetUserId) {
+  if (!env?.KV) {
+    return { ok: false, status: 503, error: "kv_not_configured" };
+  }
+  const actor = normalizeUser(user);
+  const squadId = sanitizeSquadId(actor.squadId);
+  if (!squadId) {
+    return { ok: false, status: 400, error: "not_in_squad" };
+  }
+  const targetUserId = sanitizeSquadUserId(rawTargetUserId);
+  if (!targetUserId) {
+    return { ok: false, status: 400, error: "squad_user_invalid" };
+  }
+  const squad = await getSquadById(env, squadId);
+  if (!squad) {
+    return { ok: false, status: 404, error: "squad_not_found" };
+  }
+  if (String(squad.ownerId) !== String(actor.id)) {
+    return { ok: false, status: 403, error: "squad_not_owner" };
+  }
+  if (!squad.joinRequests.includes(targetUserId)) {
+    return { ok: false, status: 404, error: "squad_join_request_not_found" };
+  }
+  squad.joinRequests = squad.joinRequests.filter((entry) => entry !== targetUserId);
+  const savedSquad = await saveSquad(env, squad);
+  actor.squadId = savedSquad.id;
+  actor.squadRole = "owner";
+  await saveUser(env, actor);
+  await upsertLeaderboardEntry(env, actor);
+  return {
+    ok: true,
+    rejectedUserId: targetUserId,
+    user: actor,
+    squad: await buildSquadSummary(env, savedSquad, getSeasonKey(), {
+      viewerUserId: String(actor.id),
+      includePending: true
+    })
   };
 }
 
@@ -1667,9 +1870,9 @@ export const REFERRAL_LEVEL2_BONUS = 450;
 export const DAILY_STREAK_MAX = 7;
 const DAILY_STREAK_STEP_PCT = 10;
 const DAILY_STREAK_MILESTONE_BONUS = 2200;
-const MINING_BASE_RATE_PER_HOUR = 90;
-const MINING_TAP_RATE_FACTOR = 26;
-const MINING_MIN_RATE_PER_HOUR = 90;
+const MINING_BASE_RATE_PER_HOUR = 28;
+const MINING_TAP_RATE_FACTOR = 14;
+const MINING_MIN_RATE_PER_HOUR = 28;
 const MINING_MAX_CAPACITY_HOURS = 12;
 const MINING_DEFAULT_CAPACITY_HOURS = 3;
 const COMBO_WINDOW_MS = 1400;
@@ -1711,7 +1914,10 @@ function utcDayDiff(dayA, dayB) {
 
 function getMiningRatePerHour(user) {
   const tapPart = Math.max(1, Math.floor(Number(user?.tapValue || 1)));
-  const computed = MINING_BASE_RATE_PER_HOUR + tapPart * MINING_TAP_RATE_FACTOR;
+  // Diminishing return keeps passive mining useful, but prevents fast inflation.
+  const computed =
+    MINING_BASE_RATE_PER_HOUR +
+    Math.floor(Math.pow(tapPart, 0.72) * MINING_TAP_RATE_FACTOR);
   return Math.max(MINING_MIN_RATE_PER_HOUR, Math.round(computed));
 }
 

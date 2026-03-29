@@ -1065,6 +1065,10 @@ body {
   grid-template-columns: 1fr auto auto;
 }
 
+.squad-actions.manage-mode {
+  grid-template-columns: 1fr;
+}
+
 .squad-actions.squad-actions-tools {
   grid-template-columns: 1fr;
 }
@@ -2756,6 +2760,86 @@ body {
   color: #375496;
   font-size: 12px;
   font-weight: 700;
+}
+
+.squad-private-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #445a8f;
+  user-select: none;
+}
+
+.squad-private-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: #5b6cff;
+}
+
+.squad-pending-head {
+  font-size: 12px;
+  color: #566587;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.squad-pending-list {
+  display: grid;
+  gap: 8px;
+}
+
+.squad-pending-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #d2dcf1;
+  background: #f8fbff;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.squad-pending-meta {
+  min-width: 0;
+}
+
+.squad-pending-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #253c6f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.squad-pending-id {
+  font-size: 11px;
+  color: #6c7e9e;
+}
+
+.squad-pending-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.squad-pending-btn {
+  border: 1px solid rgba(43, 145, 255, 0.35);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #5b6cff, #4f8cff);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.squad-pending-btn.ghost {
+  background: #ffffff;
+  color: #335798;
+}
+
+.squad-pending-btn[disabled] {
+  opacity: 0.6;
 }
 
 .squad-members-head,

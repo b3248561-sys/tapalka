@@ -94,6 +94,8 @@ const miningStatusEl = document.getElementById("miningStatus");
 const squadsTitleEl = document.getElementById("squadsTitle");
 const squadsSubtitleEl = document.getElementById("squadsSubtitle");
 const squadNameInputEl = document.getElementById("squadNameInput");
+const squadPrivateInputEl = document.getElementById("squadPrivateInput");
+const squadPrivateLabelEl = document.getElementById("squadPrivateLabel");
 const squadIdInputEl = document.getElementById("squadIdInput");
 const squadCreateBtnEl = document.getElementById("squadCreateBtn");
 const squadJoinBtnEl = document.getElementById("squadJoinBtn");
@@ -103,6 +105,8 @@ const squadStatusEl = document.getElementById("squadStatus");
 const squadCurrentEl = document.getElementById("squadCurrent");
 const squadCreateFeeEl = document.getElementById("squadCreateFee");
 const squadBonusEl = document.getElementById("squadBonus");
+const squadPendingTitleEl = document.getElementById("squadPendingTitle");
+const squadPendingListEl = document.getElementById("squadPendingList");
 const squadMembersTitleEl = document.getElementById("squadMembersTitle");
 const squadMembersEl = document.getElementById("squadMembers");
 const squadListTitleEl = document.getElementById("squadListTitle");
@@ -339,25 +343,37 @@ const STRINGS = {
     squadsTitle: "Squads",
     squadsSubtitle: "Create or join a squad",
     squadCreateFee: "Create cost: {cost} NF",
+    squadPrivateLabel: "Private squad (join by approval)",
     squadMembersTitle: "Your members",
+    squadPendingTitle: "Join requests",
     squadListTitle: "Top squads",
     squadBonusNone: "Bonus: not active. Join a squad to unlock boost",
     squadBonusValue: "Squad bonus: +{percent}% to passive mining",
     squadNoMembers: "No members yet",
+    squadNoPending: "No pending requests",
     squadCreate: "Create",
     squadJoin: "Join",
+    squadJoinRequest: "Request",
+    squadJoinRequested: "Requested",
     squadLeave: "Leave",
     squadRefresh: "Refresh list",
     squadJoinLocked: "Locked",
+    squadApprove: "Approve",
+    squadReject: "Reject",
     squadYou: "Your squad",
+    squadTypePrivate: "private",
+    squadTypePublic: "public",
     squadMembers: "{count} members",
     squadNamePlaceholder: "Squad name",
     squadIdPlaceholder: "sq_xxxxxx",
     squadsEmpty: "No squads yet",
-    squadCurrent: "Your squad: {name} ({id}) • members {count}",
+    squadCurrent: "Your squad: {name} ({id}) • {privacy} • members {count}",
     squadCreated: "Squad created",
     squadJoined: "Joined squad",
+    squadJoinRequestSent: "Request sent. Wait for owner approval",
     squadLeft: "Left squad",
+    squadRequestApproved: "Request approved",
+    squadRequestRejected: "Request rejected",
     squadErrorAlreadyIn: "You are already in a squad",
     squadErrorNotFound: "Squad not found",
     squadErrorFull: "Squad is full",
@@ -367,6 +383,12 @@ const STRINGS = {
     squadErrorNameInvalid: "Use letters and numbers only",
     squadErrorNotInSquad: "You are not in a squad",
     squadErrorInsufficient: "Need at least {cost} NF to create a squad",
+    squadErrorRequestExists: "Request already sent",
+    squadErrorNotOwner: "Only squad owner can manage requests",
+    squadErrorRequestNotFound: "Request not found",
+    squadErrorUserInvalid: "Invalid user in request",
+    squadErrorUserNotFound: "User not found",
+    squadErrorTargetBusy: "User is already in another squad",
     donateTitle: "Support project",
     donateSubtitle: "Telegram Stars packs (non pay-to-win)",
     support_sName: "Starter Support",
@@ -566,25 +588,37 @@ const STRINGS = {
     squadsTitle: "Сквады",
     squadsSubtitle: "Создай или вступи в сквад",
     squadCreateFee: "Создание: {cost} NF",
+    squadPrivateLabel: "Приватный сквад (вход по одобрению)",
     squadMembersTitle: "Участники твоего сквада",
+    squadPendingTitle: "Заявки на вступление",
     squadListTitle: "Топ сквадов",
     squadBonusNone: "Бонус не активен. Вступи в сквад для буста",
     squadBonusValue: "Бонус сквада: +{percent}% к пассивному майнингу",
     squadNoMembers: "Пока нет участников",
+    squadNoPending: "Нет активных заявок",
     squadCreate: "Создать",
     squadJoin: "Вступить",
+    squadJoinRequest: "Запрос",
+    squadJoinRequested: "Заявка отправлена",
     squadLeave: "Выйти",
     squadRefresh: "Обновить список",
     squadJoinLocked: "Недоступно",
+    squadApprove: "Принять",
+    squadReject: "Отклонить",
     squadYou: "Твой сквад",
+    squadTypePrivate: "приватный",
+    squadTypePublic: "открытый",
     squadMembers: "{count} участников",
     squadNamePlaceholder: "Название сквада",
     squadIdPlaceholder: "sq_xxxxxx",
     squadsEmpty: "Пока нет сквадов",
-    squadCurrent: "Твой сквад: {name} ({id}) • участников {count}",
+    squadCurrent: "Твой сквад: {name} ({id}) • {privacy} • участников {count}",
     squadCreated: "Сквад создан",
     squadJoined: "Вступление успешно",
+    squadJoinRequestSent: "Заявка отправлена. Жди одобрения владельца",
     squadLeft: "Ты вышел из сквада",
+    squadRequestApproved: "Заявка одобрена",
+    squadRequestRejected: "Заявка отклонена",
     squadErrorAlreadyIn: "Ты уже в скваде",
     squadErrorNotFound: "Сквад не найден",
     squadErrorFull: "Сквад заполнен",
@@ -594,6 +628,12 @@ const STRINGS = {
     squadErrorNameInvalid: "Только буквы, цифры и пробелы",
     squadErrorNotInSquad: "Ты сейчас не в скваде",
     squadErrorInsufficient: "Нужно минимум {cost} NF для создания сквада",
+    squadErrorRequestExists: "Заявка уже отправлена",
+    squadErrorNotOwner: "Только владелец сквада может управлять заявками",
+    squadErrorRequestNotFound: "Заявка не найдена",
+    squadErrorUserInvalid: "Некорректный пользователь в заявке",
+    squadErrorUserNotFound: "Пользователь не найден",
+    squadErrorTargetBusy: "Пользователь уже в другом скваде",
     donateTitle: "Поддержка проекта",
     donateSubtitle: "Пакеты Telegram Stars (без pay-to-win)",
     support_sName: "Стартовая поддержка",
@@ -1289,10 +1329,12 @@ function applyTexts() {
   if (squadCreateFeeEl) {
     squadCreateFeeEl.textContent = t("squadCreateFee", { cost: formatNumberDots(squadCreateCost) });
   }
+  if (squadPrivateLabelEl) squadPrivateLabelEl.textContent = t("squadPrivateLabel");
   if (squadCreateBtnEl) squadCreateBtnEl.textContent = t("squadCreate");
   if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
   if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
   if (squadRefreshBtnEl) squadRefreshBtnEl.textContent = t("squadRefresh");
+  if (squadPendingTitleEl) squadPendingTitleEl.textContent = t("squadPendingTitle");
   if (squadMembersTitleEl) squadMembersTitleEl.textContent = t("squadMembersTitle");
   if (squadListTitleEl) squadListTitleEl.textContent = t("squadListTitle");
   if (squadNameInputEl) squadNameInputEl.placeholder = t("squadNamePlaceholder");
@@ -1530,7 +1572,13 @@ function mapSquadErrorKey(rawError) {
     squad_name_too_long: "squadErrorNameLong",
     squad_name_invalid: "squadErrorNameInvalid",
     not_in_squad: "squadErrorNotInSquad",
-    squad_create_insufficient_balance: "squadErrorInsufficient"
+    squad_create_insufficient_balance: "squadErrorInsufficient",
+    squad_join_request_exists: "squadErrorRequestExists",
+    squad_not_owner: "squadErrorNotOwner",
+    squad_join_request_not_found: "squadErrorRequestNotFound",
+    squad_user_invalid: "squadErrorUserInvalid",
+    squad_user_not_found: "squadErrorUserNotFound",
+    squad_target_already_in_squad: "squadErrorTargetBusy"
   };
   return errorMap[code] || code || "tryAgain";
 }
@@ -1624,25 +1672,39 @@ async function loadMiningStatus({ silent = false } = {}) {
 
 function renderSquads() {
   if (!squadListEl || !squadCurrentEl) return;
+  const hasSquad = Boolean(currentSquadState?.id);
+  const createRowEl = squadCreateBtnEl?.closest(".squad-actions");
+  const joinRowEl = squadJoinBtnEl?.closest(".squad-actions");
+  const privateToggleEl = squadPrivateInputEl?.closest(".squad-private-toggle");
   if (squadsTitleEl) squadsTitleEl.textContent = t("squadsTitle");
   if (squadsSubtitleEl) squadsSubtitleEl.textContent = t("squadsSubtitle");
   if (squadCreateFeeEl) {
     squadCreateFeeEl.textContent = t("squadCreateFee", { cost: formatNumberDots(squadCreateCost) });
+    squadCreateFeeEl.style.display = hasSquad ? "none" : "";
   }
+  if (createRowEl) createRowEl.style.display = hasSquad ? "none" : "";
+  if (privateToggleEl) privateToggleEl.style.display = hasSquad ? "none" : "";
+  if (joinRowEl) joinRowEl.classList.toggle("manage-mode", hasSquad);
+  if (squadIdInputEl) squadIdInputEl.style.display = hasSquad ? "none" : "";
+  if (squadJoinBtnEl) squadJoinBtnEl.style.display = hasSquad ? "none" : "";
+  if (squadPrivateLabelEl) squadPrivateLabelEl.textContent = t("squadPrivateLabel");
   if (squadCreateBtnEl) squadCreateBtnEl.textContent = t("squadCreate");
   if (squadJoinBtnEl) squadJoinBtnEl.textContent = t("squadJoin");
   if (squadLeaveBtnEl) squadLeaveBtnEl.textContent = t("squadLeave");
   if (squadRefreshBtnEl) squadRefreshBtnEl.textContent = t("squadRefresh");
+  if (squadPendingTitleEl) squadPendingTitleEl.textContent = t("squadPendingTitle");
   if (squadMembersTitleEl) squadMembersTitleEl.textContent = t("squadMembersTitle");
   if (squadListTitleEl) squadListTitleEl.textContent = t("squadListTitle");
   if (squadNameInputEl) squadNameInputEl.placeholder = t("squadNamePlaceholder");
   if (squadIdInputEl) squadIdInputEl.placeholder = t("squadIdPlaceholder");
   if (squadLeaveBtnEl) squadLeaveBtnEl.disabled = !currentSquadState?.id;
 
-  if (currentSquadState?.id) {
+  if (hasSquad) {
+    const privacyKey = currentSquadState.isPrivate ? "squadTypePrivate" : "squadTypePublic";
     squadCurrentEl.textContent = t("squadCurrent", {
       name: currentSquadState.name || "-",
       id: currentSquadState.id || "-",
+      privacy: t(privacyKey),
       count: formatNumberDots(currentSquadState.membersCount || 1)
     });
     if (squadBonusEl) {
@@ -1678,6 +1740,72 @@ function renderSquads() {
       squadMembersEl.innerHTML = `<div class="squad-member-empty">${t("squadNoMembers")}</div>`;
     }
   }
+  const isOwner =
+    Boolean(currentSquadState?.id) && Array.isArray(currentSquadState?.pendingRequests);
+  if (squadPendingTitleEl) {
+    squadPendingTitleEl.style.display = isOwner ? "" : "none";
+  }
+  if (squadPendingListEl) {
+    squadPendingListEl.style.display = isOwner ? "grid" : "none";
+    if (!isOwner) {
+      squadPendingListEl.innerHTML = "";
+    } else {
+      squadPendingListEl.innerHTML = "";
+      const pending = Array.isArray(currentSquadState?.pendingRequests)
+        ? currentSquadState.pendingRequests
+        : [];
+      if (!pending.length) {
+        squadPendingListEl.innerHTML = `<div class="squad-member-empty">${t("squadNoPending")}</div>`;
+      } else {
+        pending.forEach((entry) => {
+          const row = document.createElement("div");
+          row.className = "squad-pending-row";
+          const meta = document.createElement("div");
+          meta.className = "squad-pending-meta";
+          const name = document.createElement("div");
+          name.className = "squad-pending-name";
+          name.textContent = entry.name || entry.username || `ID ${entry.id}`;
+          const id = document.createElement("div");
+          id.className = "squad-pending-id";
+          id.textContent = `ID ${entry.id}`;
+          meta.append(name, id);
+          const actions = document.createElement("div");
+          actions.className = "squad-pending-actions";
+          const approve = document.createElement("button");
+          approve.type = "button";
+          approve.className = "squad-pending-btn";
+          approve.textContent = t("squadApprove");
+          approve.addEventListener("click", async () => {
+            approve.disabled = true;
+            reject.disabled = true;
+            try {
+              await handleSquadAction("approve_request", { targetUserId: entry.id });
+            } finally {
+              approve.disabled = false;
+              reject.disabled = false;
+            }
+          });
+          const reject = document.createElement("button");
+          reject.type = "button";
+          reject.className = "squad-pending-btn ghost";
+          reject.textContent = t("squadReject");
+          reject.addEventListener("click", async () => {
+            approve.disabled = true;
+            reject.disabled = true;
+            try {
+              await handleSquadAction("reject_request", { targetUserId: entry.id });
+            } finally {
+              approve.disabled = false;
+              reject.disabled = false;
+            }
+          });
+          actions.append(approve, reject);
+          row.append(meta, actions);
+          squadPendingListEl.appendChild(row);
+        });
+      }
+    }
+  }
 
   squadListEl.innerHTML = "";
   if (!Array.isArray(squadsState) || !squadsState.length) {
@@ -1700,7 +1828,10 @@ function renderSquads() {
     name.textContent = `${squad.name || "Squad"} (${squad.id || "-"})`;
     const meta = document.createElement("div");
     meta.className = "squad-meta";
-    meta.textContent = t("squadMembers", { count: formatNumberDots(squad.membersCount || 0) });
+    const privacyText = squad.isPrivate ? t("squadTypePrivate") : t("squadTypePublic");
+    meta.textContent = `${t("squadMembers", {
+      count: formatNumberDots(squad.membersCount || 0)
+    })} • ${privacyText}`;
     main.append(name, meta);
     const value = document.createElement("div");
     value.className = "squad-points";
@@ -1717,11 +1848,17 @@ function renderSquads() {
       const inlineJoin = document.createElement("button");
       inlineJoin.className = "squad-join-inline";
       inlineJoin.type = "button";
-      inlineJoin.textContent = t("squadJoin");
+      const isRequested = Boolean(squad.requestedByMe);
+      if (isRequested) {
+        inlineJoin.textContent = t("squadJoinRequested");
+        inlineJoin.disabled = true;
+      } else {
+        inlineJoin.textContent = squad.isPrivate ? t("squadJoinRequest") : t("squadJoin");
+      }
       if (currentSquadState?.id) {
         inlineJoin.disabled = true;
         inlineJoin.textContent = t("squadJoinLocked");
-      } else {
+      } else if (!isRequested) {
         inlineJoin.addEventListener("click", async () => {
           inlineJoin.disabled = true;
           if (squadIdInputEl) squadIdInputEl.value = String(squad.id || "");
@@ -1770,10 +1907,14 @@ async function loadSquads({ silent = false } = {}) {
   }
 }
 
-async function handleSquadAction(action) {
+async function handleSquadAction(action, extra = {}) {
   const payload = { action };
   if (action === "create") payload.name = String(squadNameInputEl?.value || "").trim();
   if (action === "join") payload.squadId = String(squadIdInputEl?.value || "").trim().toLowerCase();
+  if (action === "create") payload.isPrivate = Boolean(squadPrivateInputEl?.checked);
+  if (action === "approve_request" || action === "reject_request") {
+    payload.targetUserId = String(extra?.targetUserId || "").trim();
+  }
   const data = await apiRequest("/api/squads", {
     method: "POST",
     body: JSON.stringify(payload)
@@ -1784,6 +1925,9 @@ async function handleSquadAction(action) {
       setSquadStatus(mapped, true, { cost: formatNumberDots(squadCreateCost) });
     } else {
       setSquadStatus(mapped, true);
+    }
+    if (["join", "approve_request", "reject_request"].includes(action)) {
+      await loadSquads({ silent: true });
     }
     return;
   }
@@ -1801,8 +1945,12 @@ async function handleSquadAction(action) {
   currentSquadState = data.currentSquad || null;
   renderSquads();
   if (action === "create") setSquadStatus("squadCreated");
-  if (action === "join") setSquadStatus("squadJoined");
+  if (action === "join") {
+    setSquadStatus(data.pending ? "squadJoinRequestSent" : "squadJoined");
+  }
   if (action === "leave") setSquadStatus("squadLeft");
+  if (action === "approve_request") setSquadStatus("squadRequestApproved");
+  if (action === "reject_request") setSquadStatus("squadRequestRejected");
 }
 
 function clearProfileAvatarFileSelection() {
