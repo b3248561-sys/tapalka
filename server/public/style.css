@@ -919,6 +919,7 @@ body {
   font-size: 11px;
   line-height: 1.25;
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -3384,4 +3385,63 @@ body {
     padding: 4px 3px;
     flex-basis: calc(25% - 3px);
   }
+}
+
+@media (max-width: 540px) {
+  .panel,
+  .shop,
+  .quests,
+  .leaderboard,
+  .profile-card,
+  .support-card,
+  .gifts-page-card,
+  .squads-card,
+  .daily-card,
+  .mining-card,
+  .tabs {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .AppBackground::before {
+    filter: blur(46px);
+  }
+
+  .AppBackground::after {
+    filter: blur(58px);
+  }
+
+  .AppBackground__stars--near {
+    display: none;
+  }
+}
+
+.low-perf .AppBackground::before,
+.low-perf .AppBackground::after,
+.low-perf .AppBackground__stars,
+.low-perf .AppBackground__blackhole::before,
+.low-perf .tap::before,
+.low-perf .buff-chip.show,
+.low-perf .case-slot.spinning {
+  animation: none !important;
+}
+
+.low-perf .AppBackground__stars--near,
+.low-perf .AppBackground__blackhole {
+  display: none !important;
+}
+
+.low-perf .panel,
+.low-perf .shop,
+.low-perf .quests,
+.low-perf .leaderboard,
+.low-perf .profile-card,
+.low-perf .support-card,
+.low-perf .gifts-page-card,
+.low-perf .squads-card,
+.low-perf .daily-card,
+.low-perf .mining-card,
+.low-perf .tabs {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }

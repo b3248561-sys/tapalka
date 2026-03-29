@@ -178,6 +178,33 @@ let giftsFilter = ["all", "rare", "epic", "mythic"].includes(localStorage.getIte
 let caseAnimationActive = false;
 const CASE_SLOT_POOL = ["◈", "✦", "◆", "◎", "✶", "⬢", "▣", "⬥", "◇", "✧", "◉", "○"];
 let caseSpinSession = null;
+let isSquadsSyncing = false;
+let lastSquadsSyncAt = 0;
+let isMiningSyncing = false;
+let lastMiningSyncAt = 0;
+let lastSparkAt = 0;
+let activeSparks = 0;
+let lastShopRenderAt = 0;
+let dockTabsRaf = 0;
+let dockStylesApplied = false;
+let lastDockBottomPx = -1;
+
+const UI_TICK_MS = 1000;
+const PROFILE_SYNC_INTERVAL_MS = 8000;
+const LEADERBOARD_SYNC_INTERVAL_MS = 10000;
+const SQUADS_SYNC_INTERVAL_MS = 12000;
+const MINING_SYNC_INTERVAL_MS = 12000;
+const SHOP_BOOST_RERENDER_MS = 3000;
+const SPARK_MIN_INTERVAL_MS = 70;
+const SPARK_MAX_ACTIVE = 10;
+
+const isLowPerfDevice =
+  window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ||
+  (typeof navigator !== "undefined" && Number(navigator.hardwareConcurrency || 8) <= 4) ||
+  (typeof navigator !== "undefined" && Number(navigator.deviceMemory || 8) <= 4);
+if (isLowPerfDevice) {
+  document.documentElement.classList.add("low-perf");
+}
 
 const SHOP_CATEGORY_ORDER = ["power", "energy", "cosmetic", "frame", "special"];
 const PANEL_THEMES = ["theme-crown", "theme-neon", "theme-sakura", "theme-void", "theme-aurora"];
@@ -1637,11 +1664,15 @@ function renderMining() {
   }
 }
 
-async function loadMiningStatus({ silent = false } = {}) {
+async function loadMiningStatus({ silent = false, force = false } = {}) {
+  const now = Date.now();
+  if (!force && now - lastMiningSyncAt < MINING_SYNC_INTERVAL_MS) return;
+  if (isMiningSyncing) return;
   const latestInit = tg?.initData || initData || "";
   if (latestInit && latestInit !== initData) initData = latestInit;
   if (!demoMode && !initData) return;
 
+  isMiningSyncing = true;
   const headers = {};
   let url = "/api/mining";
   if (demoMode) {
@@ -1657,6 +1688,7 @@ async function loadMiningStatus({ silent = false } = {}) {
       return;
     }
     miningState = data.mining || miningState;
+    lastMiningSyncAt = Date.now();
     if (data.dailyStreak) {
       dailyStreakState = {
         ...dailyStreakState,
@@ -1667,6 +1699,8 @@ async function loadMiningStatus({ silent = false } = {}) {
     renderMining();
   } catch {
     if (!silent) setMeta("network");
+  } finally {
+    isMiningSyncing = false;
   }
 }
 
@@ -1876,11 +1910,15 @@ function renderSquads() {
   });
 }
 
-async function loadSquads({ silent = false } = {}) {
+async function loadSquads({ silent = false, force = false } = {}) {
+  const now = Date.now();
+  if (!force && now - lastSquadsSyncAt < SQUADS_SYNC_INTERVAL_MS) return;
+  if (isSquadsSyncing) return;
   const latestInit = tg?.initData || initData || "";
   if (latestInit && latestInit !== initData) initData = latestInit;
   if (!demoMode && !initData) return;
 
+  isSquadsSyncing = true;
   const headers = {};
   let url = "/api/squads";
   if (demoMode) {
@@ -1900,10 +1938,13 @@ async function loadSquads({ silent = false } = {}) {
     }
     squadsState = Array.isArray(data.squads) ? data.squads : [];
     currentSquadState = data.currentSquad || null;
+    lastSquadsSyncAt = Date.now();
     renderSquads();
     if (!silent) setSquadStatus("");
   } catch {
     if (!silent) setSquadStatus("network", true);
+  } finally {
+    isSquadsSyncing = false;
   }
 }
 
@@ -1927,7 +1968,7 @@ async function handleSquadAction(action, extra = {}) {
       setSquadStatus(mapped, true);
     }
     if (["join", "approve_request", "reject_request"].includes(action)) {
-      await loadSquads({ silent: true });
+      await loadSquads({ silent: true, force: true });
     }
     return;
   }
@@ -2225,9 +2266,9 @@ function setActiveTab(tab) {
     loadLeaderboard({ force: true, silent: true });
   }
   if (tab === "squads") {
-    loadSquads({ silent: true });
+    loadSquads({ silent: true, force: true });
   }
-  if (tab === "shop") loadMiningStatus({ silent: true });
+  if (tab === "shop") loadMiningStatus({ silent: true, force: true });
   if (tab === "profile") renderProfilePanel(profileUser, { refillInputs: true });
   if (tab === "support") loadDonatePackages({ silent: true });
   if (tab === "gifts") renderProfilePanel(profileUser);
@@ -2245,15 +2286,28 @@ function forceDockTabs() {
   const tgInset = Number(tg?.safeAreaInset?.bottom || tg?.contentSafeAreaInset?.bottom || 0);
   const clampedInset = Number.isFinite(tgInset) ? Math.max(0, Math.min(24, tgInset)) : 0;
   const bottomPx = 22 + clampedInset;
-  tabsEl.style.left = "50%";
-  tabsEl.style.right = "auto";
-  tabsEl.style.transform = "translateX(-50%) translateZ(0)";
-  tabsEl.style.margin = "0";
-  tabsEl.style.zIndex = "9999";
+  if (!dockStylesApplied) {
+    tabsEl.style.left = "50%";
+    tabsEl.style.right = "auto";
+    tabsEl.style.transform = "translateX(-50%) translateZ(0)";
+    tabsEl.style.margin = "0";
+    tabsEl.style.zIndex = "9999";
+    tabsEl.style.setProperty("position", "fixed", "important");
+    tabsEl.style.top = "auto";
+    dockStylesApplied = true;
+  }
+  if (lastDockBottomPx !== bottomPx) {
+    tabsEl.style.bottom = `${bottomPx}px`;
+    lastDockBottomPx = bottomPx;
+  }
+}
 
-  tabsEl.style.setProperty("position", "fixed", "important");
-  tabsEl.style.top = "auto";
-  tabsEl.style.bottom = `${bottomPx}px`;
+function scheduleForceDockTabs() {
+  if (dockTabsRaf) return;
+  dockTabsRaf = requestAnimationFrame(() => {
+    dockTabsRaf = 0;
+    forceDockTabs();
+  });
 }
 
 function setLoadingState(isLoading) {
@@ -2263,6 +2317,7 @@ function setLoadingState(isLoading) {
 
 function renderShop() {
   if (!shopListEl || !shopState.length) return;
+  lastShopRenderAt = Date.now();
   shopListEl.innerHTML = "";
   const grouped = new Map();
   SHOP_CATEGORY_ORDER.forEach((category) => grouped.set(category, []));
@@ -2662,7 +2717,7 @@ async function loadQuests({ silent = false } = {}) {
 }
 
 async function loadLeaderboard({ force = false, silent = false } = {}) {
-  if (!force && Date.now() - lastLeaderboardSyncAt < 7000) return;
+  if (!force && Date.now() - lastLeaderboardSyncAt < LEADERBOARD_SYNC_INTERVAL_MS) return;
   if (isLeaderboardSyncing) return;
   const latestInit = tg?.initData || initData || "";
   if (latestInit && latestInit !== initData) initData = latestInit;
@@ -2831,8 +2886,8 @@ async function init() {
     await loadShop();
     await loadQuests();
     await loadLeaderboard({ force: true, silent: true });
-    await loadMiningStatus({ silent: true });
-    await loadSquads({ silent: true });
+    await loadMiningStatus({ silent: true, force: true });
+    await loadSquads({ silent: true, force: true });
     await loadDonatePackages({ silent: true });
   } catch {
     setMeta("failedLoad");
@@ -2844,7 +2899,7 @@ async function init() {
 async function syncProfileSilently({ force = false } = {}) {
   const now = Date.now();
   if (!force && document.visibilityState === "hidden") return;
-  if (!force && now - lastProfileSyncAt < 1000) return;
+  if (!force && now - lastProfileSyncAt < PROFILE_SYNC_INTERVAL_MS) return;
   if (isProfileSyncing) return;
   isProfileSyncing = true;
   try {
@@ -2855,7 +2910,9 @@ async function syncProfileSilently({ force = false } = {}) {
     updateTapValue(profile.user.tapValue || 1);
     updatePlayerIdentity(profile.user);
     applyTapEffectsState(profile.user);
-    renderProfilePanel(profile.user);
+    if (activeTab === "profile" || activeTab === "gifts") {
+      renderProfilePanel(profile.user);
+    }
     rankState = profile.user.rank || rankState;
     updateRank();
     if (typeof profile.user.energy === "number") {
@@ -2893,8 +2950,8 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     syncProfileSilently({ force: true });
     loadLeaderboard({ force: true, silent: true });
-    loadMiningStatus({ silent: true });
-    loadSquads({ silent: true });
+    loadMiningStatus({ silent: true, force: true });
+    loadSquads({ silent: true, force: true });
     loadDonatePackages({ silent: true });
   }
 });
@@ -2902,8 +2959,8 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("focus", () => {
   syncProfileSilently({ force: true });
   loadLeaderboard({ force: true, silent: true });
-  loadMiningStatus({ silent: true });
-  loadSquads({ silent: true });
+  loadMiningStatus({ silent: true, force: true });
+  loadSquads({ silent: true, force: true });
   loadDonatePackages({ silent: true });
 });
 
@@ -3040,7 +3097,7 @@ if (dailyBtnEl) {
       }
       lastDailyTs = Date.now();
       updateDailyStatus();
-      await loadMiningStatus({ silent: true });
+      await loadMiningStatus({ silent: true, force: true });
     } catch {
       setMeta("network");
     } finally {
@@ -3125,7 +3182,7 @@ if (squadRefreshBtnEl) {
   squadRefreshBtnEl.addEventListener("click", async () => {
     squadRefreshBtnEl.disabled = true;
     try {
-      await loadSquads({ silent: false });
+      await loadSquads({ silent: false, force: true });
       setSquadStatus("");
     } finally {
       squadRefreshBtnEl.disabled = false;
@@ -3199,6 +3256,10 @@ async function sendTap(count = 1, point = null) {
 
 function showSpark(text, point = null) {
   if (!panelEl) return;
+  const now = Date.now();
+  if (now - lastSparkAt < SPARK_MIN_INTERVAL_MS) return;
+  if (activeSparks >= SPARK_MAX_ACTIVE) return;
+  lastSparkAt = now;
   const spark = document.createElement("div");
   spark.className = "spark";
   spark.textContent = text;
@@ -3212,8 +3273,12 @@ function showSpark(text, point = null) {
     spark.style.left = `${40 + Math.random() * (panelEl.clientWidth - 80)}px`;
     spark.style.top = `${40 + Math.random() * 60}px`;
   }
+  activeSparks += 1;
   panelEl.appendChild(spark);
-  setTimeout(() => spark.remove(), 800);
+  setTimeout(() => {
+    spark.remove();
+    activeSparks = Math.max(0, activeSparks - 1);
+  }, 800);
 }
 
 function renderLangMenu() {
@@ -3241,30 +3306,39 @@ function renderLangMenu() {
 }
 
 forceDockTabs();
-window.addEventListener("resize", forceDockTabs, { passive: true });
-window.addEventListener("scroll", forceDockTabs, { passive: true });
-window.addEventListener("orientationchange", forceDockTabs);
+window.addEventListener("resize", scheduleForceDockTabs, { passive: true });
+window.addEventListener("orientationchange", scheduleForceDockTabs);
 if (window.visualViewport) {
-  window.visualViewport.addEventListener("resize", forceDockTabs);
-  window.visualViewport.addEventListener("scroll", forceDockTabs);
+  window.visualViewport.addEventListener("resize", scheduleForceDockTabs);
+  window.visualViewport.addEventListener("scroll", scheduleForceDockTabs);
 }
 if (tg?.onEvent) {
-  tg.onEvent("viewportChanged", forceDockTabs);
+  tg.onEvent("viewportChanged", scheduleForceDockTabs);
 }
 
 init();
 
 setInterval(() => {
-  forceDockTabs();
-  updateDailyStatus();
   tickEnergy();
-  renderMining();
   updateTapBuffs();
-  renderLeaderboardTools();
-  if (boostUntil && Date.now() < boostUntil) renderShop();
+  if (activeTab === "shop") {
+    updateDailyStatus();
+    renderMining();
+    if (boostUntil && Date.now() < boostUntil && Date.now() - lastShopRenderAt > SHOP_BOOST_RERENDER_MS) {
+      renderShop();
+    }
+  }
+}, UI_TICK_MS);
+
+setInterval(() => {
+  if (document.visibilityState === "hidden") return;
   syncProfileSilently();
   if (activeTab === "leaderboard") {
     loadLeaderboard({ silent: true });
     loadSquads({ silent: true });
+  } else if (activeTab === "squads") {
+    loadSquads({ silent: true });
+  } else if (activeTab === "shop") {
+    loadMiningStatus({ silent: true });
   }
-}, 1000);
+}, PROFILE_SYNC_INTERVAL_MS);
